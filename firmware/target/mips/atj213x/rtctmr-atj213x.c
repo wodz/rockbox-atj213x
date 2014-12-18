@@ -20,6 +20,7 @@
  
 #include "config.h"
 #include "system.h"
+#include "intc-atj213x.h"
 #include "rtctmr-atj213x.h"
 #include "atj213x.h"
 
