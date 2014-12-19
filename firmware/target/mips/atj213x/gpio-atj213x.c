@@ -63,24 +63,62 @@ void atj213x_gpio_muxsel(unsigned module)
 
 void atj213x_gpio_mux_lock(unsigned module)
 {
-    unsigned long timeout = current_tick + HZ/10;
-
-    while (gpio_mux_owner != GPIO_MUXSEL_FREE)
-    {
-        if (TIME_AFTER(current_tick, timeout)
-            panicf("atj213x_gpio_mux_lock() timeout");
-    }
-
-    // disable irqs
     mutex_lock(&muxsel_mtx);
     gpio_mux_owner = module;
-    // enable irqs
 }
 
 void atj213x_gpio_mux_unlock(unsigned module)
 {
     if (gpio_mux_owner == module)
+    {
+        gpio_mux_owner = GPIO_MUXSEL_FREE;
         mutex_unlock(&muxsel_mtx);
+    }
     else
         panicf("atj213x_gpio_mux_unlock() not an owner");
+}
+
+static inline check_gpio_port_valid(unsigned port)
+{
+    if (port > GPIO_PORTB)
+        panicf("atj213x_gpio_setup() invalid port");
+}
+
+void atj213x_gpio_setup(unsigned port, unsigned pin, bool in)
+{
+    check_gpio_port_valid();
+
+    volatile uint32_t  *inen=(port == GPIO_PORTA) ? &GPIO_AINEN : &GPIO_BINEN;
+    volatile uint32_t *outen=(port == GPIO_PORTA) ? &GPIO_AOUTEN : &GPIO_BOUTEN;
+
+    if (in)
+    {
+        *outen &= ~(1<<pin);
+        *inen |= (1<<pin);
+    }
+    else
+    {
+        *inen &= ~(1<<pin);
+        *outen |= (1<<pin);
+    }
+}
+
+void atj213x_gpio_set(unsigned port, unsigned pin, bool val)
+{
+    check_gpio_port_valid();
+
+    volatile uint32_t *dat=(port == GPIO_PORTA) ? &GPIO_ADAT : &GPIO_BDAT;
+
+    if (val)
+        *dat |= (1<<pin);
+    else
+        *dat &= ~(1<<pin);
+}
+
+bool atj213x_gpio_get(unsigned port, unsigned pin)
+{
+    check_gpio_port_valid();
+
+    volatile uint32_t *dat=(port == GPIO_PORTA) ? &GPIO_ADAT : &GPIO_BDAT;
+    return (*dat & (1<<pin)) ? true : false;
 }
