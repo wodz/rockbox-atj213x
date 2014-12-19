@@ -27,6 +27,14 @@ enum {
     GPIO_MUXSEL_LCM,
     GPIO_MUXSEL_SD,
     GPIO_MUXSEL_NAND,
-}
+};
+
+enum {
+    GPIO_PORTA,
+    GPIO_PORTB
+};
 
 void atj213x_gpio_muxsel(unsigned module);
+void atj213x_gpio_setup(unsigned module, unsigned pin, bool in);
+void atj213x_gpio_set(unsigned port, unsigned pin, bool val);
+bool atj213x_gpio_get(unsigned port, unsigned pin);
