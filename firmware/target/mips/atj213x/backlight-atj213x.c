@@ -27,6 +27,12 @@
 #include "regs/regs-cmu.h"
 #include "regs/regs-pmu.h"
 
+static const uint8_t lin_brightness[] = {
+    0, 1, 3, 5, 9, 15, 22, 32
+}
+
+static int brightness = DEFAULT_BRIGHTNESS_SETTING;
+
 bool _backlight_init(void)
 {
     /* backlight clock enable, select backlight clock as 32kHz */
@@ -36,9 +42,10 @@ bool _backlight_init(void)
     /* baclight enable */
     PMU_CTL |= BF_PMU_CTL_BL_EN(1);
 
-    /* pwm output, phase high, some initial duty cycle set as 24/32 */
+    /* pwm output, phase high, some initial duty cycle */
     PMU_CHG = ((PMU_CHG & ~BM_PMU_CHG_PDUT)|
-              (BF_PMU_CHG_PBLS(1)|BF_PMU_CHG_PPHS(1)|BF_PMU_CHG_PDUT(24)));
+              (BF_PMU_CHG_PBLS(1)|BF_PMU_CHG_PPHS(1)|
+               BF_PMU_CHG_PDUT(brightness)));
 }
 
 void _backlight_on(void)
@@ -60,7 +67,10 @@ void _backlight_off(void)
 
 void _backlight_set_brightness(int val)
 {
-    /* TODO: linear percived lightness scalling */
+    /* 8 linerized brightness levels 0-7 */
+    brightness = val & MAX_BRIGHTNESS_SETTING;
+
     /* set duty cycle in 1/32 units */
-    PMU_CHG = ((PMU_CHG & ~BM_PMU_CHG_PDUT) | BF_PMU_CHG_PDUT(level));
+    PMU_CHG = ((PMU_CHG & ~BM_PMU_CHG_PDUT) |
+               BF_PMU_CHG_PDUT(lin_brightness(brightness)));
 }
