@@ -128,12 +128,12 @@ static void lcd_init(void)
 void lcd_init_device(void)
 {
     /* lcd reset pin GPIOA16 */
-    atj213x_gpio_setup(GPIO_PORTA, 16, false);
-    atj213x_gpio_set(GPIO_PORTA, 16, true);
+    atj213x_gpio_setup(GPIO_PORTA, 16, GPIO_OUT);
+    atj213x_gpio_set(GPIO_PORTA, 16, 1);
     mdelay(10);
-    atj213x_gpio_set(GPIO_PORTA, 16, false);
+    atj213x_gpio_set(GPIO_PORTA, 16, 0);
     mdelay(10);
-    atj213x_gpio_set(GPIO_PORTA, 16, true);
+    atj213x_gpio_set(GPIO_PORTA, 16, 1);
     mdelay(10);
 
     atj213x_gpio_muxsel(GPIO_MUX_LCM);

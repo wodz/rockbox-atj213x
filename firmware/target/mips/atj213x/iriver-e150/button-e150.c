@@ -23,15 +23,38 @@
 #include "system.h"
 #include "button.h"
 
+bool headphones_inserted(void)
+{
+    return !atj213x_gpio_get(GPIO_PORTA, 26);
+}
+
 bool button_hold(void)
 {
-    return !atj213x_gpio_get(PORTA, 10);
+    /* A10 active low */
+    return !atj213x_gpio_get(GPIO_PORTA, 10);
 }
 
 void button_init_device(void)
 {
-    /* setup button gpios as input */
-    
+    /* A8 BUTTON_ON */
+    atj213x_gpio_setup(GPIO_PORTA, 8, GPIO_IN);
+
+    /* A10 BUTTON_HOLD */
+    atj213x_gpio_setup(GPIO_PORTA, 10, GPIO_IN);
+
+    /* A12 BUTTON_VOL_UP */
+    atj213x_gpio_setup(GPIO_PORTA, 12, GPIO_IN);
+
+    /* A26 HEADPHONE_DETECT */
+    atj213x_gpio_setup(GPIO_PORTA, 26, GPIO_IN);
+
+    /* B31 BUTTON_VOL_DOWN */
+    atj213x_gpio_setup(GPIO_PORTB, 31, GPIO_IN);
+
+    /* BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP
+     * BUTTON_DOWN, BUTTON_SELECT are sensed by 4bit ADC
+     */
+    lradc_init();
 }
 
 /*
@@ -39,4 +62,51 @@ void button_init_device(void)
  */
 int button_read_device(void)
 {
+    unsigned int adc;
+    int btn = BUTTON_NONE;
+    static bool hold_state = false;
+    bool hold_state_old = hold_state;
+
+    hold_state = button_hold();
+
+    if (hold_state_old != hold_state)
+        backlight_hold_changed(btn_hold);
+
+    if (hold_state)
+        return BUTTON_NONE;
+
+    adc = lradc_read(LRADC_CH_KEY);
+    if (adc < 0x0f)
+    {
+        if (adc < 0x06)
+        {
+            if (adc < 0x04)
+                btn |= BUTTON_UP;
+            else
+                btn |= BUTTON_LEFT;
+        }
+        else
+        {
+            if (adc < 0x08)
+                btn |= BUTTON_SELECT;
+            else
+            {
+                if (adc < 0x0c)
+                    btn |= BUTTON_DOWN;
+                else
+                    btn |= BUTTON_RIGHT;
+            }
+        }
+    }
+
+    if (!atj213x_gpio_get(GPIO_PORTA, 8)
+        btn |= BUTTON_ON;
+
+    if (!atj213x_gpio_get(GPIO_PORTA, 12)
+        btn |= BUTTON_VOL_UP;
+
+    if (atj213x_gpio_get(GPIO_PORTB, 31)
+        btn |= BUTTON_VOL_DOWN;
+
+    return btn;
 }

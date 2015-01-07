@@ -40,4 +40,6 @@
 #define POWEROFF_BUTTON BUTTON_ON
 #define POWEROFF_COUNT 30
 
+bool headphones_inserted(void);
+bool button_hold(void);
 #endif /* _BUTTON_TARGET_H_ */
