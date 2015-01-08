@@ -23,7 +23,7 @@ SECTIONS
 
     .text :
     {
-        _loadaddress = .;
+        relocstart = .;
         *(.init.text);
         *(.text*);
     } > DRAM
@@ -44,7 +44,7 @@ SECTIONS
         *(.rel.dyn);
     } > DRAM
 
-    . = ALIGN(4);
+    . = ALIGN(16);
 
     .iram IRAMORIG:
     {
@@ -63,13 +63,17 @@ SECTIONS
         *(.irodata);
         *(.idata);
 
+        _iramend = .;
+        relocend = .;
+    } > IRAM AT> DRAM
+    _iramcopy = LOADADDR(.iram);
+
+    .ibss (NOLOAD):
+    {
         _iedata = .;
         *(.ibss*);
         _iend = .;
-
-        _iramend = .;
-    } > IRAM AT> DRAM
-    _iramcopy = LOADADDR(.iram);
+    } > IRAM
 
     . = ALIGN(4);
 
