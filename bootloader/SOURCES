@@ -77,4 +77,7 @@ show_logo.c
 #elif defined(SANSA_CONNECT)
 sansaconnect.c
 show_logo.c
+#elif defined(IRIVER_E150)
+iriver_e150.c
+show_logo.c
 #endif
