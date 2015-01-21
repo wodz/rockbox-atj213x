@@ -87,6 +87,7 @@
 #define AS3525v2    35252
 #define IMX233        233
 #define RK27XX       2700
+#define ATJ213X      2130
 
 /* platforms
  * bit fields to allow PLATFORM_HOSTED to be OR'ed e.g. with a
@@ -277,6 +278,7 @@
 #define LCD_IHIFI         60 /* as used by IHIFI 760/960 */
 #define LCD_CREATIVEZENXFISTYLE 61 /* as used by Creative Zen X-Fi Style */
 #define LCD_SAMSUNGYPR1   62 /* as used by Samsung YP-R1 */
+#define LCD_HX8347D       63 /* as used in Iriver E100/150 */
 
 /* LCD_PIXELFORMAT */
 #define HORIZONTAL_PACKING 1
@@ -317,6 +319,7 @@ Lyre prototype 1 */
 #define I2C_S5L8702 16 /* Same as S5L8700, but with two channels */
 #define I2C_IMX233  17
 #define I2C_RK27XX  18
+#define I2C_ATJ213X 19
 
 /* CONFIG_LED */
 #define LED_REAL     1 /* SW controlled LED (Archos recorders, player) */
@@ -365,6 +368,7 @@ Lyre prototype 1 */
 #define USBOTG_S3C6400X 6400 /* Samsung S3C6400X, also used in the S5L8701/S5L8702/S5L8720 */
 #define USBOTG_RK27XX   2700 /* Rockchip rk27xx */
 #define USBOTG_TNETV105 105  /* TI TNETV105 */
+#define USBOTG_ATJ213X  3120 /* CUSB2.0 core in ATJ213X */
 
 /* Multiple cores */
 #define CPU 0
@@ -580,6 +584,8 @@ Lyre prototype 1 */
 #include "config/ibassodx50.h"
 #elif defined(DX90)
 #include "config/ibassodx90.h"
+#elif define(IRIVER_E150)
+#include "config/irivere150.h"
 #else
 /* no known platform */
 #endif
@@ -991,6 +997,7 @@ Lyre prototype 1 */
     (CONFIG_CPU == TCC7801) || \
     (CONFIG_CPU == IMX233 && !defined(PLUGIN) && !defined(CODEC)) || /* IMX233: core only */ \
     defined(CPU_S5L870X)) || /* Samsung S5L8700: core, plugins, codecs */ \
+    (CONFIG_CPU == ATJ213X) /* Actions ATJ213X: core, plugins, codecs */ \
     (CONFIG_CPU == JZ4732 && !defined(PLUGIN) && !defined(CODEC)) /* Jz4740: core only */
 #define ICODE_ATTR      __attribute__ ((section(".icode")))
 #define ICONST_ATTR     __attribute__ ((section(".irodata")))
@@ -1178,9 +1185,7 @@ Lyre prototype 1 */
 #if (CONFIG_PLATFORM & PLATFORM_NATIVE)
 #ifdef USB_HAS_BULK
 //#define USB_ENABLE_SERIAL
-#ifdef USE_ROCKBOX_USB
 #define USB_ENABLE_STORAGE
-#endif /* USE_ROCKBOX_USB */
 #endif /* USB_HAS_BULK */
 
 #ifdef USB_HAS_INTERRUPT

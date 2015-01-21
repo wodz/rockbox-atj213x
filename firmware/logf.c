@@ -52,7 +52,7 @@
 #include "ata_idle_notify.h"
 
 unsigned char logdiskfbuffer[MAX_LOGDISKF_SIZE];
-int logdiskfindex;
+static int logdiskfindex;
 #endif
 
 /* Only provide all this if asked to */
@@ -335,6 +335,7 @@ void _logdiskf(const char* file, const char level, const char *fmt, ...)
     {
         strcpy(&logdiskfbuffer[logdiskfindex-8], "LOGFULL");
         logdiskfindex=MAX_LOGDISKF_SIZE;
+        va_end(ap);
         return;
     }
 

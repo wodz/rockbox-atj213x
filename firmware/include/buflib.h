@@ -35,12 +35,15 @@
 
 union buflib_data
 {
-    intptr_t val;
-    char name[1]; /* actually a variable sized string */
-    struct buflib_callbacks* ops;
-    char* alloc;
-    union buflib_data *handle;
-    uint32_t crc;
+    intptr_t val;                 /* length of the block in n*sizeof(union buflib_data).
+                                     Includes buflib metadata overhead. A negative value
+                                     indicates block is unallocated */
+    char name[1];                 /* name, actually a variable sized string */
+    struct buflib_callbacks* ops; /* callback functions for move and shrink. Can be NULL */
+    char* alloc;                  /* start of allocated memory area */
+    union buflib_data *handle;    /* pointer to entry in the handle table.
+                                     Used during compaction for fast lookup */
+    uint32_t crc;                 /* checksum of this data to detect corruption */
 };
 
 struct buflib_context
@@ -91,8 +94,11 @@ struct buflib_callbacks {
      * Return: Return BUFLIB_CB_OK, or BUFLIB_CB_CANNOT_MOVE if movement
      * is impossible at this moment.
      *
-     * If NULL: this allocation must not be moved around by the buflib when
-     * compation occurs
+     * If NULL: this allocation must not be moved around
+     * by the buflib when compaction occurs. Attention: Don't confuse
+     * that with passing NULL for the whole callback structure
+     * to buflib_alloc_ex(). This would enable moving buffers by default.
+     * You have to pass NULL inside the "struct buflib_callbacks" structure.
      */
     int (*move_callback)(int handle, void* current, void* new);
     /**
@@ -146,7 +152,7 @@ struct buflib_callbacks {
  * function. It's should be considered opaque, even though it is not yet
  * (that's to make inlining core_get_data() possible). The documentation
  * of the other functions will not describe the context
- * instance paramter further as it's obligatory.
+ * instance parameter further as it's obligatory.
  *
  * context: The new buflib instance to be initialized, allocated by the caller
  * size: The size of the memory pool
@@ -190,6 +196,9 @@ bool buflib_context_relocate(struct buflib_context *ctx, void *buf);
  *
  * size: How many bytes to allocate
  *
+ * This function passes NULL for the callback structure "ops", so buffers
+ * are movable. Don't pass them to functions that yield().
+ *
  * Returns: A positive integer handle identifying this allocation, or
  * a negative value on error (0 is also not a valid handle)
  */
@@ -202,7 +211,8 @@ int buflib_alloc(struct buflib_context *context, size_t size);
  *
  * name: A string identifier giving this allocation a name
  * size: How many bytes to allocate
- * ops: a struct with pointers to callback functions (see above)
+ * ops: a struct with pointers to callback functions (see above).
+ *      if "ops" is NULL: Buffer is movable.
  *
  * Returns: A positive integer handle identifying this allocation, or
  * a negative value on error (0 is also not a valid handle)
@@ -221,7 +231,7 @@ int buflib_alloc_ex(struct buflib_context *ctx, size_t size, const char *name,
  * this function.
  *
  * Note that this might return many more bytes than buflib_available() or
- * buflib_allocatable() return, because it agressively compacts the pool
+ * buflib_allocatable() return, because it aggressively compacts the pool
  * and even shrinks other allocations. However, do not depend on this behavior,
  * it may change.
  *
@@ -237,7 +247,7 @@ int buflib_alloc_maximum(struct buflib_context* ctx, const char* name,
 
 /**
  * Queries the data pointer for the given handle. It's actually a cheap
- * operation, don't hesitate using it extensivly.
+ * operation, don't hesitate using it extensively.
  *
  * Notice that you need to re-query after every direct or indirect yield(),
  * because compaction can happen by other threads which may get your data
@@ -286,7 +296,7 @@ int buflib_free(struct buflib_context *context, int handle);
 /**
  * Moves the underlying buflib buffer up by size bytes (as much as
  * possible for size == 0) without moving the end. This effectively
- * reduces the available space by taking away managable space from the
+ * reduces the available space by taking away manageable space from the
  * front. This space is not available for new allocations anymore.
  *
  * To make space available in the front, everything is moved up.
@@ -321,7 +331,7 @@ void buflib_buffer_in(struct buflib_context *ctx, int size);
  * handle: The handle indicating the allocation
  *
  * Returns: A pointer to the string identifier of the allocation, or NULL
- * if none was specified with buflib_alloc_ex/(.
+ * if none was specified with buflib_alloc_ex().
  */
 const char* buflib_get_name(struct buflib_context *ctx, int handle);
 
@@ -337,7 +347,7 @@ void buflib_print_allocs(struct buflib_context *ctx, void (*print)(int, const ch
 
 /**
  * Prints an overview of all blocks in the buflib buffer, allocated
- * or unallocated, with the help pf the passted printer helper
+ * or unallocated, with the help of the passed printer helper
  *
  * This walks the entire buffer and prints unallocated space also.
  * The output is also different from buflib_print_allocs().

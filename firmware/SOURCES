@@ -693,6 +693,8 @@ target/arm/crt0.S
 target/mips/mmu-mips.c
 #if CONFIG_CPU==JZ4732
 target/mips/ingenic_jz47xx/crt0.S
+#elif CONFIG_CPU==ATJ213X
+target/mips/atj213x/crt0.S
 #endif /* CONFIG_CPU == JZ4732 */
 
 #else
@@ -739,6 +741,8 @@ target/arm/s3c2440/lcd-s3c2440.c
 target/arm/rk27xx/ma/lcd-ma.c
 #elif CONFIG_LCD == LCD_IHIFI
 target/arm/rk27xx/ihifi/lcd-ihifi.c
+#elif CONFIG_LCD == LCD_HX8347D
+target/mips/atj213x/iriver-e150/lcd-e150.c
 #endif
 
 /* USB Stack */
@@ -822,6 +826,10 @@ target/arm/s5l8700/adc-s5l8700.c
 #elif CONFIG_I2C == I2C_TCC77X
 target/arm/tcc77x/adc-tcc77x.c
 
+/*
+ * #elif CONFIG_I2C == I2C_ATJ213X
+ * target/mips/atj213x/i2c-atj213x.c
+ */
 #endif /* CONFIG_I2C */
 
 #ifdef CPU_SH
@@ -1633,6 +1641,17 @@ target/arm/rk27xx/debug-rk27xx.c
 #endif
 #endif
 
+#if CONFIG_CPU == ATJ213X
+target/mips/atj213x/kernel-atj213x.c
+target/mips/atj213x/timer-atj213x.c
+target/mips/atj213x/intc-atj213x.c
+target/mips/atj213x/rtctmr-atj213x.c
+target/mips/atj213x/lradc-atj213x.c
+target/mips/atj213x/gpio-atj213x.c
+target/mips/atj213x/lcm-atj213x.c
+target/mips/atj213x/backlight-atj213x.c
+#endif
+
 #if defined(RK27_GENERIC)
 target/arm/rk27xx/rk27generic/button-rk27generic.c
 target/arm/rk27xx/rk27generic/powermgmt-rk27generic.c
@@ -1807,6 +1826,12 @@ target/arm/rk27xx/ihifi/powermgmt-ihifi760.c
 #else
 target/arm/rk27xx/ihifi/powermgmt-ihifi960.c
 #endif
+#endif
+
+#if defined(IRIVER_E150)
+target/mips/atj213x/iriver-e150/button-e150.c
+target/mips/atj213x/iriver-e150/power-e150.c
+target/mips/atj213x/iriver-e150/powermgmt-e150.c
 #endif
 
 #if (CONFIG_PLATFORM & PLATFORM_ANDROID)

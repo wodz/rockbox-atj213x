@@ -502,11 +502,21 @@ arm7ejscc () {
  endian="little"
 }
 
-mipselcc () {
+mips32cc () {
  prefixtools mipsel-elf-
  # mips is predefined, but we want it for paths. use __mips instead
  GCCOPTS="$CCOPTS -march=mips32 -mtune=r4600 -mno-mips16 -mno-long-calls -Umips"
  GCCOPTS="$GCCOPTS -ffunction-sections -msoft-float -G 0 -Wno-parentheses"
+ GCCOPTIMIZE="-fomit-frame-pointer"
+ endian="little"
+ gccchoice="4.1.2"
+}
+
+mips32r2cc () {
+ prefixtools mipsel-elf-
+ # mips is predefined, but we want it for paths. use __mips instead
+ GCCOPTS="$CCOPTS -march=mips32r2 -mno-mips16 -mno-long-calls -Umips"
+ GCCOPTS="$GCCOPTS -ffunction-sections -msoft-float -G 0"
  GCCOPTIMIZE="-fomit-frame-pointer"
  endian="little"
  gccchoice="4.1.2"
@@ -1301,49 +1311,54 @@ cat <<EOF
   3) Recorder v2          13) iFP-790            23) 3G
   4) Ondio SP             14) H10 20Gb           24) 4G Grayscale
   5) Ondio FM             15) H10 5/6Gb          25) Mini 1G
-  6) AV300                                       26) Mini 2G
-                          ==Toshiba==            27) 1G, 2G
- ==Cowon/iAudio==         40) Gigabeat F/X       28) Nano 2G
- 30) X5/X5V/X5L           41) Gigabeat S         29) Classic/6G
- 31) M5/M5L
- 32) 7                    ==Olympus=             ==SanDisk==
- 33) D2                   70) M:Robe 500         50) Sansa e200
- 34) M3/M3L               71) M:Robe 100         51) Sansa e200R
-                                                 52) Sansa c200
- ==Creative==             ==Philips==            53) Sansa m200
- 89) Zen X-Fi Style       100) GoGear SA9200     54) Sansa c100
- 90) Zen Vision:M 30GB    101) GoGear HDD1630/   55) Sansa Clip
- 91) Zen Vision:M 60GB         HDD1830           56) Sansa e200v2
- 92) Zen Vision           102) GoGear HDD6330    57) Sansa m200v4
- 93) Zen X-Fi2                                   58) Sansa Fuze
- 94) Zen X-Fi3            ==Meizu==              59) Sansa c200v2
- 96) Zen X-Fi             110) M6SL              60) Sansa Clipv2
- 97) Zen X-Mozaic         111) M6SP              61) Sansa View
- 98) Zen                  112) M3                62) Sansa Clip+
-                                                 63) Sansa Fuze v2
- ==Onda==                 ==Tatung==             64) Sansa Fuze+
- 120) VX747               150) Elio TPJ-1022     65) Sansa Clip Zip
- 121) VX767                                      66) Sansa Connect
- 122) VX747+              ==Packard Bell==
- 123) VX777               160) Vibe 500          ==Logik==
-                                                 80) DAX 1GB MP3/DAB
- ==Samsung==              ==MPIO==
- 140) YH-820              170) HD200             ==Lyre project==
- 141) YH-920              171) HD300             130) Lyre proto 1
- 142) YH-925                                     131) Mini2440
- 143) YP-S3
- 144) YP-Z5 ==ROCKCHIP==
-                          180) rk27xx generic    ==HiFiMAN==
- ==Application==                                 190) HM-60x
- 200) SDL                 ==HiFi E.T.==          191) HM-801
- 201) Android             210) MA9
- 202) Nokia N8xx          211) MA9C              ==Sony==
- 203) Nokia N900          212) MA8               220) NWZ-E370/E380 series
- 204) Pandora             213) MA8C              221) NWZ-E360 series
- 205) Samsung YP-R0
- 206) Android MIPS        ==IHIFI==              ==iBasso==
- 207) Android x86         230) 760               232) DX50
- 208) Samsung YP-R1       231) 960               233) DX90
+  6) AV300                16) E100/150           26) Mini 2G
+                                                 27) 1G, 2G
+                                                 28) Nano 2G
+                                                 29) Classic/6G
+
+ ==Cowon/iAudio==         ==Toshiba==            ==SanDisk==
+ 30) X5/X5V/X5L           40) Gigabeat F/X       50) Sansa e200
+ 31) M5/M5L               41) Gigabeat S         51) Sansa e200R
+ 32) 7                                           52) Sansa c200
+ 33) D2                   ==Olympus=             53) Sansa m200
+ 34) M3/M3L               70) M:Robe 500         54) Sansa c100
+                          71) M:Robe 100         55) Sansa Clip
+                                                 56) Sansa e200v2
+ ==Creative==             ==Philips==            57) Sansa m200v4
+ 89) Zen X-Fi Style       100) GoGear SA9200     58) Sansa Fuze
+ 90) Zen Vision:M 30GB    101) GoGear HDD1630/   59) Sansa c200v2
+ 91) Zen Vision:M 60GB         HDD1830           60) Sansa Clipv2
+ 92) Zen Vision           102) GoGear HDD6330    61) Sansa View
+ 93) Zen X-Fi2                                   62) Sansa Clip+
+ 94) Zen X-Fi3            ==Meizu==              63) Sansa Fuze v2
+ 96) Zen X-Fi             110) M6SL              64) Sansa Fuze+
+ 97) Zen X-Mozaic         111) M6SP              65) Sansa Clip Zip
+ 98) Zen                  112) M3                66) Sansa Connect
+                                                 
+ ==Onda==                 ==Tatung==             ==Logik==
+ 120) VX747               150) Elio TPJ-1022     80) DAX 1GB MP3/DAB
+ 121) VX767                                      
+ 122) VX747+              ==Packard Bell==       ==Lyre project==
+ 123) VX777               160) Vibe 500          130) Lyre proto 1
+                                                 131) Mini2440
+
+ ==Samsung==              ==MPIO==               ==HiFiMAN==
+ 140) YH-820              170) HD200             190) HM-60x
+ 141) YH-920              171) HD300             191) HM-801
+ 142) YH-925                                     
+ 143) YP-S3               ==ROCKCHIP==
+ 144) YP-Z5               180) rk27xx generic
+                              
+ ==Application==          ==HiFi E.T.==          ==Sony==                       
+ 200) SDL                 210) MA9               220) NWZ-E370/E380 series
+ 201) Android             211) MA9C              221) NWZ-E360 series
+ 202) Nokia N8xx          212) MA8              
+ 203) Nokia N900          213) MA8C              ==iBasso==              
+ 204) Pandora                                    232) DX50
+ 205) Samsung YP-R0       ==IHIFI==              233) DX90
+ 206) Android MIPS        230) 760
+ 207) Android x86         231) 960
+ 208) Samsung YP-R1
 
 
 EOF
@@ -1704,6 +1719,27 @@ fi
     t_manufacturer="iriver"
     t_model="h10"
     ;;
+
+   16|irivere150)
+   target_id=96
+   modelname="irivere150"
+   target="IRIVER_E150"
+   memory=8
+   mips32r2cc
+   tool="$rootdir/tools/scramble -add=e150"
+   bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"
+   bmp2rb_native="$rootdir/tools/bmp2rb -f 5"
+   output="rockbox.e150"
+   appextra="recorder:gui:radio"
+   plugins=""
+   swcodec="yes"
+   bootoutput="bootloader.e150"
+   # architecture, manufacturer and model for the target-tree build
+   t_cpu="mips"
+   t_soc="atj213x"
+   t_manufacturer="iriver"
+   t_model="e150"
+   ;;
 
    20|ipodcolor)
     target_id=13
@@ -2947,7 +2983,7 @@ fi
     modelname="ondavx747"
     target="ONDA_VX747"
     memory=16
-    mipselcc
+    mips32cc
     tool="$rootdir/tools/scramble -add=x747"
     bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
@@ -2969,7 +3005,7 @@ fi
     modelname="ondavx767"
     target="ONDA_VX767"
     memory=16 #FIXME
-    mipselcc
+    mips32cc
     tool="cp"
     bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
@@ -2991,7 +3027,7 @@ fi
     modelname="ondavx747p"
     target="ONDA_VX747P"
     memory=16
-    mipselcc
+    mips32cc
     tool="$rootdir/tools/scramble -add=747p"
     bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
@@ -3013,7 +3049,7 @@ fi
     modelname="ondavx777"
     target="ONDA_VX777"
     memory=16
-    mipselcc
+    mips32cc
     tool="$rootdir/tools/scramble -add=x777"
     bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"

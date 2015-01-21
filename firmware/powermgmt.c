@@ -56,7 +56,7 @@
 #endif
 
 /** Shared by sim **/
-int last_sent_battery_level = 100;
+static int last_sent_battery_level = 100;
 /* battery level (0-100%) */
 int battery_percent = -1;
 void send_battery_level_event(void);
@@ -329,9 +329,9 @@ static int runcurrent(void)
     if (usb_inserted()
 #ifdef HAVE_USB_POWER
     #if (CURRENT_USB < CURRENT_NORMAL)
-       || usb_powered()
+       || usb_powered_only()
     #else
-       && !usb_powered()
+       && !usb_powered_only()
     #endif
 #endif
     ) {
