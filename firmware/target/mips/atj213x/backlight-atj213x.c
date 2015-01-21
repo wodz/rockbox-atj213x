@@ -33,7 +33,7 @@ static const uint8_t lin_brightness[] = {
 
 static int brightness = DEFAULT_BRIGHTNESS_SETTING;
 
-bool _backlight_init(void)
+bool backlight_hw_init(void)
 {
     /* backlight clock enable, select backlight clock as 32kHz */
     CMU_FMCLK = (CMU_FMCLK & ~(BM_CMU_FMCLK_BCKS|BM_CMU_FMCLK_BCKCON)) | 
@@ -48,7 +48,7 @@ bool _backlight_init(void)
                BF_PMU_CHG_PDUT(brightness)));
 }
 
-void _backlight_on(void)
+void backlight_hw_on(void)
 {
 #ifdef HAVE_LCD_ENABLE
     lcd_enable(true);
@@ -57,7 +57,7 @@ void _backlight_on(void)
     PMU_CTL |= BF_PMU_CTL_BL_EN(1);
 }
 
-void _backlight_off(void)
+void backlight_hw_off(void)
 {
     PMU_CTL &= ~BM_PMU_CTL_BL_EN;
 #ifdef HAVE_LCD_ENABLE
@@ -65,7 +65,7 @@ void _backlight_off(void)
 #endif
 }
 
-void _backlight_set_brightness(int val)
+void backlight_hw_brightness(int val)
 {
     /* 8 linerized brightness levels 0-7 */
     brightness = val & MAX_BRIGHTNESS_SETTING;
