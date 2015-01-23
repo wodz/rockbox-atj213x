@@ -50,12 +50,13 @@ void main(void)
 {
     system_init();
     kernel_init();
+    backlight_hw_init();
 
     while(1)
     {
-       _backlight_on();
+       backlight_hw_on();
        sleep(HZ/4);
-       _backlight_off();
+       backlight_hw_off();
        sleep(HZ/4);
     }
 }

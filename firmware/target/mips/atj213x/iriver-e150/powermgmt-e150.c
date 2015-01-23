@@ -19,8 +19,9 @@
  ****************************************************************************/
 
 #include "config.h"
-#include "adc.h"
-#include "adc-target.h"
+//#include "adc.h"
+//#include "adc-target.h"
+#include "lradc-atj213x.h"
 #include "powermgmt.h"
 
 const unsigned short battery_level_dangerous[BATTERY_TYPES_COUNT] =

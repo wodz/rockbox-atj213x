@@ -1642,6 +1642,7 @@ target/arm/rk27xx/debug-rk27xx.c
 #endif
 
 #if CONFIG_CPU == ATJ213X
+target/mips/atj213x/system-atj213x.c
 target/mips/atj213x/kernel-atj213x.c
 target/mips/atj213x/timer-atj213x.c
 target/mips/atj213x/intc-atj213x.c

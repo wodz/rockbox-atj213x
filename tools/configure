@@ -1736,9 +1736,8 @@ fi
    bootoutput="bootloader.e150"
    # architecture, manufacturer and model for the target-tree build
    t_cpu="mips"
-   t_soc="atj213x"
-   t_manufacturer="iriver"
-   t_model="e150"
+   t_manufacturer="atj213x"
+   t_model="iriver-e150"
    ;;
 
    20|ipodcolor)

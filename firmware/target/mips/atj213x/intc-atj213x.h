@@ -17,11 +17,9 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
+#ifndef INTC_ATJ213X_H
+#define BACKLIGHT_TARGET_H
  
-#include "config.h"
-#include "system.h"
-#include "intc-atj213x.h"
-#include "atj213x.h"
-
 void atj213x_intc_unmask(unsigned int);
 void atj213x_intc_mask(unsigned int);
+#endif

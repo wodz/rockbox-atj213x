@@ -584,7 +584,7 @@ Lyre prototype 1 */
 #include "config/ibassodx50.h"
 #elif defined(DX90)
 #include "config/ibassodx90.h"
-#elif define(IRIVER_E150)
+#elif defined(IRIVER_E150)
 #include "config/irivere150.h"
 #else
 /* no known platform */
@@ -997,7 +997,7 @@ Lyre prototype 1 */
     (CONFIG_CPU == TCC7801) || \
     (CONFIG_CPU == IMX233 && !defined(PLUGIN) && !defined(CODEC)) || /* IMX233: core only */ \
     defined(CPU_S5L870X)) || /* Samsung S5L8700: core, plugins, codecs */ \
-    (CONFIG_CPU == ATJ213X) /* Actions ATJ213X: core, plugins, codecs */ \
+    (CONFIG_CPU == ATJ213X) || /* Actions ATJ213X: core, plugins, codecs */ \
     (CONFIG_CPU == JZ4732 && !defined(PLUGIN) && !defined(CODEC)) /* Jz4740: core only */
 #define ICODE_ATTR      __attribute__ ((section(".icode")))
 #define ICONST_ATTR     __attribute__ ((section(".irodata")))
