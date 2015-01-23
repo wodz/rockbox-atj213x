@@ -47,16 +47,23 @@ default_interrupt(INT_DAC);
 default_interrupt(INT_NAND);
 default_interrupt(INT_YUV);
 
+/* This alias makes it possible to define irqvector[]
+ * without explicit casting every single occurance of UIRQ
+ * We relay on the fact that ISR functions are called only
+ * from irq_handler() which prepares evironment accordingly
+ */
+void __UIRQ(void) __attribute__((alias("UIRQ")));
+
 /* TRICK ALERT !!!!
  * The table is organized in reversed order so
  * clz on INTC_PD returns the index in this table
  */
 void (* const irqvector[])(void) __attribute__((used)) =
 {
-    UIRQ, UIRQ, UIRQ, UIRQ, UIRQ, INT_YUV, UIRQ, INT_NAND,
-    UIRQ, INT_DAC, INT_ADC, UIRQ, UIRQ, INT_IIC1, INT_IIC2, UIRQ,
-    UIRQ, INT_EXT, INT_KEY, INT_DMA, INT_RTC, INT_T0, INT_T1, INT_WD,
-    INT_PCNT, UIRQ, INT_DSP, INT_USB, INT_MHA, INT_SD, UIRQ, INT_MCA
+    __UIRQ, __UIRQ, __UIRQ, __UIRQ, __UIRQ, INT_YUV, __UIRQ, INT_NAND,
+    __UIRQ, INT_DAC, INT_ADC, __UIRQ, __UIRQ, INT_IIC1, INT_IIC2, __UIRQ,
+    __UIRQ, INT_EXT, INT_KEY, INT_DMA, INT_RTC, INT_T0, INT_T1, INT_WD,
+    INT_PCNT, __UIRQ, INT_DSP, INT_USB, INT_MHA, INT_SD, __UIRQ, INT_MCA
 };
 
 static const char * const irqname[] =
@@ -67,14 +74,11 @@ static const char * const irqname[] =
     "INT_PCNT","IRQ6","INT_DSP","INT_USB","INT_MHA","INT_SD","UIRQ1","INT_MCA"
 };
 
-/* The irqno parameter is set by irq handler
- * we hack things up so we get this parameter
- * even if function is declared (void).
+/* This the actual function called by irq_handler()
+ * which sets irqno in a0 properly
  */
-static void UIRQ(void)
+static void UIRQ(unsigned int irqno)
 {
-    unsigned int irqno;
-    asm volatile("move %0, $4\n" : "=r" (irqno)); 
     panicf("Unhandled IRQ: %s", irqname[irqno]);
 }
 
@@ -130,11 +134,3 @@ void udelay(unsigned int usec)
                   : "0" (i)
                  );
 }
-
-void mdelay(unsigned int msec)
-{
-    unsigned int i;
-    for(i=0; i<msec; i++)
-        udelay(1000);
-}
-
