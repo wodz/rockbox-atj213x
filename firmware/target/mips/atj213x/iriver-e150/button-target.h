@@ -17,8 +17,8 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef _BUTTON_TARGET_H_
-#define _BUTTON_TARGET_H_
+#ifndef BUTTON_TARGET_H_
+#define BUTTON_TARGET_H_
 
 #define HAS_BUTTON_HOLD
 

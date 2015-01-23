@@ -52,6 +52,6 @@ const unsigned short percent_to_volt_charge[11] =
 /* according to datasheet 6bit adc value scales to 2.1-4.5V range */
 int _battery_voltage(void)
 {
-    return ((lradc_read(LRADC_CH_BAT)*38 + 2100);
+    return ((lradc_read(LRADC_CH_BAT)*38 + 2100));
 }
 

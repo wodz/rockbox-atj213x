@@ -21,15 +21,16 @@
 #include "config.h"
 #include "system.h"
 #include "intc-atj213x.h"
+#include "regs/regs-intc.h"
 #include "atj213x.h"
 
-void atj213x_intc_unmask(unsigned int)
+void atj213x_intc_unmask(unsigned int irqno)
 {
-    INTC_CFG2 |= (1<<int);
-    INTC_MSK |= (1<<int);
+    INTC_CFG2 |= (1<<irqno);
+    INTC_MSK |= (1<<irqno);
 }
 
-void atj213x_intc_mask(unsigned int)
+void atj213x_intc_mask(unsigned int irqno)
 {
-    INTC_MSK &= ~(1<<int);
+    INTC_MSK &= ~(1<<irqno);
 }

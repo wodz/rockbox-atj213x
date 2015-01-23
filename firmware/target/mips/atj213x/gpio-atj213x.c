@@ -20,7 +20,9 @@
  
 #include "config.h"
 #include "system.h"
+#include "kernel.h"
 #include "gpio-atj213x.h"
+#include "regs/regs-gpio.h"
 
 static struct mutex muxsel_mtx;
 static unsigned gpio_muxsel_owner = GPIO_MUXSEL_FREE;
@@ -64,21 +66,21 @@ void atj213x_gpio_muxsel(unsigned module)
 void atj213x_gpio_mux_lock(unsigned module)
 {
     mutex_lock(&muxsel_mtx);
-    gpio_mux_owner = module;
+    gpio_muxsel_owner = module;
 }
 
 void atj213x_gpio_mux_unlock(unsigned module)
 {
-    if (gpio_mux_owner == module)
+    if (gpio_muxsel_owner == module)
     {
-        gpio_mux_owner = GPIO_MUXSEL_FREE;
+        gpio_muxsel_owner = GPIO_MUXSEL_FREE;
         mutex_unlock(&muxsel_mtx);
     }
     else
         panicf("atj213x_gpio_mux_unlock() not an owner");
 }
 
-static inline check_gpio_port_valid(unsigned port)
+static inline void check_gpio_port_valid(unsigned port)
 {
     if (port > GPIO_PORTB)
         panicf("atj213x_gpio_setup() invalid port");
@@ -86,7 +88,7 @@ static inline check_gpio_port_valid(unsigned port)
 
 void atj213x_gpio_setup(unsigned port, unsigned pin, bool in)
 {
-    check_gpio_port_valid();
+    check_gpio_port_valid(port);
 
     volatile uint32_t  *inen=(port == GPIO_PORTA) ? &GPIO_AINEN : &GPIO_BINEN;
     volatile uint32_t *outen=(port == GPIO_PORTA) ? &GPIO_AOUTEN : &GPIO_BOUTEN;
@@ -105,7 +107,7 @@ void atj213x_gpio_setup(unsigned port, unsigned pin, bool in)
 
 void atj213x_gpio_set(unsigned port, unsigned pin, bool val)
 {
-    check_gpio_port_valid();
+    check_gpio_port_valid(port);
 
     volatile uint32_t *dat=(port == GPIO_PORTA) ? &GPIO_ADAT : &GPIO_BDAT;
 
@@ -117,7 +119,7 @@ void atj213x_gpio_set(unsigned port, unsigned pin, bool val)
 
 bool atj213x_gpio_get(unsigned port, unsigned pin)
 {
-    check_gpio_port_valid();
+    check_gpio_port_valid(port);
 
     volatile uint32_t *dat=(port == GPIO_PORTA) ? &GPIO_ADAT : &GPIO_BDAT;
     return (*dat & (1<<pin)) ? true : false;

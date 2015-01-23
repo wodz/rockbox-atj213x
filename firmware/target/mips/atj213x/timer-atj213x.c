@@ -20,6 +20,7 @@
  
 #include "config.h"
 #include "system.h"
+#include "kernel.h"
 #include "timer.h"
 #include "rtctmr-atj213x.h"
 

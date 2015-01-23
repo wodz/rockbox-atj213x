@@ -23,7 +23,7 @@
 #include "regs/regs-yuv2rgb.h"
 #include "atj213x.h"
 
-void lcm_wait_fifo_empty();
+void lcm_wait_fifo_empty(void);
 void lcm_fb_data(void);
 void lcm_rs_command(void);
 void lcm_rs_data(void);

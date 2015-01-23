@@ -2,7 +2,7 @@
 
 OUTPUT_FORMAT("elf32-littlemips")
 OUTPUT_ARCH(MIPS)
-ENTRY(_start)
+ENTRY(start)
 STARTUP(target/mips/atj213x/crt0.o)
 
 #define DRAMORIG      0x80000000

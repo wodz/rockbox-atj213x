@@ -21,8 +21,11 @@
 #define SYSTEM_TARGET_H
 
 #include "panic.h"
-#include "mmu-mips.h"
 #include "mipsregs.h"
+
+#define CACHE_SIZE      16*1024
+#define CACHE_LINE_SIZE 16
+#include "mmu-mips.h"
 
 void udelay(unsigned usecs);
 static inline void mdelay(unsigned msecs)

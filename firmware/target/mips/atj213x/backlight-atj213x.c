@@ -29,7 +29,7 @@
 
 static const uint8_t lin_brightness[] = {
     0, 1, 3, 5, 9, 15, 22, 32
-}
+};
 
 static int brightness = DEFAULT_BRIGHTNESS_SETTING;
 
@@ -40,12 +40,14 @@ bool backlight_hw_init(void)
                 (BF_CMU_FMCLK_BCKE(1)|BF_CMU_FMCLK_BCKS(0));
 
     /* baclight enable */
-    PMU_CTL |= BF_PMU_CTL_BL_EN(1);
+    PMU_CTL |= BF_PMU_CTL_BLEN(1);
 
     /* pwm output, phase high, some initial duty cycle */
     PMU_CHG = ((PMU_CHG & ~BM_PMU_CHG_PDUT)|
               (BF_PMU_CHG_PBLS(1)|BF_PMU_CHG_PPHS(1)|
                BF_PMU_CHG_PDUT(brightness)));
+
+    return true;
 }
 
 void backlight_hw_on(void)
@@ -54,12 +56,12 @@ void backlight_hw_on(void)
     lcd_enable(true);
 #endif
     /* baclight enable */
-    PMU_CTL |= BF_PMU_CTL_BL_EN(1);
+    PMU_CTL |= BF_PMU_CTL_BLEN(1);
 }
 
 void backlight_hw_off(void)
 {
-    PMU_CTL &= ~BM_PMU_CTL_BL_EN;
+    PMU_CTL &= ~BM_PMU_CTL_BLEN;
 #ifdef HAVE_LCD_ENABLE
     lcd_enable(false);
 #endif
@@ -72,5 +74,5 @@ void backlight_hw_brightness(int val)
 
     /* set duty cycle in 1/32 units */
     PMU_CHG = ((PMU_CHG & ~BM_PMU_CHG_PDUT) |
-               BF_PMU_CHG_PDUT(lin_brightness(brightness)));
+               BF_PMU_CHG_PDUT(lin_brightness[brightness]));
 }

@@ -23,6 +23,8 @@
 #include "panic.h"
 #include "button.h"
 #include "system-target.h"
+#include "font.h"
+#include "lcd.h"
 
 #define default_interrupt(name) \
   extern __attribute__((weak,alias("UIRQ"))) void name (void)
@@ -98,6 +100,20 @@ void system_exception_wait(void)
     while(!button_read_device());
 }
 
+void system_exception(unsigned int sp, unsigned int cause, unsigned int epc)
+{
+    lcd_set_backdrop(NULL);
+    lcd_set_drawmode(DRMODE_SOLID);
+    lcd_set_foreground(LCD_BLACK);
+    lcd_set_background(LCD_WHITE);
+    lcd_setfont(FONT_SYSFIXED);
+    lcd_set_viewport(NULL);
+    lcd_clear_display();
+    backlight_hw_on();
+
+    panicf("Exception occurred! pc: 0x%08x sp: 0x%08x)", epc, sp);
+}
+
 int system_memory_guard(int newmode)
 {
     (void)newmode;
@@ -120,7 +136,7 @@ void set_cpu_frequency(long frequency)
     cpu_frequency = frequency;
 }
 #endif
-#define CPU_FREQ 60000000UL //???
+//#define CPU_FREQ 60000000UL //???
 void udelay(unsigned int usec)
 {
     unsigned int i = ((usec * CPU_FREQ) / 2000000);

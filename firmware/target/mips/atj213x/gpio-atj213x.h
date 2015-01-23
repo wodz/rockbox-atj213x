@@ -43,3 +43,5 @@ void atj213x_gpio_muxsel(unsigned module);
 void atj213x_gpio_setup(unsigned module, unsigned pin, bool in);
 void atj213x_gpio_set(unsigned port, unsigned pin, bool val);
 bool atj213x_gpio_get(unsigned port, unsigned pin);
+void atj213x_gpio_mux_lock(unsigned module);
+void atj213x_gpio_mux_unlock(unsigned module);

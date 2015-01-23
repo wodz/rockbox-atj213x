@@ -138,7 +138,7 @@ iram_copy_loop:
     lw     t3, 0(t0)
     addiu  t1, 4
     addiu  t0, 4
-    bne    t1, t2, _iram_loop
+    bne    t1, t2, iram_copy_loop
     sw     t3, -4(t1)
 
 clear_bss:
@@ -219,6 +219,7 @@ irq_stack_munge_loop:
     .set mips32r2
     .set noreorder
     .set noat
+    .extern system_exeption
     .section .vectors,"ax",%progbits
 
 exception_handler:
@@ -227,7 +228,8 @@ exception_handler:
     mfc0 a1, C0_CAUSE
     mfc0 a2, C0_EPC
     ehb
-    j system_exception
+    la t0,  system_exception
+    jr t0
     nop
 
     .set at

@@ -21,4 +21,5 @@
 #ifndef LCD_TARGET_H
 #define LCD_TARGET_H
 
+void lcd_init_device(void)
 #endif

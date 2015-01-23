@@ -20,15 +20,18 @@
  
 #include "config.h"
 #include "system.h"
+#include "kernel.h"
 #include "gpio-atj213x.h"
 #include "lcm-atj213x.h"
+#include "regs/regs-yuv2rgb.h"
+#include "regs/regs-cmu.h"
 
 void lcm_wait_fifo_empty()
 {
     unsigned long timeout = current_tick + HZ/10;
     while(!(YUV2RGB_CTL & 0x04))
     {
-        if (TIME_AFTER(current_tick, timeout)
+        if (TIME_AFTER(current_tick, timeout))
             panicf("atj213x_lcm_wait_fifo_empty() timeout");
     }
 }

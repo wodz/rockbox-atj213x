@@ -24,6 +24,7 @@
 #include "panic.h"
 #include "system.h"
 #include "usb_core.h"   /* for usb_charging_maxcurrent_change */
+#include "gpio-atj213x.h"
 
 void power_off(void)
 {

@@ -20,11 +20,12 @@
  
 #include "config.h"
 #include "system.h"
+#include "lcd.h"
 #include "gpio-atj213x.h"
 #include "lcm-atj213x.h"
 #include "regs/regs-yuv2rgb.h"
 
-static inline lcd_reg_write(int reg, int val)
+static inline void lcd_reg_write(int reg, int val)
 {
      lcm_rs_command();
      YUV2RGB_FIFODATA = reg;
@@ -52,7 +53,7 @@ static void lcd_set_gram_area(int x_start, int y_start,
  * The init sequence matches  HX8347-D lcd controller in rgb565 mode
  * with 16bit parallel interface.
  */
-static void lcd_init(void)
+void hx8347d_init(void)
 {
     int x,y;
 
@@ -136,12 +137,12 @@ void lcd_init_device(void)
     atj213x_gpio_set(GPIO_PORTA, 16, 1);
     mdelay(10);
 
-    atj213x_gpio_muxsel(GPIO_MUX_LCM);
+    atj213x_gpio_muxsel(GPIO_MUXSEL_LCM);
 
     lcm_init();
-    lcd_init();
+    hx8347d_init();
 
-    atj213x_gpio_mux_unlock(GPIO_MUX_LCM);
+    atj213x_gpio_mux_unlock(GPIO_MUXSEL_LCM);
 }
 
 void lcd_update_rect(int x, int y, int width, int height)
@@ -154,19 +155,19 @@ void lcd_update_rect(int x, int y, int width, int height)
     end_x = x + width - 1;
     end_y = y + height - 1;
 
-    atj213x_gpio_muxsel(GPIO_MUX_LCM);
+    atj213x_gpio_muxsel(GPIO_MUXSEL_LCM);
 
     lcd_set_gram_area(x, y, end_x, end_y); /* set GRAM window */
     lcm_fb_data(); /* prepare for AHB write to fifo */
 
     for (row=y; row<=end_y; row++)
     {
-        fbptr = (uint32_t *)FBADDR(x,row);
+        fbptr = (unsigned int *)FBADDR(x,row);
         for (col=x; col<end_x; col+=2)
             YUV2RGB_FIFODATA = *fbptr++;
     }
 
-    atj213x_gpio_mux_unlock(GPIO_MUX_LCM);
+    atj213x_gpio_mux_unlock(GPIO_MUXSEL_LCM);
 }
 
 void lcd_update(void)

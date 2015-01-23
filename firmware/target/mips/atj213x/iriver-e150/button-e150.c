@@ -22,6 +22,9 @@
 #include "cpu.h"
 #include "system.h"
 #include "button.h"
+#include "backlight.h"
+#include "gpio-atj213x.h"
+#include "lradc-atj213x.h"
 
 bool headphones_inserted(void)
 {
@@ -69,8 +72,10 @@ int button_read_device(void)
 
     hold_state = button_hold();
 
+#ifndef BOOTLOADER
     if (hold_state_old != hold_state)
-        backlight_hold_changed(btn_hold);
+        backlight_hold_changed(hold_state);
+#endif
 
     if (hold_state)
         return BUTTON_NONE;
@@ -99,13 +104,13 @@ int button_read_device(void)
         }
     }
 
-    if (!atj213x_gpio_get(GPIO_PORTA, 8)
+    if (!atj213x_gpio_get(GPIO_PORTA, 8))
         btn |= BUTTON_ON;
 
-    if (!atj213x_gpio_get(GPIO_PORTA, 12)
+    if (!atj213x_gpio_get(GPIO_PORTA, 12))
         btn |= BUTTON_VOL_UP;
 
-    if (atj213x_gpio_get(GPIO_PORTB, 31)
+    if (atj213x_gpio_get(GPIO_PORTB, 31))
         btn |= BUTTON_VOL_DOWN;
 
     return btn;

@@ -17,10 +17,12 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
+
+#ifndef RTCTMR_ATJ213X_H
+#define RTCTMR_ATJ213X_H
  
 #include "config.h"
 #include "system.h"
-#include "regs/regs-rtc.h""
 #include "atj213x.h"
 
 enum
@@ -30,6 +32,8 @@ enum
 };
 
 void atj213x_timer_irq_clear(unsigned timer_nr);
-void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms);
-void atj213x_timer_start(unsigned timer_nr)
+void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms, void (*cb)(void));
+void atj213x_timer_start(unsigned timer_nr);
 void atj213x_timer_stop(unsigned timer_nr);
+
+#endif /* RTCTMR_ATJ213X_H */

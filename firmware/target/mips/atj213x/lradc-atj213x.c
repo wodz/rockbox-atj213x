@@ -21,6 +21,8 @@
 #include "config.h"
 #include "system.h"
 #include "gpio-atj213x.h"
+#include "lradc-atj213x.h"
+#include "regs/regs-pmu.h"
 
 void lradc_init(void)
 {

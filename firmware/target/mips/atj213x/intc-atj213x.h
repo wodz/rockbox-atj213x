@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 #ifndef INTC_ATJ213X_H
-#define BACKLIGHT_TARGET_H
+#define INTC_ATJ213X_H
  
-void atj213x_intc_unmask(unsigned int);
-void atj213x_intc_mask(unsigned int);
+void atj213x_intc_unmask(unsigned int irqno);
+void atj213x_intc_mask(unsigned int irqno);
 #endif

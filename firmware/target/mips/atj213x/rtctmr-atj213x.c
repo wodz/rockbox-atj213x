@@ -22,6 +22,9 @@
 #include "system.h"
 #include "intc-atj213x.h"
 #include "rtctmr-atj213x.h"
+#include "regs/regs-intc.h"
+#include "regs/regs-rtcwdt.h"
+#include "regs/regs-cmu.h"
 #include "atj213x.h"
 
 static void (*timer_fns[])(void) = {NULL, NULL};
@@ -31,21 +34,21 @@ void INT_T##nr(void) \
 { \
     if(timer_fns[nr]) \
         timer_fns[nr](); \
-    atj213x_timer_irq_clear(nr) \
+    atj213x_timer_irq_clear(nr); \
 }
 
-timer_irq_handler(TIMER_TICK)
-timer_irq_handler(TIMER_USER)
+timer_irq_handler(0)
+timer_irq_handler(1)
 
 void atj213x_timer_irq_clear(unsigned timer_nr)
 {
     /* clear pending bit in timer module */
-    RTC_TxCTL(timer_nr) |= 1;
+    RTCWDT_TxCTL(timer_nr) |= 1;
 }
 
-void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms)
+void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms, void (*cb)(void))
 {
-    uint32_t corepllreq = (CMU_COREPLL & 0x3f) * 6000000;
+    uint32_t corepllfreq = (CMU_COREPLL & 0x3f) * 6000000;
     uint32_t cclkdiv = ((CMU_BUSCLK >> 2) & 0x03) + 1;
     uint32_t sclkdiv = ((CMU_BUSCLK >> 4) & 0x03) + 1;
     uint32_t pclkdiv = ((CMU_BUSCLK >> 8) & 0x0f);
@@ -54,25 +57,27 @@ void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms)
     uint32_t pclkfreq = ((corepllfreq/cclkdiv)/sclkdiv)/pclkdiv;
 
     unsigned int old_irq = disable_irq_save();
-    RTC_Tx(timer_nr) = (interval_ms*pclkfreq) /1000;
+    RTCWDT_Tx(timer_nr) = (interval_ms*pclkfreq) /1000;
 
     /* timer disable, timer reload, timer irq, clear irq pending bit */
-    RTC_TxCTL(timer_nr) = (1<<2) | (1<<1) | (1<<0);
+    RTCWDT_TxCTL(timer_nr) = (1<<2) | (1<<1) | (1<<0);
+
+    timer_fns[timer_nr] = cb;
     restore_irq(old_irq);
 }
 
 void atj213x_timer_start(unsigned timer_nr)
 {
-    atj213x_intc_unmask(timer_nr ? BP_INT_T1 : BP_INT_T0);
+    atj213x_intc_unmask(timer_nr ? BP_INTC_MSK_T1 : BP_INTC_MSK_T0);
 
     /* enable bit */
-    RTC_TxCTL(timer_nr) |= (1<<5);
+    RTCWDT_TxCTL(timer_nr) |= (1<<5);
 }
 
 void atj213x_timer_stop(unsigned timer_nr)
 {
-    atj213x_intc_mask(timer_nr ? BP_INT_T1 : BP_INT_T0);
+    atj213x_intc_mask(timer_nr ? BP_INTC_MSK_T1 : BP_INTC_MSK_T0);
 
     /* clear enable bit */
-    RTC_TxCTL(timer_nr) &= ~(1<<5);
+    RTCWDT_TxCTL(timer_nr) &= ~(1<<5);
 }
