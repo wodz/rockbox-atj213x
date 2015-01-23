@@ -283,8 +283,8 @@ irq_handler:
     lw  a0, 0(t0)     /* INTC_PD */
     lw  a1, 4(t0)     /* INTC_MSK */
     and a0, a0, a1    /* mask */
-    clz t1, t1
-    sll  t0, t1, 2   /* offset */
+    clz a0, a0        /* IRQ number */
+    sll  t0, a0, 2    /* offset */
     la  t1, irqvector
     addu t0, t1, t0  /* irq handler pointer address */
     lw t0, 0(t0)
