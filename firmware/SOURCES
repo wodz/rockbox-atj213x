@@ -374,10 +374,12 @@ drivers/rds.c
 #endif /* HAVE_RDS_CAP */
 #endif /* PLATFORM_NATIVE */
 #endif /* CONFIG_TUNER */
-#endif /* BOOTLOADER */
 
 /* Sound */
 sound.c
+
+#endif /* BOOTLOADER */
+
 
 #if CONFIG_CODEC == SWCODEC
 
