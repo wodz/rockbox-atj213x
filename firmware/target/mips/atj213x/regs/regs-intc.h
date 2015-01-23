@@ -33,14 +33,182 @@
  * Address: 0
  * SCT: no
  */
-#define INTC_PD (*(volatile unsigned long *)(REGS_INTC_BASE + 0x0))
+#define INTC_PD                     (*(volatile unsigned long *)(REGS_INTC_BASE + 0x0))
+#define BP_INTC_PD_RESERVED31_27    27
+#define BM_INTC_PD_RESERVED31_27    0xf8000000
+#define BF_INTC_PD_RESERVED31_27(v) (((v) << 27) & 0xf8000000)
+#define BP_INTC_PD_YUV              26
+#define BM_INTC_PD_YUV              0x4000000
+#define BF_INTC_PD_YUV(v)           (((v) << 26) & 0x4000000)
+#define BP_INTC_PD_RESERVED25       25
+#define BM_INTC_PD_RESERVED25       0x2000000
+#define BF_INTC_PD_RESERVED25(v)    (((v) << 25) & 0x2000000)
+#define BP_INTC_PD_NAND             24
+#define BM_INTC_PD_NAND             0x1000000
+#define BF_INTC_PD_NAND(v)          (((v) << 24) & 0x1000000)
+#define BP_INTC_PD_RESERVED23       23
+#define BM_INTC_PD_RESERVED23       0x800000
+#define BF_INTC_PD_RESERVED23(v)    (((v) << 23) & 0x800000)
+#define BP_INTC_PD_DAC              22
+#define BM_INTC_PD_DAC              0x400000
+#define BF_INTC_PD_DAC(v)           (((v) << 22) & 0x400000)
+#define BP_INTC_PD_ADC              21
+#define BM_INTC_PD_ADC              0x200000
+#define BF_INTC_PD_ADC(v)           (((v) << 21) & 0x200000)
+#define BP_INTC_PD_RESERVED20       20
+#define BM_INTC_PD_RESERVED20       0x100000
+#define BF_INTC_PD_RESERVED20(v)    (((v) << 20) & 0x100000)
+#define BP_INTC_PD_RESERVED19       19
+#define BM_INTC_PD_RESERVED19       0x80000
+#define BF_INTC_PD_RESERVED19(v)    (((v) << 19) & 0x80000)
+#define BP_INTC_PD_IIC1             18
+#define BM_INTC_PD_IIC1             0x40000
+#define BF_INTC_PD_IIC1(v)          (((v) << 18) & 0x40000)
+#define BP_INTC_PD_IIC2             17
+#define BM_INTC_PD_IIC2             0x20000
+#define BF_INTC_PD_IIC2(v)          (((v) << 17) & 0x20000)
+#define BP_INTC_PD_RESERVED16       16
+#define BM_INTC_PD_RESERVED16       0x10000
+#define BF_INTC_PD_RESERVED16(v)    (((v) << 16) & 0x10000)
+#define BP_INTC_PD_RESERVED15       15
+#define BM_INTC_PD_RESERVED15       0x8000
+#define BF_INTC_PD_RESERVED15(v)    (((v) << 15) & 0x8000)
+#define BP_INTC_PD_EXT              14
+#define BM_INTC_PD_EXT              0x4000
+#define BF_INTC_PD_EXT(v)           (((v) << 14) & 0x4000)
+#define BP_INTC_PD_KEY              13
+#define BM_INTC_PD_KEY              0x2000
+#define BF_INTC_PD_KEY(v)           (((v) << 13) & 0x2000)
+#define BP_INTC_PD_DMA              12
+#define BM_INTC_PD_DMA              0x1000
+#define BF_INTC_PD_DMA(v)           (((v) << 12) & 0x1000)
+#define BP_INTC_PD_RTC              11
+#define BM_INTC_PD_RTC              0x800
+#define BF_INTC_PD_RTC(v)           (((v) << 11) & 0x800)
+#define BP_INTC_PD_T0               10
+#define BM_INTC_PD_T0               0x400
+#define BF_INTC_PD_T0(v)            (((v) << 10) & 0x400)
+#define BP_INTC_PD_T1               9
+#define BM_INTC_PD_T1               0x200
+#define BF_INTC_PD_T1(v)            (((v) << 9) & 0x200)
+#define BP_INTC_PD_WD               8
+#define BM_INTC_PD_WD               0x100
+#define BF_INTC_PD_WD(v)            (((v) << 8) & 0x100)
+#define BP_INTC_PD_PCNT             7
+#define BM_INTC_PD_PCNT             0x80
+#define BF_INTC_PD_PCNT(v)          (((v) << 7) & 0x80)
+#define BP_INTC_PD_RESERVED6        6
+#define BM_INTC_PD_RESERVED6        0x40
+#define BF_INTC_PD_RESERVED6(v)     (((v) << 6) & 0x40)
+#define BP_INTC_PD_DSP              5
+#define BM_INTC_PD_DSP              0x20
+#define BF_INTC_PD_DSP(v)           (((v) << 5) & 0x20)
+#define BP_INTC_PD_USB              5
+#define BM_INTC_PD_USB              0x20
+#define BF_INTC_PD_USB(v)           (((v) << 5) & 0x20)
+#define BP_INTC_PD_MHA              3
+#define BM_INTC_PD_MHA              0x8
+#define BF_INTC_PD_MHA(v)           (((v) << 3) & 0x8)
+#define BP_INTC_PD_SD               2
+#define BM_INTC_PD_SD               0x4
+#define BF_INTC_PD_SD(v)            (((v) << 2) & 0x4)
+#define BP_INTC_PD_RESERVED1        1
+#define BM_INTC_PD_RESERVED1        0x2
+#define BF_INTC_PD_RESERVED1(v)     (((v) << 1) & 0x2)
+#define BP_INTC_PD_MCA              0
+#define BM_INTC_PD_MCA              0x1
+#define BF_INTC_PD_MCA(v)           (((v) << 0) & 0x1)
 
 /**
  * Register: INTC_MSK
  * Address: 0x4
  * SCT: no
  */
-#define INTC_MSK    (*(volatile unsigned long *)(REGS_INTC_BASE + 0x4))
+#define INTC_MSK                        (*(volatile unsigned long *)(REGS_INTC_BASE + 0x4))
+#define BP_INTC_MSK_RESERVED31_27       27
+#define BM_INTC_MSK_RESERVED31_27       0xf8000000
+#define BF_INTC_MSK_RESERVED31_27(v)    (((v) << 27) & 0xf8000000)
+#define BP_INTC_MSK_YUV                 26
+#define BM_INTC_MSK_YUV                 0x4000000
+#define BF_INTC_MSK_YUV(v)              (((v) << 26) & 0x4000000)
+#define BP_INTC_MSK_RESERVED25          25
+#define BM_INTC_MSK_RESERVED25          0x2000000
+#define BF_INTC_MSK_RESERVED25(v)       (((v) << 25) & 0x2000000)
+#define BP_INTC_MSK_NAND                24
+#define BM_INTC_MSK_NAND                0x1000000
+#define BF_INTC_MSK_NAND(v)             (((v) << 24) & 0x1000000)
+#define BP_INTC_MSK_RESERVED23          23
+#define BM_INTC_MSK_RESERVED23          0x800000
+#define BF_INTC_MSK_RESERVED23(v)       (((v) << 23) & 0x800000)
+#define BP_INTC_MSK_DAC                 22
+#define BM_INTC_MSK_DAC                 0x400000
+#define BF_INTC_MSK_DAC(v)              (((v) << 22) & 0x400000)
+#define BP_INTC_MSK_ADC                 21
+#define BM_INTC_MSK_ADC                 0x200000
+#define BF_INTC_MSK_ADC(v)              (((v) << 21) & 0x200000)
+#define BP_INTC_MSK_RESERVED20          20
+#define BM_INTC_MSK_RESERVED20          0x100000
+#define BF_INTC_MSK_RESERVED20(v)       (((v) << 20) & 0x100000)
+#define BP_INTC_MSK_RESERVED19          19
+#define BM_INTC_MSK_RESERVED19          0x80000
+#define BF_INTC_MSK_RESERVED19(v)       (((v) << 19) & 0x80000)
+#define BP_INTC_MSK_IIC1                18
+#define BM_INTC_MSK_IIC1                0x40000
+#define BF_INTC_MSK_IIC1(v)             (((v) << 18) & 0x40000)
+#define BP_INTC_MSK_IIC2                17
+#define BM_INTC_MSK_IIC2                0x20000
+#define BF_INTC_MSK_IIC2(v)             (((v) << 17) & 0x20000)
+#define BP_INTC_MSK_RESERVED16          16
+#define BM_INTC_MSK_RESERVED16          0x10000
+#define BF_INTC_MSK_RESERVED16(v)       (((v) << 16) & 0x10000)
+#define BP_INTC_MSK_RESERVED15          15
+#define BM_INTC_MSK_RESERVED15          0x8000
+#define BF_INTC_MSK_RESERVED15(v)       (((v) << 15) & 0x8000)
+#define BP_INTC_MSK_EXT                 14
+#define BM_INTC_MSK_EXT                 0x4000
+#define BF_INTC_MSK_EXT(v)              (((v) << 14) & 0x4000)
+#define BP_INTC_MSK_KEY                 13
+#define BM_INTC_MSK_KEY                 0x2000
+#define BF_INTC_MSK_KEY(v)              (((v) << 13) & 0x2000)
+#define BP_INTC_MSK_DMA                 12
+#define BM_INTC_MSK_DMA                 0x1000
+#define BF_INTC_MSK_DMA(v)              (((v) << 12) & 0x1000)
+#define BP_INTC_MSK_RTC                 11
+#define BM_INTC_MSK_RTC                 0x800
+#define BF_INTC_MSK_RTC(v)              (((v) << 11) & 0x800)
+#define BP_INTC_MSK_T0                  10
+#define BM_INTC_MSK_T0                  0x400
+#define BF_INTC_MSK_T0(v)               (((v) << 10) & 0x400)
+#define BP_INTC_MSK_T1                  9
+#define BM_INTC_MSK_T1                  0x200
+#define BF_INTC_MSK_T1(v)               (((v) << 9) & 0x200)
+#define BP_INTC_MSK_WD                  8
+#define BM_INTC_MSK_WD                  0x100
+#define BF_INTC_MSK_WD(v)               (((v) << 8) & 0x100)
+#define BP_INTC_MSK_PCNT                7
+#define BM_INTC_MSK_PCNT                0x80
+#define BF_INTC_MSK_PCNT(v)             (((v) << 7) & 0x80)
+#define BP_INTC_MSK_RESERVED6           6
+#define BM_INTC_MSK_RESERVED6           0x40
+#define BF_INTC_MSK_RESERVED6(v)        (((v) << 6) & 0x40)
+#define BP_INTC_MSK_DSP                 5
+#define BM_INTC_MSK_DSP                 0x20
+#define BF_INTC_MSK_DSP(v)              (((v) << 5) & 0x20)
+#define BP_INTC_MSK_USB                 5
+#define BM_INTC_MSK_USB                 0x20
+#define BF_INTC_MSK_USB(v)              (((v) << 5) & 0x20)
+#define BP_INTC_MSK_MHA                 3
+#define BM_INTC_MSK_MHA                 0x8
+#define BF_INTC_MSK_MHA(v)              (((v) << 3) & 0x8)
+#define BP_INTC_MSK_SD                  2
+#define BM_INTC_MSK_SD                  0x4
+#define BF_INTC_MSK_SD(v)               (((v) << 2) & 0x4)
+#define BP_INTC_MSK_RESERVED1           1
+#define BM_INTC_MSK_RESERVED1           0x2
+#define BF_INTC_MSK_RESERVED1(v)        (((v) << 1) & 0x2)
+#define BP_INTC_MSK_MCA                 0
+#define BM_INTC_MSK_MCA                 0x1
+#define BF_INTC_MSK_MCA(v)              (((v) << 0) & 0x1)
 
 /**
  * Register: INTC_CFG

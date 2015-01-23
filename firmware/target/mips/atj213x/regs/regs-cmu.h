@@ -161,9 +161,9 @@
 #define BP_CMU_BUSCLK_USBE              27
 #define BM_CMU_BUSCLK_USBE              0x8000000
 #define BF_CMU_BUSCLK_USBE(v)           (((v) << 27) & 0x8000000)
-#define BP_CMU_BUSCLK_RESERVED26:12     12
-#define BM_CMU_BUSCLK_RESERVED26:12     0x7fff000
-#define BF_CMU_BUSCLK_RESERVED26:12(v)  (((v) << 12) & 0x7fff000)
+#define BP_CMU_BUSCLK_RESERVED26_12     12
+#define BM_CMU_BUSCLK_RESERVED26_12     0x7fff000
+#define BF_CMU_BUSCLK_RESERVED26_12(v)  (((v) << 12) & 0x7fff000)
 /* Field: PCLKDIV
  * Description: Peripheral CLK Divisor */
 #define BP_CMU_BUSCLK_PCLKDIV           8

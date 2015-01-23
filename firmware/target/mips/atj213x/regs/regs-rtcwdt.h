@@ -156,18 +156,16 @@
 
 /**
  * Register: RTCWDT_TxCTL
- * Address: 0x18 0x20
+ * Address: 0x18+n*8
  * SCT: no
  */
-#define RTCWDT_T0CTL    (*(volatile unsigned long *)(REGS_RTCWDT_BASE + 0x18))
-#define RTCWDT_T1CTL    (*(volatile unsigned long *)(REGS_RTCWDT_BASE + 0x20))
+#define RTCWDT_TxCTL(n) (*(volatile unsigned long *)(REGS_RTCWDT_BASE + 0x18+(n)*8))
 
 /**
  * Register: RTCWDT_Tx
- * Address: 0x1c 0x24
+ * Address: 0x1c+8*n
  * SCT: no
  */
-#define RTCWDT_T0   (*(volatile unsigned long *)(REGS_RTCWDT_BASE + 0x1c))
-#define RTCWDT_T1   (*(volatile unsigned long *)(REGS_RTCWDT_BASE + 0x24))
+#define RTCWDT_Tx(n)    (*(volatile unsigned long *)(REGS_RTCWDT_BASE + 0x1c+8*(n)))
 
 #endif /* __HEADERGEN__ATJ213X__RTCWDT__H__ */
