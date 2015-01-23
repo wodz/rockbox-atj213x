@@ -51,10 +51,10 @@
 
 /**
  * Register: DMAC_DMA_MODE
- * Address: 0x100+0x100*n
+ * Address: 0x100+0x20*n
  * SCT: no
  */
-#define DMAC_DMA_MODE(n)                    (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x100+0x100*(n)))
+#define DMAC_DMA_MODE(n)                    (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x100+0x20*(n)))
 /* Field: DBURLEN
  * Description: Destination burst length. If burst lenght is 4 or 8 DDIR must be
  *  0, DFXA must be 0, DDSP must be 0, DCOL must be 0. Burst must not cross a 
@@ -190,37 +190,37 @@
 
 /**
  * Register: DMAC_DMA_SRC
- * Address: 0x104+0x100*n
+ * Address: 0x104+0x20*n
  * SCT: no
  */
-#define DMAC_DMA_SRC(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x104+0x100*(n)))
+#define DMAC_DMA_SRC(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x104+0x20*(n)))
 
 /**
  * Register: DMAC_DMA_DST
- * Address: 0x108+0x100*n
+ * Address: 0x108+0x20*n
  * SCT: no
  */
-#define DMAC_DMA_DST(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x108+0x100*(n)))
+#define DMAC_DMA_DST(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x108+0x20*(n)))
 
 /**
  * Register: DMAC_DMA_CNT
- * Address: 0x10c+0x100*n
+ * Address: 0x10c+0x20*n
  * SCT: no
  */
-#define DMAC_DMA_CNT(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x10c+0x100*(n)))
+#define DMAC_DMA_CNT(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x10c+0x20*(n)))
 
 /**
  * Register: DMAC_DMA_REM
- * Address: 0x110+0x100*n
+ * Address: 0x110+0x20*n
  * SCT: no
  */
-#define DMAC_DMA_REM(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x110+0x100*(n)))
+#define DMAC_DMA_REM(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x110+0x20*(n)))
 
 /**
  * Register: DMAC_DMA_CMD
- * Address: 0x114+0x100*n
+ * Address: 0x114+0x20*n
  * SCT: no
  */
-#define DMAC_DMA_CMD(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x114+0x100*(n)))
+#define DMAC_DMA_CMD(n) (*(volatile unsigned long *)(REGS_DMAC_BASE + 0x114+0x20*(n)))
 
 #endif /* __HEADERGEN__ATJ213X__DMAC__H__ */
