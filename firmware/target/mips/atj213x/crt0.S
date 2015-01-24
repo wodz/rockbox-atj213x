@@ -165,8 +165,8 @@ clear_ibss_loop:
 
 stack_setup:
     # setup stack
-    la sp, _stackend
-    la t0, _stackbegin
+    la sp, stackend
+    la t0, stackbegin
     li t1, 0xdeadbeef
 
 stack_munge_loop:
@@ -176,8 +176,8 @@ stack_munge_loop:
 
 irq_stack_setup:
     # setup irq stack
-    la k0, _irqstackend
-    la t0, _irqstackbegin
+    la k0, irqstackend
+    la t0, irqstackbegin
 
 irq_stack_munge_loop:
     sw t1, 0(t0)
