@@ -21,10 +21,6 @@
 #ifndef RTCTMR_ATJ213X_H
 #define RTCTMR_ATJ213X_H
  
-#include "config.h"
-#include "system.h"
-#include "atj213x.h"
-
 enum
 {
     TIMER_TICK, /* for tick task */

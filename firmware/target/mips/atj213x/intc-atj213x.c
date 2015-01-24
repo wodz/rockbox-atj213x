@@ -18,11 +18,8 @@
  *
  ****************************************************************************/
  
-#include "config.h"
-#include "system.h"
 #include "intc-atj213x.h"
 #include "regs/regs-intc.h"
-#include "atj213x.h"
 
 void atj213x_intc_unmask(unsigned int irqno)
 {

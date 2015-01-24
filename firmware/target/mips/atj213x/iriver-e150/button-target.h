@@ -17,12 +17,36 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef BUTTON_TARGET_H_
-#define BUTTON_TARGET_H_
+#ifndef BUTTON_TARGET_H
+#define BUTTON_TARGET_H
 
 #define HAS_BUTTON_HOLD
 
-/* Main unit's buttons */
+/* Button 4bit ADC threshold */
+#define BTN_ADC_RELEASE    0x0f
+#define BTN_ADC_RIGHT      0x0c
+#define BTN_ADC_DOWN       0x08
+#define BTN_ADC_SELECT     0x06
+#define BTN_ADC_LEFT       0x04
+#define BTN_ADC_UP         0x02
+
+/* Button GPIO pins */
+#define BTN_HOLD_PORT      GPIO_PORTA
+#define BTN_HOLD_PIN       10
+
+#define BTN_HDPH_PORT      GPIO_PORTA
+#define BTN_HDPH_PIN       26
+
+#define BTN_ON_PORT        GPIO_PORTA
+#define BTN_ON_PIN         8
+
+#define BTN_VOL_UP_PORT    GPIO_PORTA
+#define BTN_VOL_UP_PIN     12
+
+#define BTN_VOL_DOWN_PORT  GPIO_PORTB
+#define BTN_VOL_DOWN_PIN   31
+
+/* Main unit's button codes*/
 #define BUTTON_ON          (1<<0)
 #define BUTTON_LEFT        (1<<1)
 #define BUTTON_RIGHT       (1<<2)
@@ -42,4 +66,4 @@
 
 bool headphones_inserted(void);
 bool button_hold(void);
-#endif /* _BUTTON_TARGET_H_ */
+#endif /* _BUTTON_TARGET_H */

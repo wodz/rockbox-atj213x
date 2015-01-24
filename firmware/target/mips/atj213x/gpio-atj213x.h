@@ -17,11 +17,10 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
- 
-#include "config.h"
-#include "system.h"
-#include "atj213x.h"
 
+#ifndef GPIO_ATJ213X_H
+#define GPIO_ATJ213X_H
+ 
 enum {
     GPIO_MUXSEL_FREE = -1,
     GPIO_MUXSEL_LCM,
@@ -45,3 +44,5 @@ void atj213x_gpio_set(unsigned port, unsigned pin, bool val);
 bool atj213x_gpio_get(unsigned port, unsigned pin);
 void atj213x_gpio_mux_lock(unsigned module);
 void atj213x_gpio_mux_unlock(unsigned module);
+
+#endif /* GPIO_ATJ213X_H */

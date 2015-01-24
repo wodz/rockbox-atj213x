@@ -17,9 +17,8 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
- 
-#include "config.h"
-#include "system.h"
+
+#include "panic.h"
 #include "gpio-atj213x.h"
 #include "lradc-atj213x.h"
 #include "regs/regs-pmu.h"

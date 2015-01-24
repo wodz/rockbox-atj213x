@@ -18,11 +18,9 @@
  *
  ****************************************************************************/
 
-#include "kernel.h"
-#include "system.h"
 #include "panic.h"
 #include "button.h"
-#include "system-target.h"
+#include "backlight-target.h"
 #include "font.h"
 #include "lcd.h"
 
@@ -111,7 +109,8 @@ void system_exception(unsigned int sp, unsigned int cause, unsigned int epc)
     lcd_clear_display();
     backlight_hw_on();
 
-    panicf("Exception occurred! pc: 0x%08x sp: 0x%08x)", epc, sp);
+    panicf("Exception occurred! pc: 0x%08x sp: 0x%08x cause: 0x%08x)",
+           epc, sp, cause);
 }
 
 int system_memory_guard(int newmode)

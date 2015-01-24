@@ -22,4 +22,4 @@
 #define LCD_TARGET_H
 
 void lcd_init_device(void)
-#endif
+#endif /* LCD_TARGET_H */

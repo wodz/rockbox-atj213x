@@ -20,7 +20,6 @@
 #ifndef SYSTEM_TARGET_H
 #define SYSTEM_TARGET_H
 
-#include "panic.h"
 #include "mipsregs.h"
 
 #define CACHE_SIZE      16*1024

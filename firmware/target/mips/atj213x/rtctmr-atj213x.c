@@ -18,14 +18,12 @@
  *
  ****************************************************************************/
  
-#include "config.h"
 #include "system.h"
 #include "intc-atj213x.h"
 #include "rtctmr-atj213x.h"
 #include "regs/regs-intc.h"
 #include "regs/regs-rtcwdt.h"
 #include "regs/regs-cmu.h"
-#include "atj213x.h"
 
 static void (*timer_fns[])(void) = {NULL, NULL};
 

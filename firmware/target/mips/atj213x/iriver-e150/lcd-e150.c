@@ -18,7 +18,6 @@
  *
  ****************************************************************************/
  
-#include "config.h"
 #include "system.h"
 #include "lcd.h"
 #include "gpio-atj213x.h"

@@ -18,8 +18,6 @@
  *
  ****************************************************************************/
 
-#include "config.h"
-#include "system.h"
 #include "kernel.h"
 #include "rtctmr-atj213x.h"
 

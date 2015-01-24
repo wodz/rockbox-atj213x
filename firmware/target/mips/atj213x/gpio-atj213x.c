@@ -18,9 +18,8 @@
  *
  ****************************************************************************/
  
-#include "config.h"
-#include "system.h"
 #include "kernel.h"
+#include "panic.h"
 #include "gpio-atj213x.h"
 #include "regs/regs-gpio.h"
 

@@ -22,4 +22,5 @@
  
 void atj213x_intc_unmask(unsigned int irqno);
 void atj213x_intc_mask(unsigned int irqno);
-#endif
+
+#endif /* INTC_ATJ213X_H */

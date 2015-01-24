@@ -18,9 +18,6 @@
  *
  ****************************************************************************/
 
-#include "config.h"
-#include "cpu.h"
-#include "system.h"
 #include "button.h"
 #include "backlight.h"
 #include "gpio-atj213x.h"
@@ -28,31 +25,31 @@
 
 bool headphones_inserted(void)
 {
-    return !atj213x_gpio_get(GPIO_PORTA, 26);
+    return !atj213x_gpio_get(BTN_HDPH_PORT, BTN_HDPH_PIN);
 }
 
 bool button_hold(void)
 {
     /* A10 active low */
-    return !atj213x_gpio_get(GPIO_PORTA, 10);
+    return !atj213x_gpio_get(BTN_HOLD_PORT, BTN_HOLD_PIN);
 }
 
 void button_init_device(void)
 {
     /* A8 BUTTON_ON */
-    atj213x_gpio_setup(GPIO_PORTA, 8, GPIO_IN);
+    atj213x_gpio_setup(BTN_ON_PORT, BTN_ON_PIN, GPIO_IN);
 
     /* A10 BUTTON_HOLD */
-    atj213x_gpio_setup(GPIO_PORTA, 10, GPIO_IN);
+    atj213x_gpio_setup(BTN_HOLD_PORT, BTN_HOLD_PIN, GPIO_IN);
 
     /* A12 BUTTON_VOL_UP */
-    atj213x_gpio_setup(GPIO_PORTA, 12, GPIO_IN);
+    atj213x_gpio_setup(BTN_VOL_UP_PORT, BTN_VOL_UP_PIN, GPIO_IN);
 
     /* A26 HEADPHONE_DETECT */
-    atj213x_gpio_setup(GPIO_PORTA, 26, GPIO_IN);
+    atj213x_gpio_setup(BTN_HDPH_PORT, BTN_HDPH_PIN, GPIO_IN);
 
     /* B31 BUTTON_VOL_DOWN */
-    atj213x_gpio_setup(GPIO_PORTB, 31, GPIO_IN);
+    atj213x_gpio_setup(BTN_VOL_DOWN_PORT, BTN_VOL_DOWN_PIN, GPIO_IN);
 
     /* BUTTON_LEFT, BUTTON_RIGHT, BUTTON_UP
      * BUTTON_DOWN, BUTTON_SELECT are sensed by 4bit ADC
@@ -68,7 +65,9 @@ int button_read_device(void)
     unsigned int adc;
     int btn = BUTTON_NONE;
     static bool hold_state = false;
+#ifndef BOOTLOADER
     bool hold_state_old = hold_state;
+#endif
 
     hold_state = button_hold();
 
@@ -81,22 +80,22 @@ int button_read_device(void)
         return BUTTON_NONE;
 
     adc = lradc_read(LRADC_CH_KEY);
-    if (adc < 0x0f)
+    if (adc < BTN_ADC_RELEASE)
     {
-        if (adc < 0x06)
+        if (adc < BTN_ADC_SELECT)
         {
-            if (adc < 0x04)
+            if (adc < BTN_ADC_LEFT)
                 btn |= BUTTON_UP;
             else
                 btn |= BUTTON_LEFT;
         }
         else
         {
-            if (adc < 0x08)
+            if (adc < BTN_ADC_DOWN)
                 btn |= BUTTON_SELECT;
             else
             {
-                if (adc < 0x0c)
+                if (adc < BTN_ADC_RIGHT)
                     btn |= BUTTON_DOWN;
                 else
                     btn |= BUTTON_RIGHT;
@@ -104,13 +103,13 @@ int button_read_device(void)
         }
     }
 
-    if (!atj213x_gpio_get(GPIO_PORTA, 8))
+    if (!atj213x_gpio_get(BTN_ON_PORT, BTN_ON_PIN))
         btn |= BUTTON_ON;
 
-    if (!atj213x_gpio_get(GPIO_PORTA, 12))
+    if (!atj213x_gpio_get(BTN_VOL_UP_PORT, BTN_VOL_UP_PIN))
         btn |= BUTTON_VOL_UP;
 
-    if (atj213x_gpio_get(GPIO_PORTB, 31))
+    if (atj213x_gpio_get(BTN_VOL_DOWN_PORT, BTN_VOL_DOWN_PIN))
         btn |= BUTTON_VOL_DOWN;
 
     return btn;

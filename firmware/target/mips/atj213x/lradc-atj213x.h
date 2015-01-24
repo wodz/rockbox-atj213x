@@ -18,9 +18,8 @@
  *
  ****************************************************************************/
  
-#include "config.h"
-#include "system.h"
-#include "atj213x.h"
+#ifndef LRADC_ATJ213X_H
+#define LRADC_ATJ213X_H
 
 enum {
     LRADC_CH_KEY,
@@ -30,3 +29,5 @@ enum {
 
 void lradc_init(void);
 unsigned int lradc_read(unsigned channel);
+
+#endif /* LRADC_ATJ213X_H */

@@ -19,11 +19,13 @@
  ****************************************************************************/
 
 #include <stdbool.h> 
+#include <stdint.h>
 #include "config.h"
-#include "system.h"
 #include "backlight.h"
 #include "backlight-target.h"
+#ifdef HAVE_LCD_ENABLE
 #include "lcd.h"
+#endif
 #include "regs/regs-cmu.h"
 #include "regs/regs-pmu.h"
 
