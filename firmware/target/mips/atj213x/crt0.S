@@ -79,8 +79,8 @@ cache_init_loop:
     ehb
 
 reloc:
-    la t0, relocstart
-    la t1, relocend
+    la t0, _relocstart
+    la t1, _relocend
     beq t0, v0, entry_point    # no relocation needed
     nop
 
@@ -154,7 +154,7 @@ clear_bss_loop:
 
 clear_ibss:
     la t0, _iedata
-    la t1, _end
+    la t1, _iend
     beq t0, t1, stack_setup
     nop
 
@@ -165,8 +165,8 @@ clear_ibss_loop:
 
 stack_setup:
     # setup stack
-    la sp, stackend
-    la t0, stackbegin
+    la sp, _stackend
+    la t0, _stackbegin
     li t1, 0xdeadbeef
 
 stack_munge_loop:
@@ -176,8 +176,8 @@ stack_munge_loop:
 
 irq_stack_setup:
     # setup irq stack
-    la k0, irqstackend
-    la t0, irqstackbegin
+    la k0, _irqstackend
+    la t0, _irqstackbegin
 
 irq_stack_munge_loop:
     sw t1, 0(t0)

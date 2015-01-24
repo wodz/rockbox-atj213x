@@ -19,11 +19,9 @@ MEMORY
 
 SECTIONS
 {
-    . = DRAMORIG;
-
     .text :
     {
-        relocstart = .;
+        _relocstart = .;
         *(.init.text);
         *(.text*);
     } > DRAM
@@ -64,7 +62,6 @@ SECTIONS
         *(.idata);
 
         _iramend = .;
-        relocend = .;
     } > IRAM AT> DRAM
     _iramcopy = LOADADDR(.iram);
 
@@ -79,6 +76,7 @@ SECTIONS
 
     .bss (NOLOAD):
     {
+         _relocend = .;
          _edata = .;
          *(.sbss*);
          *(.bss*);
@@ -90,11 +88,11 @@ SECTIONS
     .stack (NOLOAD):
     {
          *(.stack)
-         stackbegin = .;
+         _stackbegin = .;
          . += 0x2000;
-         stackend = .;
-         irqstackbegin = .;
+         _stackend = .;
+         _irqstackbegin = .;
          . += 0x400;
-         irqstackend = .;
+         _irqstackend = .;
     } > IRAM
 }
