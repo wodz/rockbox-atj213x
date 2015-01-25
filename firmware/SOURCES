@@ -1646,13 +1646,15 @@ target/arm/rk27xx/debug-rk27xx.c
 #if CONFIG_CPU == ATJ213X
 target/mips/atj213x/system-atj213x.c
 target/mips/atj213x/kernel-atj213x.c
-target/mips/atj213x/timer-atj213x.c
+target/mips/atj213x/timer-rb-api.c
 target/mips/atj213x/intc-atj213x.c
-target/mips/atj213x/rtctmr-atj213x.c
+target/mips/atj213x/tmr-atj213x.c
 target/mips/atj213x/lradc-atj213x.c
 target/mips/atj213x/gpio-atj213x.c
 target/mips/atj213x/lcm-atj213x.c
 target/mips/atj213x/backlight-atj213x.c
+target/mips/atj213x/wdt-atj213x.c
+target/mips/atj213x/dma-atj213x.c
 #endif
 
 #if defined(RK27_GENERIC)
