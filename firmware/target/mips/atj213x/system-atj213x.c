@@ -23,6 +23,9 @@
 #include "backlight-target.h"
 #include "font.h"
 #include "lcd.h"
+#include "mips.h"
+
+#include "wdt-atj213x.h"
 
 #define default_interrupt(name) \
   extern __attribute__((weak,alias("UIRQ"))) void name (void)
@@ -84,10 +87,14 @@ static void UIRQ(unsigned int irqno)
 
 void system_init(void)
 {
+    atj213x_wdt_disable();
 }
 
 void system_reboot(void)
 {
+    atj213x_wdt_enable();
+
+    while(1);
 }
 
 void system_exception_wait(void)
@@ -107,7 +114,8 @@ void system_exception(unsigned int sp, unsigned int cause, unsigned int epc)
     lcd_setfont(FONT_SYSFIXED);
     lcd_set_viewport(NULL);
     lcd_clear_display();
-    backlight_hw_on();
+    //backlight_hw_on();
+    backlight_hw_brightness(1);
 
     panicf("Exception occurred! pc: 0x%08x sp: 0x%08x cause: 0x%08x)",
            epc, sp, cause);
@@ -135,17 +143,17 @@ void set_cpu_frequency(long frequency)
     cpu_frequency = frequency;
 }
 #endif
-//#define CPU_FREQ 60000000UL //???
+
 void udelay(unsigned int usec)
 {
-    unsigned int i = ((usec * CPU_FREQ) / 2000000);
+    unsigned cycles_per_usec = (CPU_FREQ + 999999) / 1000000;
+    unsigned i = (usec * cycles_per_usec)/2;
     asm volatile (
                   ".set noreorder    \n"
                   "1:                \n"
                   "bne  %0, $0, 1b   \n"
                   "addiu %0, %0, -1  \n"
                   ".set reorder      \n"
-                  : "=r" (i)
-                  : "0" (i)
+                  : : "r" (i)
                  );
 }

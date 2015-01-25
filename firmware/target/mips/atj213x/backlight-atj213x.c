@@ -30,7 +30,7 @@
 #include "regs/regs-pmu.h"
 
 static const uint8_t lin_brightness[] = {
-    0, 1, 3, 5, 9, 15, 22, 32
+    0, 1, 3, 5, 9, 15, 22, 31
 };
 
 static int brightness = DEFAULT_BRIGHTNESS_SETTING;
@@ -47,7 +47,7 @@ bool backlight_hw_init(void)
     /* pwm output, phase high, some initial duty cycle */
     PMU_CHG = ((PMU_CHG & ~BM_PMU_CHG_PDUT)|
               (BF_PMU_CHG_PBLS(1)|BF_PMU_CHG_PPHS(1)|
-               BF_PMU_CHG_PDUT(brightness)));
+               BF_PMU_CHG_PDUT(lin_brightness[brightness])));
 
     return true;
 }
@@ -58,12 +58,15 @@ void backlight_hw_on(void)
     lcd_enable(true);
 #endif
     /* baclight enable */
-    PMU_CTL |= BF_PMU_CTL_BLEN(1);
+    //PMU_CTL |= BF_PMU_CTL_BLEN(1);
+    backlight_hw_brightness(brightness);
 }
 
 void backlight_hw_off(void)
 {
-    PMU_CTL &= ~BM_PMU_CTL_BLEN;
+    /* This doesn't have any effect! */
+    /* PMU_CTL &= ~BM_PMU_CTL_BLEN; */
+    backlight_hw_brightness(0);
 #ifdef HAVE_LCD_ENABLE
     lcd_enable(false);
 #endif

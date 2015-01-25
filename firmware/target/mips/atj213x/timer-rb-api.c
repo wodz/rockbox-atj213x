@@ -20,7 +20,7 @@
  
 #include "kernel.h"
 #include "timer.h"
-#include "rtctmr-atj213x.h"
+#include "tmr-atj213x.h"
 
 bool timer_set(long cycles, bool start)
 {

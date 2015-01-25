@@ -18,8 +18,8 @@
  *
  ****************************************************************************/
 
-#ifndef RTCTMR_ATJ213X_H
-#define RTCTMR_ATJ213X_H
+#ifndef TMR_ATJ213X_H
+#define TMR_ATJ213X_H
  
 enum
 {
