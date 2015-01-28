@@ -66,7 +66,8 @@ void (* const irqvector[])(void) __attribute__((used)) =
     __UIRQ, __UIRQ, __UIRQ, __UIRQ, __UIRQ, INT_YUV, __UIRQ, INT_NAND,
     __UIRQ, INT_DAC, INT_ADC, __UIRQ, __UIRQ, INT_IIC1, INT_IIC2, __UIRQ,
     __UIRQ, INT_EXT, INT_KEY, INT_DMA, INT_RTC, INT_T0, INT_T1, INT_WD,
-    INT_PCNT, __UIRQ, INT_DSP, INT_USB, INT_MHA, INT_SD, __UIRQ, INT_MCA
+    INT_PCNT, __UIRQ, INT_DSP, INT_USB, INT_MHA, INT_SD, __UIRQ, INT_MCA,
+    __UIRQ
 };
 
 static const char * const irqname[] =
@@ -74,11 +75,12 @@ static const char * const irqname[] =
     "IRQ31","IRQ30","IRQ29","IRQ28","IRQ27","INT_YUV","IRQ25","INT_NAND",
     "IRQ23","INT_DAC","INT_ADC","IRQ20","IRQ19","INT_IIC1","INT_IIC2","IRQ16",
     "IRQ15","INT_EXT","INT_KEY","INT_DMA","INT_RTC","INT_T0","INT_T1","INT_WD",
-    "INT_PCNT","IRQ6","INT_DSP","INT_USB","INT_MHA","INT_SD","UIRQ1","INT_MCA"
+    "INT_PCNT","IRQ6","INT_DSP","INT_USB","INT_MHA","INT_SD","UIRQ1","INT_MCA",
+    "Spurious"
 };
 
-/* This the actual function called by irq_handler()
- * which sets irqno in a0 properly
+/* This is the actual function called by irq_handler()
+ * irqno in a0
  */
 static void UIRQ(unsigned int irqno)
 {
@@ -114,8 +116,7 @@ void system_exception(unsigned int sp, unsigned int cause, unsigned int epc)
     lcd_setfont(FONT_SYSFIXED);
     lcd_set_viewport(NULL);
     lcd_clear_display();
-    //backlight_hw_on();
-    backlight_hw_brightness(1);
+    backlight_hw_on();
 
     panicf("Exception occurred! pc: 0x%08x sp: 0x%08x cause: 0x%08x)",
            epc, sp, cause);

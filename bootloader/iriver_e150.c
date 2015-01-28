@@ -5,9 +5,8 @@
  *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
- * $Id$
  *
- * Copyright (C) 2014 by Szymon Dziok
+ * Copyright (C) 2015 by Marcin Bukat
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,11 +17,6 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-
-/*
-SANSA VIEW: TESTING CODE
-*/
-
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -46,17 +40,22 @@ SANSA VIEW: TESTING CODE
 #include "file.h"
 #include "common.h"
 
+#include "regs/regs-intc.h"
+#include "regs/regs-rtcwdt.h"
+#include "tmr-atj213x.h"
+
+extern void show_logo( void );
 void main(void)
 {
+    unsigned int cnt = 0;
     system_init();
     kernel_init();
+    lcd_init();
     backlight_hw_init();
-
+    show_logo();
     while(1)
     {
-       backlight_hw_on();
-       sleep(HZ/4);
-       backlight_hw_off();
-       sleep(HZ/4);
+        printf("cnt: %d", cnt++);
+        sleep(HZ);
     }
 }

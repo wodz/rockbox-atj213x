@@ -26,20 +26,28 @@
 #define CACHE_LINE_SIZE 16
 #include "mmu-mips.h"
 
+#define CPUFREQ_DEFAULT  50000000
+#define CPUFREQ_NORMAL   50000000
+#define CPUFREQ_MAX     200000000
+
+#define STORAGE_WANTS_ALIGN
+#define disable_irq() disable_interrupt()
+#define enable_irq()  enable_interrupt()
+#define HIGHEST_IRQ_LEVEL 0
+#define set_irq_level(status)  set_interrupt_status((status), ST0_IE)
+#define disable_irq_save()     disable_interrupt_save(ST0_IE)
+#define restore_irq(c0_status) restore_interrupt(c0_status)
+#define UNCACHED_ADDRESS(addr)    ((unsigned int)(addr) | 0xA0000000)
+#define UNCACHED_ADDR(x)          UNCACHED_ADDRESS((x))
+#define PHYSADDR(x)               ((x) & 0x1fffffff)
+
 void udelay(unsigned usecs);
 static inline void mdelay(unsigned msecs)
 {
     udelay(1000 * msecs);
 }
 
-/* linux kernel does rather sophisticated things here
- * so maybe we will need a well
- */
-static inline void core_sleep(void)
-{
-    //asm volatile("wait\n");
-    //enable_irq();
-}
+
 
 #if 0
 /* Write DCache back to RAM for the given range and remove cache lines
@@ -51,11 +59,6 @@ void commit_discard_dcache(void);
 void commit_discard_idcache(void);
 #endif
 
-#define CPUFREQ_DEFAULT  50000000
-#define CPUFREQ_NORMAL   50000000
-#define CPUFREQ_MAX     200000000
-
-#define STORAGE_WANTS_ALIGN
 
 /* MIPS32R2 variants */
 static inline uint16_t swap16_hw(uint16_t value)
@@ -108,13 +111,13 @@ static inline int set_interrupt_status(int status, int mask)
 static inline void enable_interrupt(void)
 {
     /* Set IE bit */
-    set_c0_status(ST0_IE);
+    asm volatile("ei\n");
 }
 
 static inline void disable_interrupt(void)
 {
     /* Clear IE bit */
-    clear_c0_status(ST0_IE);
+    asm volatile("di\n");
 }
 
 static inline int disable_interrupt_save(int mask)
@@ -127,14 +130,14 @@ static inline void restore_interrupt(int status)
     write_c0_status(status);
 }
 
-#define disable_irq() disable_interrupt()
-#define enable_irq()  enable_interrupt()
-#define HIGHEST_IRQ_LEVEL 0
-#define set_irq_level(status)  set_interrupt_status((status), ST0_IE)
-#define disable_irq_save()     disable_interrupt_save(ST0_IE)
-#define restore_irq(c0_status) restore_interrupt(c0_status)
-#define UNCACHED_ADDRESS(addr)    ((unsigned int)(addr) | 0xA0000000)
-#define UNCACHED_ADDR(x)          UNCACHED_ADDRESS((x))
-#define PHYSADDR(x)               ((x) & 0x1fffffff)
-
+/* linux kernel does rather sophisticated things here
+ * so maybe we will need a well
+ */
+static inline void core_sleep(void)
+{
+    asm volatile(
+                 "ei\n"
+                 "wait\n"
+                );
+}
 #endif /* SYSTEM_TARGET_H */

@@ -41,7 +41,8 @@ timer_irq_handler(1)
 void atj213x_timer_irq_clear(unsigned timer_nr)
 {
     /* clear pending irq flag in timer module */
-    RTCWDT_TxCTL(timer_nr) |= 1;
+    while (RTCWDT_TxCTL(timer_nr) & 1)
+        RTCWDT_TxCTL(timer_nr) |= 1;
 }
 
 void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms, void (*cb)(void))

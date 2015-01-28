@@ -6,7 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Copyright (C) 2014 Marcin Bukat
+ * Copyright (C) 2015 by Marcin Bukat
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,12 +17,21 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
+ 
+#include "wdt-atj213x.h"
+#include "regs/regs-rtcwdt.h"
 
-#include "kernel.h"
-#include "tmr-atj213x.h"
-
-void tick_start(unsigned int interval_in_ms)
+void atj213x_wdt_enable(void)
 {
-    atj213x_timer_set(TIMER_TICK, interval_in_ms, call_tick_tasks);
-    atj213x_timer_start(TIMER_TICK);
+    RTCWDT_WDCTL |= (1<<6)|(1<<5)|(1<<4);
+}
+
+void atj213x_wdt_disable(void)
+{
+    RTCWDT_WDCTL = 0;
+}
+
+void atj213x_wdt_feed(void)
+{
+    RTCWDT_WDCTL |= 1;
 }
