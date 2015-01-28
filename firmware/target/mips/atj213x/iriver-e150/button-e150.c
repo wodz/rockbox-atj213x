@@ -18,6 +18,7 @@
  *
  ****************************************************************************/
 
+#include "kernel.h"
 #include "button.h"
 #include "backlight.h"
 #include "gpio-atj213x.h"
@@ -62,7 +63,12 @@ void button_init_device(void)
  */
 int button_read_device(void)
 {
-    unsigned int adc;
+    static int idx = 0;
+    static unsigned int adc[4] = {
+        BTN_ADC_RELEASE, BTN_ADC_RELEASE, BTN_ADC_RELEASE, BTN_ADC_RELEASE
+    };
+
+    unsigned int adc_filtered;
     int btn = BUTTON_NONE;
     static bool hold_state = false;
 #ifndef BOOTLOADER
@@ -79,23 +85,32 @@ int button_read_device(void)
     if (hold_state)
         return BUTTON_NONE;
 
-    adc = lradc_read(LRADC_CH_KEY);
-    if (adc < BTN_ADC_RELEASE)
+    adc[idx++ & 3] = lradc_read(LRADC_CH_KEY);
+
+    /* Debounce by requiring 4 consecutive samples to be the same
+     * sampling frequency is dictated by tick
+     */
+    if (!(((adc[0] ^ adc[1]) ^ adc[2]) ^ adc[3]))
+        adc_filtered = adc[0];
+    else
+        adc_filtered = BTN_ADC_RELEASE;
+
+    if (adc_filtered < BTN_ADC_RELEASE)
     {
-        if (adc < BTN_ADC_SELECT)
+        if (adc_filtered < BTN_ADC_SELECT)
         {
-            if (adc < BTN_ADC_LEFT)
+            if (adc_filtered < BTN_ADC_LEFT)
                 btn |= BUTTON_UP;
             else
                 btn |= BUTTON_LEFT;
         }
         else
         {
-            if (adc < BTN_ADC_DOWN)
+            if (adc_filtered < BTN_ADC_DOWN)
                 btn |= BUTTON_SELECT;
             else
             {
-                if (adc < BTN_ADC_RIGHT)
+                if (adc_filtered < BTN_ADC_RIGHT)
                     btn |= BUTTON_DOWN;
                 else
                     btn |= BUTTON_RIGHT;
