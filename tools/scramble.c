@@ -382,6 +382,8 @@ int main (int argc, char** argv)
             modelnum = 90;
         else if (!strcmp(&argv[1][5], "zxfs")) /* Creative ZEN X-Fi Style */
             modelnum = 94;
+        else if (!strcmp(&argv[1][5], "e150")) /* Iriver e150 */
+            modelnum = 132;
         else {
             fprintf(stderr, "unsupported model: %s\n", &argv[1][5]);
             return 2;
