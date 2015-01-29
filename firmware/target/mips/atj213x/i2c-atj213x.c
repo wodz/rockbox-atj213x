@@ -1,16 +1,21 @@
+#include <stdbool.h>
+#include "kernel.h"
+#include "system.h"
+#include "regs/regs-i2c.h"
+
 bool i2c_wait_finish(unsigned iface)
 {
     unsigned tmo = current_tick + HZ/10;
 
     while (!TIME_AFTER(current_tick, tmo))
     {
-        if (I2C_STAT(iface) & 0x80)
+        if (I2C_STAT(iface) & BM_I2C_STAT_TRC)
         {
             yield();
         }
         else
         {
-            I2C_STAT(iface) = 0x80;
+            I2C_STAT(iface) = BM_I2C_STAT_TRC;
             return true;
         }
     }
@@ -24,7 +29,7 @@ bool i2c_start(unsigned iface, unsigned char address, bool repeat)
     if (repeat)
         I2C_CTL(iface) = 0x8e;
     else
-        I2C_CTL(iface) = 0x86;
+        I2C_CTL(iface) = 0x86; BM_I2C_CTL_EN | BM_I2C_CTL_RB
 
     return i2c_wait_finish();
 }
@@ -36,11 +41,11 @@ void i2c_stop(unsigned iface)
 
     while (!TIME_AFTER(current_tick, tmo))
     {
-        if ((I2C_STAT(iface) & STPD) == 0)
+        if ((I2C_STAT(iface) & BM_I2C_STAT_STPD) == 0)
             yield();
     }
 
-    I2C_STAT(iface) = 0x40;
+    I2C_STAT(iface) = BM_I2C_STAT_STPD;
 }
 
 bool i2c_write_byte(unsigned iface, unsigned char data)
@@ -67,7 +72,8 @@ unsigned char i2c_read_byte(unsigned iface, bool ack)
 void atj213x_i2c_reset(unsigned iface)
 {
     I2C_CTL(iface) = 0;
-    I2C_CTL(iface) |= EN;
+    udelay(10);
+    I2C_CTL(iface) = BM_I2C_CTL_EN;
 }
 
 void atj213x_i2c_init(unsigned iface)
