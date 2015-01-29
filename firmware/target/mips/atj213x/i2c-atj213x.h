@@ -6,7 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Copyright (C) 2014 by Marcin Bukat
+ * Copyright (C) 2015 by Marcin Bukat
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,18 +18,25 @@
  *
  ****************************************************************************/
 
-#ifndef TMR_ATJ213X_H
-#define TMR_ATJ213X_H
+#ifndef I2C_ATJ213X_H
+#define I2C_ATJ213X_H
  
 enum
 {
-    TIMER_TICK, /* for tick task */
-    TIMER_USER, /* for user timer */
+    I2C_NACK,
+    I2C_ACK
 };
 
-void atj213x_timer_irq_clear(unsigned timer_nr);
-void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms, void (*cb)(void));
-void atj213x_timer_start(unsigned timer_nr);
-void atj213x_timer_stop(unsigned timer_nr);
+enum
+{
+    I2C1 = 1,
+    I2C2 = 2
+};
 
-#endif /* TMR_ATJ213X_H */
+void atj213x_i2c_init(unsigned iface);
+void atj213x_i2c_set_speed(unsigned iface, unsigned i2cfreq);
+int atj213x_i2c_read(unsigned iface, unsigned char slave, int address,
+                     int len, unsigned char *data);
+int atj213x_i2c_write(unsigned iface, unsigned char slave, int address,
+                      int len, unsigned char *data);
+#endif /* I2C_ATJ213X_H */

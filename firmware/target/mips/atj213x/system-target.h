@@ -20,6 +20,7 @@
 #ifndef SYSTEM_TARGET_H
 #define SYSTEM_TARGET_H
 
+#include "regs/regs-cmu.h"
 #include "mipsregs.h"
 
 #define CACHE_SIZE      16*1024
@@ -140,4 +141,16 @@ static inline void core_sleep(void)
                  "wait\n"
                 );
 }
+
+static inline unsigned int atj213x_get_pclk(void)
+{
+    uint32_t corepllfreq = (CMU_COREPLL & 0x3f) * 6000000;
+    uint32_t cclkdiv = ((CMU_BUSCLK >> 2) & 0x03) + 1;
+    uint32_t sclkdiv = ((CMU_BUSCLK >> 4) & 0x03) + 1;
+    uint32_t pclkdiv = ((CMU_BUSCLK >> 8) & 0x0f);
+    pclkdiv = pclkdiv ? (pclkdiv + 1) : 2;
+
+    return ((corepllfreq/cclkdiv)/sclkdiv)/pclkdiv;
+}
+
 #endif /* SYSTEM_TARGET_H */

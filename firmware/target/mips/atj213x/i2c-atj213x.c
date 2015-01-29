@@ -1,9 +1,34 @@
+/***************************************************************************
+ *             __________               __   ___.
+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *                     \/            \/     \/    \/            \/
+ *
+ * Copyright (C) 2015 by Marcin Bukat
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ****************************************************************************/
+
 #include <stdbool.h>
 #include "kernel.h"
 #include "system.h"
+#include "i2c-atj213x.h"
+#include "regs/regs-cmu.h"
 #include "regs/regs-i2c.h"
+#include "regs/regs-gpio.h"
 
-bool i2c_wait_finish(unsigned iface)
+static struct mutex i2c_mtx[2];
+
+static bool atj213x_i2c_wait_finish(unsigned iface)
 {
     unsigned tmo = current_tick + HZ/10;
 
@@ -22,54 +47,74 @@ bool i2c_wait_finish(unsigned iface)
     return false;
 }
 
-bool i2c_start(unsigned iface, unsigned char address, bool repeat)
+static bool atj213x_i2c_start(unsigned iface, unsigned char address,
+                              bool repeat)
 {
     I2C_ADDR(iface) = address;
 
     if (repeat)
-        I2C_CTL(iface) = 0x8e;
+        I2C_CTL(iface) = BM_I2C_CTL_EN | 
+                         BF_I2C_CTL_GBCC_V(REPEATED_START) |
+                         BM_I2C_CTL_RB; /* 0x8e */
     else
-        I2C_CTL(iface) = 0x86; BM_I2C_CTL_EN | BM_I2C_CTL_RB
+        I2C_CTL(iface) = BM_I2C_CTL_EN |
+                         BF_I2C_CTL_GBCC_V(START) |
+                         BM_I2C_CTL_RB; /* 0x86 */
 
-    return i2c_wait_finish();
+    return atj213x_i2c_wait_finish(iface);
 }
 
-void i2c_stop(unsigned iface)
+static bool atj213x_i2c_stop(unsigned iface)
 {
     unsigned tmo = current_tick + HZ/10;
-    I2C_CTL = 0x8b;
+    I2C_CTL(iface) = BM_I2C_CTL_EN |
+              BF_I2C_CTL_GBCC_V(STOP) |
+              BM_I2C_CTL_RB |
+              BM_I2C_CTL_GRAS; /* 0x8b */
 
-    while (!TIME_AFTER(current_tick, tmo))
+    while (!(I2C_STAT(iface) & BM_I2C_STAT_STPD))
     {
-        if ((I2C_STAT(iface) & BM_I2C_STAT_STPD) == 0)
-            yield();
+        if (TIME_AFTER(current_tick, tmo))
+        {
+            I2C_STAT(iface) = BM_I2C_STAT_STPD;
+            return false;
+        }
+        yield();
     }
 
     I2C_STAT(iface) = BM_I2C_STAT_STPD;
+    return true;
 }
 
-bool i2c_write_byte(unsigned iface, unsigned char data)
+static bool atj213x_i2c_write_byte(unsigned iface, unsigned char data)
 {
     I2C_DAT(iface) = data;
     I2C_CTL(iface) = 0x82;
 
-    return i2c_wait_finish();
+    return atj213x_i2c_wait_finish(iface);
 }
 
-unsigned char i2c_read_byte(unsigned iface, bool ack)
+static bool atj213x_i2c_read_byte(unsigned iface, unsigned char *data,
+                                  bool ack)
 {
     if (ack)
-        I2C_CTL(iface) = 0x82;
+        I2C_CTL(iface) = BM_I2C_CTL_EN |
+                         BM_I2C_CTL_RB; /* 0x82 */
     else
-        I2C_CTL(iface) = 0x83;
+        I2C_CTL(iface) = BM_I2C_CTL_EN |
+                         BM_I2C_CTL_RB |
+                         BM_I2C_CTL_GRAS; /* 0x83 */
 
-    if (i2c_wait_finish())
-        return I2C_DAT(iface);
+    if (atj213x_i2c_wait_finish(iface))
+    {
+        *data = I2C_DAT(iface);
+        return true;
+    }
 
-    return 0;
+    return false;
 }
 
-void atj213x_i2c_reset(unsigned iface)
+static void atj213x_i2c_reset(unsigned iface)
 {
     I2C_CTL(iface) = 0;
     udelay(10);
@@ -78,48 +123,122 @@ void atj213x_i2c_reset(unsigned iface)
 
 void atj213x_i2c_init(unsigned iface)
 {
-    CMU_DEVCLKEN |= I2C; /* enable i2c APB clock */
-    CMU_GPIO_MFCTL1 &= ~I2C1SS; // check
+    CMU_DEVCLKEN |= BM_CMU_DEVCLKEN_I2C; /* enable i2c APB clock */
+
+    if (iface == 1)
+        GPIO_MFCTL1 &= ~BM_GPIO_MFCTL1_I2C1SS;
+    else
+        GPIO_MFCTL1 |= BF_GPIO_MFCTL1_U2TR_V(I2C2_SCL_SDA);
 
     atj213x_i2c_reset(iface);
+    mutex_init(&i2c_mtx[iface]);
 }
 
 void atj213x_i2c_set_speed(unsigned iface, unsigned i2cfreq)
 {
     unsigned int pclkfreq = atj213x_get_pclk();
-
-    clkdiv = (pclkfreq + (i2cfreq - 1))/i2cfreq;
-    clkdiv = (clkdiv + 15)/16;
+    unsigned int clkdiv = (((pclkfreq + (i2cfreq - 1))/i2cfreq)+15)/16;
 
     I2C_CLKDIV(iface) = clkdiv;
 }
 
-/*
-function ATJ.i2c.transmit(slave_addr, buffer, send_stop)
-    i2c_start(bit32.band(slave_addr, 0xfe))
+int atj213x_i2c_read(unsigned iface, unsigned char slave, int address,
+                     int len, unsigned char *data)
+{
+    int i, ret = 0;
 
-    for i=1, #buffer do
-        i2c_write_byte(buffer[1])
-    end
+    mutex_lock(&i2c_mtx[iface]);
 
-    if (send_stop ~= 0) then
-        i2c_stop()
-    end
-end
+    if (address >= 0)
+    {
+        /* START */
+        if (! atj213x_i2c_start(iface, slave & ~1, false))
+        {
+            ret = 1;
+            goto end;
+        }
 
-function ATJ.i2c.receive(slave_addr, length)
-    local res = {}
+        /* write address */
+        if (! atj213x_i2c_write_byte(iface, address))
+        {
+            ret = 2;
+            goto end;
+        }
+    }
 
-    i2c_start(bit32.bor(slave_addr, 1))
+    /* REPEATED START */
+    if (! atj213x_i2c_start(iface, slave | 1, true))
+    {
+        ret = 3;
+        goto end;
+    }
 
-    for i=1, length-1 do
-        res[i] = i2c_read_byte(true)
-    end
+    for (i=0; i<len-1; i++)
+    {
+        if (! atj213x_i2c_read_byte(iface, data++, I2C_ACK))
+        {
+            ret = 4;
+            goto end;
+        }
+    }
 
-    res[length] = i2c_read_byte(false)
+    if (! atj213x_i2c_read_byte(iface, data, I2C_NACK))
+    {
+        ret = 5;
+        goto end;
+    }
 
-    i2c_stop()
 
-    return res
-end
-*/
+   /* STOP */
+    if (! atj213x_i2c_stop(iface))
+        ret = 6;
+
+end:
+    mutex_unlock(&i2c_mtx[iface]);
+    return ret;
+}
+
+int atj213x_i2c_write(unsigned iface, unsigned char slave, int address,
+                      int len, unsigned char *data)
+{
+    int ret = 0;
+
+    mutex_lock(&i2c_mtx[iface]);
+
+    /* START */
+    if (! atj213x_i2c_start(iface, slave & ~1, false))
+    {
+        ret = 1;
+        goto end;
+    }
+
+    if (address >= 0)
+    {
+        if (! atj213x_i2c_write_byte(iface, address))
+        {
+            ret = 2;
+            goto end;
+        }
+    }
+
+    /* write data */
+    while (len--)
+    {
+        if (! atj213x_i2c_write_byte(iface, *data++))
+        {
+            ret = 4;
+            goto end;
+        }
+    }
+
+    /* STOP */
+    if (! atj213x_i2c_stop(iface))
+    {
+        ret = 5;
+    }
+
+end:
+    mutex_unlock(&i2c_mtx[iface]);
+
+    return ret;
+}

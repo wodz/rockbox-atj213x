@@ -47,13 +47,7 @@ void atj213x_timer_irq_clear(unsigned timer_nr)
 
 void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms, void (*cb)(void))
 {
-    uint32_t corepllfreq = (CMU_COREPLL & 0x3f) * 6000000;
-    uint32_t cclkdiv = ((CMU_BUSCLK >> 2) & 0x03) + 1;
-    uint32_t sclkdiv = ((CMU_BUSCLK >> 4) & 0x03) + 1;
-    uint32_t pclkdiv = ((CMU_BUSCLK >> 8) & 0x0f);
-    pclkdiv = pclkdiv ? (pclkdiv + 1) : 2;
-
-    uint32_t pclkfreq = ((corepllfreq/cclkdiv)/sclkdiv)/pclkdiv;
+    uint32_t pclkfreq = atj213x_get_pclk();
 
     unsigned int old_irq = disable_irq_save();
 
