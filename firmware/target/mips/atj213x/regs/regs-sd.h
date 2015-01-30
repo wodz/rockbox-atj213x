@@ -33,28 +33,206 @@
  * Address: 0
  * SCT: no
  */
-#define SD_CTL  (*(volatile unsigned long *)(REGS_SD_BASE + 0x0))
+#define SD_CTL                              (*(volatile unsigned long *)(REGS_SD_BASE + 0x0))
+#define BP_SD_CTL_RESERVED31_11             11
+#define BM_SD_CTL_RESERVED31_11             0xfffff800
+#define BF_SD_CTL_RESERVED31_11(v)          (((v) << 11) & 0xfffff800)
+/* Field: RESE
+ * Description: Built-in Pull up resistance enable */
+#define BP_SD_CTL_RESE                      10
+#define BM_SD_CTL_RESE                      0x400
+#define BF_SD_CTL_RESE(v)                   (((v) << 10) & 0x400)
+#define BP_SD_CTL_RESERVED9                 9
+#define BM_SD_CTL_RESERVED9                 0x200
+#define BF_SD_CTL_RESERVED9(v)              (((v) << 9) & 0x200)
+/* Field: CLKS
+ * Description: SD MMC output pad CLK select */
+#define BP_SD_CTL_CLKS                      8
+#define BM_SD_CTL_CLKS                      0x100
+#define BV_SD_CTL_CLKS__CLK_CEB6            0x0
+#define BV_SD_CTL_CLKS__CLK_CEB2            0x1
+#define BF_SD_CTL_CLKS(v)                   (((v) << 8) & 0x100)
+#define BF_SD_CTL_CLKS_V(v)                 ((BV_SD_CTL_CLKS__##v << 8) & 0x100)
+/* Field: EN
+ * Description: SD Enable */
+#define BP_SD_CTL_EN                        7
+#define BM_SD_CTL_EN                        0x80
+#define BF_SD_CTL_EN(v)                     (((v) << 7) & 0x80)
+#define BP_SD_CTL_BSEL                      6
+#define BM_SD_CTL_BSEL                      0x40
+#define BV_SD_CTL_BSEL__BUS                 0x0
+#define BV_SD_CTL_BSEL__DMA                 0x1
+#define BF_SD_CTL_BSEL(v)                   (((v) << 6) & 0x40)
+#define BF_SD_CTL_BSEL_V(v)                 ((BV_SD_CTL_BSEL__##v << 6) & 0x40)
+#define BP_SD_CTL_RESERVED5_2               2
+#define BM_SD_CTL_RESERVED5_2               0x3c
+#define BF_SD_CTL_RESERVED5_2(v)            (((v) << 2) & 0x3c)
+#define BP_SD_CTL_BUSWID                    0
+#define BM_SD_CTL_BUSWID                    0x3
+#define BV_SD_CTL_BUSWID__WIDTH_1BIT        0x0
+#define BV_SD_CTL_BUSWID__WIDTH_4BIT        0x1
+#define BV_SD_CTL_BUSWID__WIDTH_8BIT        0x2
+#define BV_SD_CTL_BUSWID__WIDTH_RESERVED    0x3
+#define BF_SD_CTL_BUSWID(v)                 (((v) << 0) & 0x3)
+#define BF_SD_CTL_BUSWID_V(v)               ((BV_SD_CTL_BUSWID__##v << 0) & 0x3)
 
 /**
  * Register: SD_CMDRSP
  * Address: 0x4
  * SCT: no
  */
-#define SD_CMDRSP   (*(volatile unsigned long *)(REGS_SD_BASE + 0x4))
+#define SD_CMDRSP                       (*(volatile unsigned long *)(REGS_SD_BASE + 0x4))
+#define BP_SD_CMDRSP_RESERVED31_6       6
+#define BM_SD_CMDRSP_RESERVED31_6       0xffffffc0
+#define BF_SD_CMDRSP_RESERVED31_6(v)    (((v) << 6) & 0xffffffc0)
+/* Field: RB
+ * Description: Ready or Busy status */
+#define BP_SD_CMDRSP_RB                 5
+#define BM_SD_CMDRSP_RB                 0x20
+#define BV_SD_CMDRSP_RB__IDLE           0x0
+#define BV_SD_CMDRSP_RB__BUSY           0x1
+#define BF_SD_CMDRSP_RB(v)              (((v) << 5) & 0x20)
+#define BF_SD_CMDRSP_RB_V(v)            ((BV_SD_CMDRSP_RB__##v << 5) & 0x20)
+#define BP_SD_CMDRSP_RSP2               4
+#define BM_SD_CMDRSP_RSP2               0x10
+#define BF_SD_CMDRSP_RSP2(v)            (((v) << 4) & 0x10)
+#define BP_SD_CMDRSP_RSP3               3
+#define BM_SD_CMDRSP_RSP3               0x8
+#define BF_SD_CMDRSP_RSP3(v)            (((v) << 3) & 0x8)
+#define BP_SD_CMDRSP_NRSP               2
+#define BM_SD_CMDRSP_NRSP               0x4
+#define BF_SD_CMDRSP_NRSP(v)            (((v) << 2) & 0x4)
+#define BP_SD_CMDRSP_RSP1               1
+#define BM_SD_CMDRSP_RSP1               0x2
+#define BF_SD_CMDRSP_RSP1(v)            (((v) << 1) & 0x2)
+/* Field: STAT
+ * Description: CMD Responds Status */
+#define BP_SD_CMDRSP_STAT               0
+#define BM_SD_CMDRSP_STAT               0x1
+#define BV_SD_CMDRSP_STAT__RSP_OK       0x0
+#define BV_SD_CMDRSP_STAT__NO_RSP       0x1
+#define BF_SD_CMDRSP_STAT(v)            (((v) << 0) & 0x1)
+#define BF_SD_CMDRSP_STAT_V(v)          ((BV_SD_CMDRSP_STAT__##v << 0) & 0x1)
 
 /**
  * Register: SD_RW
  * Address: 0x8
  * SCT: no
  */
-#define SD_RW   (*(volatile unsigned long *)(REGS_SD_BASE + 0x8))
+#define SD_RW                       (*(volatile unsigned long *)(REGS_SD_BASE + 0x8))
+#define BP_SD_RW_RESERVED31_17      17
+#define BM_SD_RW_RESERVED31_17      0xfffe0000
+#define BF_SD_RW_RESERVED31_17(v)   (((v) << 17) & 0xfffe0000)
+/* Field: FC16
+ * Description: CRC16 check */
+#define BP_SD_RW_FC16               16
+#define BM_SD_RW_FC16               0x10000
+#define BV_SD_RW_FC16__ENABLE       0x0
+#define BV_SD_RW_FC16__DISABLE      0x1
+#define BF_SD_RW_FC16(v)            (((v) << 16) & 0x10000)
+#define BF_SD_RW_FC16_V(v)          ((BV_SD_RW_FC16__##v << 16) & 0x10000)
+/* Field: STWR
+ * Description: Start Write */
+#define BP_SD_RW_STWR               15
+#define BM_SD_RW_STWR               0x8000
+#define BV_SD_RW_STWR__END          0x0
+#define BV_SD_RW_STWR__START        0x1
+#define BF_SD_RW_STWR(v)            (((v) << 15) & 0x8000)
+#define BF_SD_RW_STWR_V(v)          ((BV_SD_RW_STWR__##v << 15) & 0x8000)
+#define BP_SD_RW_RESERVED14_10      10
+#define BM_SD_RW_RESERVED14_10      0x7c00
+#define BF_SD_RW_RESERVED14_10(v)   (((v) << 10) & 0x7c00)
+/* Field: WCEF
+ * Description: Write CRC status End Flag */
+#define BP_SD_RW_WCEF               9
+#define BM_SD_RW_WCEF               0x200
+#define BF_SD_RW_WCEF(v)            (((v) << 9) & 0x200)
+/* Field: WCST
+ * Description: Write CRC Status */
+#define BP_SD_RW_WCST               8
+#define BM_SD_RW_WCST               0x100
+#define BF_SD_RW_WCST(v)            (((v) << 8) & 0x100)
+/* Field: STRD
+ * Description: Start Read */
+#define BP_SD_RW_STRD               7
+#define BM_SD_RW_STRD               0x80
+#define BF_SD_RW_STRD(v)            (((v) << 7) & 0x80)
+#define BP_SD_RW_RCST               6
+#define BM_SD_RW_RCST               0x40
+#define BF_SD_RW_RCST(v)            (((v) << 6) & 0x40)
+#define BP_SD_RW_RESERVED5_1        1
+#define BM_SD_RW_RESERVED5_1        0x3e
+#define BF_SD_RW_RESERVED5_1(v)     (((v) << 1) & 0x3e)
+/* Field: RWST
+ * Description: Read Write Status flag */
+#define BP_SD_RW_RWST               0
+#define BM_SD_RW_RWST               0x1
+#define BF_SD_RW_RWST(v)            (((v) << 0) & 0x1)
 
 /**
  * Register: SD_FIFOCTL
  * Address: 0xc
  * SCT: no
  */
-#define SD_FIFOCTL  (*(volatile unsigned long *)(REGS_SD_BASE + 0xc))
+#define SD_FIFOCTL                      (*(volatile unsigned long *)(REGS_SD_BASE + 0xc))
+#define BP_SD_FIFOCTL_RESERVED31_11     11
+#define BM_SD_FIFOCTL_RESERVED31_11     0xfffff800
+#define BF_SD_FIFOCTL_RESERVED31_11(v)  (((v) << 11) & 0xfffff800)
+/* Field: BLOC
+ * Description: SD DMA block mode Enable */
+#define BP_SD_FIFOCTL_BLOC              10
+#define BM_SD_FIFOCTL_BLOC              0x400
+#define BV_SD_FIFOCTL_BLOC__DEMAND      0x0
+#define BV_SD_FIFOCTL_BLOC__BLOCK       0x1
+#define BF_SD_FIFOCTL_BLOC(v)           (((v) << 10) & 0x400)
+#define BF_SD_FIFOCTL_BLOC_V(v)         ((BV_SD_FIFOCTL_BLOC__##v << 10) & 0x400)
+#define BP_SD_FIFOCTL_EMPTY             9
+#define BM_SD_FIFOCTL_EMPTY             0x200
+#define BF_SD_FIFOCTL_EMPTY(v)          (((v) << 9) & 0x200)
+#define BP_SD_FIFOCTL_MODE              8
+#define BM_SD_FIFOCTL_MODE              0x100
+#define BV_SD_FIFOCTL_MODE__DMA         0x0
+#define BV_SD_FIFOCTL_MODE__CPU         0x1
+#define BF_SD_FIFOCTL_MODE(v)           (((v) << 8) & 0x100)
+#define BF_SD_FIFOCTL_MODE_V(v)         ((BV_SD_FIFOCTL_MODE__##v << 8) & 0x100)
+#define BP_SD_FIFOCTL_DRQF              7
+#define BM_SD_FIFOCTL_DRQF              0x80
+#define BF_SD_FIFOCTL_DRQF(v)           (((v) << 7) & 0x80)
+/* Field: RST
+ * Description: FIFO reset. Write 1 to reset. */
+#define BP_SD_FIFOCTL_RST               6
+#define BM_SD_FIFOCTL_RST               0x40
+#define BF_SD_FIFOCTL_RST(v)            (((v) << 6) & 0x40)
+/* Field: THRH
+ * Description: DRQ Threshold */
+#define BP_SD_FIFOCTL_THRH              4
+#define BM_SD_FIFOCTL_THRH              0x30
+#define BV_SD_FIFOCTL_THRH__THR_12_16   0x0
+#define BV_SD_FIFOCTL_THRH__THR_10_16   0x1
+#define BV_SD_FIFOCTL_THRH__THR_8_16    0x2
+#define BV_SD_FIFOCTL_THRH__THR_4_16    0x3
+#define BF_SD_FIFOCTL_THRH(v)           (((v) << 4) & 0x30)
+#define BF_SD_FIFOCTL_THRH_V(v)         ((BV_SD_FIFOCTL_THRH__##v << 4) & 0x30)
+/* Field: FULL
+ * Description: Full flag (write 1 clear) */
+#define BP_SD_FIFOCTL_FULL              3
+#define BM_SD_FIFOCTL_FULL              0x8
+#define BF_SD_FIFOCTL_FULL(v)           (((v) << 3) & 0x8)
+/* Field: IRQP
+ * Description: FIFO IRQ Pending */
+#define BP_SD_FIFOCTL_IRQP              2
+#define BM_SD_FIFOCTL_IRQP              0x4
+#define BF_SD_FIFOCTL_IRQP(v)           (((v) << 2) & 0x4)
+/* Field: IRQE
+ * Description: FIFO IRQ enable (for CPU interrupt)  */
+#define BP_SD_FIFOCTL_IRQE              1
+#define BM_SD_FIFOCTL_IRQE              0x2
+#define BF_SD_FIFOCTL_IRQE(v)           (((v) << 1) & 0x2)
+/* Field: DRQE
+ * Description: FIFO DRQ enable (for DMA )  */
+#define BP_SD_FIFOCTL_DRQE              0
+#define BM_SD_FIFOCTL_DRQE              0x1
+#define BF_SD_FIFOCTL_DRQE(v)           (((v) << 0) & 0x1)
 
 /**
  * Register: SD_CMD
@@ -100,13 +278,30 @@
  * Address: 0x34
  * SCT: no
  */
-#define SD_CLK  (*(volatile unsigned long *)(REGS_SD_BASE + 0x34))
+#define SD_CLK                      (*(volatile unsigned long *)(REGS_SD_BASE + 0x34))
+#define BP_SD_CLK_RESERVED31_8      8
+#define BM_SD_CLK_RESERVED31_8      0xffffff00
+#define BF_SD_CLK_RESERVED31_8(v)   (((v) << 8) & 0xffffff00)
+#define BP_SD_CLK_INITCLKNUM        1
+#define BM_SD_CLK_INITCLKNUM        0xfe
+#define BF_SD_CLK_INITCLKNUM(v)     (((v) << 1) & 0xfe)
+/* Field: SNDC
+ * Description: Send Clock (autoclear to 0 when finished) */
+#define BP_SD_CLK_SNDC              0
+#define BM_SD_CLK_SNDC              0x1
+#define BF_SD_CLK_SNDC(v)           (((v) << 0) & 0x1)
 
 /**
  * Register: SD_BYTECNT
  * Address: 0x38
  * SCT: no
  */
-#define SD_BYTECNT  (*(volatile unsigned long *)(REGS_SD_BASE + 0x38))
+#define SD_BYTECNT                      (*(volatile unsigned long *)(REGS_SD_BASE + 0x38))
+#define BP_SD_BYTECNT_RESERVED31_16     16
+#define BM_SD_BYTECNT_RESERVED31_16     0xffff0000
+#define BF_SD_BYTECNT_RESERVED31_16(v)  (((v) << 16) & 0xffff0000)
+#define BP_SD_BYTECNT_BYTECNT           0
+#define BM_SD_BYTECNT_BYTECNT           0xffff
+#define BF_SD_BYTECNT_BYTECNT(v)        (((v) << 0) & 0xffff)
 
 #endif /* __HEADERGEN__ATJ213X__SD__H__ */
