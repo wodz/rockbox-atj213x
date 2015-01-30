@@ -115,6 +115,11 @@ void ll_dma_start(unsigned int chan)
 {
     dma_reset(chan);
     dma_setup(chan, &dma_ll[chan].ll->hwinfo);
+
+    if (dma_ll[chan].callback)
+        (*dma_ll[chan].callback)();
+
+    /* discard_dcache_range() */
     dma_ll[chan].ll = dma_ll[chan].ll->next;
     dma_tcirq_enable(chan);
     dma_start(chan);
@@ -140,6 +145,7 @@ void INT_DMA(void)
         if (dma_ll[chan].callback)
             (*dma_ll[chan].callback)();
 
+        /* discard_dcache_range() */
         dma_ll[chan].ll = dma_ll[chan].ll->next;
         dma_tcirq_ack(chan);
         dma_start(chan);

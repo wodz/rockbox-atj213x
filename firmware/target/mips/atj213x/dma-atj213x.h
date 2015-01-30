@@ -23,6 +23,9 @@
 
 #include "kernel.h"
 
+/* 20 bits so 1 Mb - 1 */
+#define DMA_MAX_XFER_SIZE 0xfffff
+
 /* data to setup DMAC hardware */
 struct dma_hwinfo_t {
     uint32_t src;

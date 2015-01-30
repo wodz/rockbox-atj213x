@@ -57,3 +57,67 @@ bool sdc_card_present(void)
 {
     return !atj213x_gpio_get(GPIO_PORTB, 22);
 }
+
+/* called between DMA channel setup
+ * and DMA channel start
+ */
+static void sdc_dma_rd_callback(void)
+{
+    // TODO remove magic values
+    SD_BYTECNT = size;
+    SD_FIFOCTL = 0x259;
+    SD_RW = 0x3c0;
+}
+
+void sdc_dma_rd(void *buf, int size)
+{
+    /* This allows for ~4MB chained transfer */
+    static struct ll_dma_t sd_ll[4];
+    int xsize;
+    unsigned int mode = BF_DMAC_DMA_MODE_DDIR_V(INCREASE) |
+                        BF_DMAC_DMA_MODE_SFXA_V(FIXED) |
+                        BF_DMAC_DMA_MODE_STRG_V(SD);
+
+    /* dma mode depends on dst address (dram/iram)
+     * and buffer alignment
+     */
+    if (iram) // TODO
+        mode |= BF_DMAC_DMA_MODE_DTRG_V(IRAM);
+    else
+        mode |= BF_DMAC_DMA_MODE_DTRG_V(DRAM);
+
+    if (((unsigned int)buf & 3) == 0)
+        mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32);
+    else if (((unsigned int)buf & 3) == 2)
+        mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH16);
+    else
+        mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH8);
+
+    for (i=0; i<4; i++)
+    {
+        xsize = MIN(size, DMA_MAX_XFER_SIZE);
+        sd_ll[i].hwinfo.dst = PHYSADDR((uint32_t)buf);
+        sd_ll[i].hwinfo.src = PHYSADDR((uint32_t)&SD_DAT);
+        sd_ll[i].hwinfo.mode = mode;
+        sd_ll[i].hwinfo.size = xsize;
+
+        size -= xsize;
+        buf = (void *)((char *)buf + xsize);
+        sd_ll[].next = (size) ? &sd_ll[i+1] : NULL;
+
+        if (size == 0)
+            break;
+    }
+
+    if (size)
+    {
+        /* requested transfer is bigger then we can handle */
+        panicf("sdc_dma_rd(): can't transfer that much!");
+    }
+
+    ll_dma_setup(DMA_CH_SD, struct ll_dma_t *ll,
+                 sdc_dma_rd_callback, &sd_semaphore);
+    ll_dma_start(DMA_CH_SD);
+
+    semaphore_wait(&sd_semaphore, TIMEOUT_BLOCK);
+}
