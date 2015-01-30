@@ -132,7 +132,7 @@ static inline void restore_interrupt(int status)
 }
 
 /* linux kernel does rather sophisticated things here
- * so maybe we will need a well
+ * so maybe we will need as well
  */
 static inline void core_sleep(void)
 {
@@ -142,9 +142,14 @@ static inline void core_sleep(void)
                 );
 }
 
+static inline unsigned int atj213x_get_coreclk(void)
+{
+    return (CMU_COREPLL & 0x3f) * 6000000;
+}
+
 static inline unsigned int atj213x_get_pclk(void)
 {
-    uint32_t corepllfreq = (CMU_COREPLL & 0x3f) * 6000000;
+    uint32_t corepllfreq = atj213x_get_coreclk();
     uint32_t cclkdiv = ((CMU_BUSCLK >> 2) & 0x03) + 1;
     uint32_t sclkdiv = ((CMU_BUSCLK >> 4) & 0x03) + 1;
     uint32_t pclkdiv = ((CMU_BUSCLK >> 8) & 0x0f);
