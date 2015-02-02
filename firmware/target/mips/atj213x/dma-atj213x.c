@@ -119,7 +119,7 @@ void ll_dma_start(unsigned int chan)
     if (dma_ll[chan].callback)
         (*dma_ll[chan].callback)();
 
-    /* discard_dcache_range() */
+    commit_discard_dcache();
     dma_ll[chan].ll = dma_ll[chan].ll->next;
     dma_tcirq_enable(chan);
     dma_start(chan);
@@ -145,7 +145,7 @@ void INT_DMA(void)
         if (dma_ll[chan].callback)
             (*dma_ll[chan].callback)();
 
-        /* discard_dcache_range() */
+        commit_discard_dcache();
         dma_ll[chan].ll = dma_ll[chan].ll->next;
         dma_tcirq_ack(chan);
         dma_start(chan);
