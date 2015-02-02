@@ -144,8 +144,8 @@ do {                                         \
 
 #define SYNC_WB() __asm__ __volatile__ ("sync")
 #else
-#define INVALIDATE_BTB() do { while(0) }
-#define SYNC_WB() do { while(0) }
+#define INVALIDATE_BTB() do { } while(0)
+#define SYNC_WB() do { } while(0)
 #endif
 #define __CACHE_OP(op, addr)                 \
     __asm__ __volatile__(                    \
