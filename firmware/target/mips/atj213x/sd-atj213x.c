@@ -121,3 +121,96 @@ void sdc_dma_rd(void *buf, int size)
 
     semaphore_wait(&sd_semaphore, TIMEOUT_BLOCK);
 }
+
+void sdc_dma_wr(void *buf, int size)
+{
+}
+
+struct sd_cmd_t {
+    uint32_t cmd;
+    enum sd_rsp_t rsp;
+};
+
+struct sd_rspdat_t {
+    uint32_t response[4];
+    void *data;
+    bool rd;
+};
+
+int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
+                 struct sd_rspdat_t *rspdat, int datlen)
+{
+    unsigned long tmo = current_tick + HZ;
+    unsigned int cmdrsp;
+    struct sd_cmd_t *sd = &sd_cmd_table[cmd];
+
+    if (sd->opcode > 256)
+        sdc_send_cmd(SD_APP_CMD, card_info.rca, rspdat, 0);
+
+    SD_ARG = arg;
+    SD_CMD = (sd->cmd % 256);
+
+    /* this sets bit0 to clear STAT and mark response type */
+    switch (sd->rsp)
+    {
+        case SD_RSP_NRSP:
+            cmdrsp = 0x05;
+            break;
+
+        case SD_RSP_R1:
+        case SD_RSP_R6:
+            cmdrsp = 0x03;
+            break;
+
+        case SD_RSP_R2:
+            cmdrsp = 0x11;
+            break;
+
+        case SD_RSP_R3:
+            cmdrsp = 0x09;
+            break;
+
+        default:
+            panicf("Invalid SD response requested: 0x%0x", sd->rsp);
+    }
+
+    /* prepare transfer to sd in case of wr data command */
+    if (rspdat->data && datlen > 0 && !rspdat->rd)
+        sdc_dma_wr(rspdat->data, datlen);
+
+    SD_CMDRSP = cmdrsp;
+
+    /* command finish wait */
+    while (SD_CMDRSP & cmdrsp)
+        if (TIME_AFTER(current_tick, tmo))
+            return -1; /// error code?
+
+    if (sd->rsp != SD_RSP_NRSP)
+    {
+        /* check CRC */
+        if (sd->rsp == SD_RSP_R1)
+        {
+            crc7 = SD_CRC7;
+            rescrc = SD_RSPBUF(0) & 0xff;
+
+            if (crc7 ^ rescrc)
+                panicf("Invalid SD CRC: 0x%02x != 0x%02x", rescrc, crc7);
+        }
+
+        if (sd->rsp == SD_RSP_R2)
+        {
+            rspdat->response[0] = SD_RSPBUF(3);
+            rspdat->response[1] = SD_RSPBUF(2);
+            rspdat->response[2] = SD_RSPBUF(1);
+            rspdat->response[3] = SD_RSPBUF(0);
+        }
+        else
+        {
+            rspdat->response[0] = (SD_RSPBUF(1)<<24) | (SD_RSPBUF(0)>>8);
+        }
+    }
+
+    /* data stage */
+    if (rspdat->data && datlen > 0 && rspdat->rd)
+        sdc_dma_rd(rspdat->data, datlen);
+}
