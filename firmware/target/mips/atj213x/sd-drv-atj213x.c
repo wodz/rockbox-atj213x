@@ -26,6 +26,8 @@ void sdc_init(void)
 
     /* B22 sd detect active low */
     atj213x_gpio_setup(GPIO_PORTB, 22, GPIO_IN);
+
+    semaphore_init(&sd_semaphore, 1, 0);
 }
 
 void sdc_set_speed(unsigned sdfreq)
