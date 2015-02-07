@@ -19,6 +19,12 @@
  *
  ****************************************************************************/
 
+#define SDMMC_INFO(drive) sdmmc_card_info[drive]
+#define SDMMC_RCA(drive) SDMMC_INFO(drive).rca
+#define SDMMC_CSD(drive) SDMMC_INFO(drive).csd
+#define SDMMC_CID(drive) SDMMC_INFO(drive).cid
+#define SDMMC_SPEED(drive) SDMMC_INFO(drive).speed
+
 static tCardInfo sdmmc_card_info[SDMMC_NUM_DRIVES];
 static int disk_last_activity[SDMMC_NUM_DRIVES];
 
@@ -26,14 +32,14 @@ static long sdmmc_stack[(DEFAULT_STACK_SIZE*2 + 0x200)/sizeof(long)];
 static const char sdmmc_thread_name[] = "sdmmc";
 static struct event_queue sdmmc_queue;
 
-int sd_wait_for_state(state)
+int sd_wait_for_state(int drive, unsigned state)
 {
     int retry = 50;
     struct sd_rspdat_t rspdat;
 
     while (retry-- > 0)
     {
-        sdc_send_cmd(SD_SEND_STATUS, card_info.rca, &rspdat, 0);
+        sdc_send_cmd(drive, SD_SEND_STATUS, SDMMC_RCA(drive), &rspdat, 0);
 
         if (((rspdat.response[1] >> 9) & 0xf) == state)
              return 0;
@@ -44,84 +50,89 @@ int sd_wait_for_state(state)
     return -1;
 }
 
-int sd_card_init(void)
+int sd_card_init(int drive)
 {
     bool sd_v2 = false;
     uint32_t arg;
     uint8_t buf[64];
     struct sd_rspdat_t rspdat;
+    long init_tmo;
 
     rspdat.data = buf;
 		
     /* bomb out if the card is not present */
-    if (!sdc_card_present())
+    if (!sdc_card_present(drive))
         return -1;
 
     /* init at max 400kHz */
     sdc_set_speed(400000);
 
-    sdc_send_cmd(SD_GO_IDLE_STATE, 0, &rspdat, 0);
+    sdc_send_cmd(drive, SD_GO_IDLE_STATE, 0, &rspdat, 0);
 
     /* CMD8 Check for v2 sd card. Must be sent before using ACMD41
      * Non v2 cards will not respond to this command
      * bit [7:1] are crc, bit0 is 1
      */
-    sdc_send_cmd(SD_SEND_IF_COND, 0x1AA, &rspdat, 0);
+    sdc_send_cmd(drive, SD_SEND_IF_COND, 0x1AA, &rspdat, 0);
 
     if ((rspdat.response[1] & 0xfff) == 0x1aa)
         sd_v2 = true;
 
     arg = sd_v2 ? 0x40FF8000 : 0x00FF8000;
 
-    /* 2s init timeout */
-    while ((card_info.ocr & 0x80000000) == 0)
-    {
+    /* 1s init timeout according to SD spec 2.0 */
+    init_tmo = current_tick + HZ;
+    do {
+        if(TIME_AFTER(current_tick, init_tmo))
+            return -2;
+
         /* ACMD41 For v2 cards set HCS bit[30] & send host voltage range to all */
-	sdc_send_cmd(SD_APP_OP_COND, arg, &rspdat, 0);
-	card_info.ocr = rspdat.response[1];
-    }
+	sdc_send_cmd(drive, SD_APP_OP_COND, arg, &rspdat, 0);
+	SDMMC_OCR(drive) = rspdat.response[1];
+    } while ((SDMMC_OCR(drive) & 0x80000000) == 0)
 
-    sdc_send_cmd(SD_ALL_SEND_CID, 0, &rspdat, 0);
-    card_info.cid[1] = rspdat.response[1];
-    card_info.cid[2] = rspdat.response[2];
-    card_info.cid[3] = rspdat.response[3];
-    card_info.cid[4] = rspdat.response[4];
 
-    sdc_send_cmd(SDLIB.CMD.SEND_RELATIVE_ADDR, 0, &rspdat, 0);
-    card_info.rca = rspdat.response[1];
+    sdc_send_cmd(drive, SD_ALL_SEND_CID, 0, &rspdat, 0);
+    SDMMC_CID(drive)[1] = rspdat.response[1];
+    SDMMC_CID(drive)[2] = rspdat.response[2];
+    SDMMC_CID(drive)[3] = rspdat.response[3];
+    SDMMC_CID(drive)[4] = rspdat.response[4];
+
+    sdc_send_cmd(drive, SD_SEND_RELATIVE_ADDR, 0, &rspdat, 0);
+    SDMMC_RCA(drive) = rspdat.response[1];
 
     /* End of Card Identification Mode */
 
-    sdc_send_cmd(SD_SEND_CSD, SDLIB.card_info.rca, &rspdat, 0);
-    card_info.csd[1] = rspdat.response[1];
-    card_info.csd[2] = rspdat.response[2];
-    card_info.csd[3] = rspdat.response[3];
-    card_info.csd[4] = rspdat.response[4];
+    sdc_send_cmd(drive, SD_SEND_CSD, SDMMC_RCA(drive), &rspdat, 0);
+    SDMMC_CSD(drive)[1] = rspdat.response[1];
+    SDMMC_CSD(drive)[2] = rspdat.response[2];
+    SDMMC_CSD(drive)[3] = rspdat.response[3];
+    SDMMC_CSD(drive)[4] = rspdat.response[4];
 
-    sd_parse_csd(&card_info);
+    sd_parse_csd(&SDMMC_INFO(drive));
 
-    sdc_send_cmd(SD_SELECT_CARD, card_info.rca, &rspdat, 0);
+    sdc_send_cmd(drive, SD_SELECT_CARD, SDMMC_RCA(drive), &rspdat, 0);
 
     /* wait for tran state */
-    if (sd_wait_for_state(SD_STS_TRAN))
+    if (sd_wait_for_state(drive, SD_STS_TRAN))
         return -2;
 
     /* switch card to 4bit interface
      * TODO: add some configuration here
      */
-    sdc_send_cmd(SDLIB.CMD.SET_BUS_WIDTH, 2, rspdat, 0);
+    sdc_send_cmd(drive, SD_SET_BUS_WIDTH, 2, &rspdat, 0);
     sdc_set_bus_width(4);
 
     /* disconnect the pull-up resistor on CD/DAT3 */
-    sdc_send_cmd(SDLIB.CMD.SET_CLR_CARD_DETECT, 0, rspdat, 0);
+    sdc_send_cmd(drive, SD_SET_CLR_CARD_DETECT, 0, &rspdat, 0);
 
     /* try switching to HS timing, non-HS cards seems to ignore this
      * the command returns 64bytes of data
      */
-    sdc_send_cmd(SDLIB.CMD.SWITCH_FUNC, 0x80fffff1, rspdat, 64);
+    sdc_send_cmd(drive, SD_SWITCH_FUNC, 0x80fffff1, &rspdat, 64);
 
     /* rise SD clock */
-    sdc_set_speed(card_info.speed);
+    sdc_set_speed(SDMMC_SPEED(drive));
 
     return 0;
 }
