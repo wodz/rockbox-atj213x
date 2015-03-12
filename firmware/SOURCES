@@ -1653,6 +1653,8 @@ target/mips/atj213x/lcm-atj213x.c
 target/mips/atj213x/backlight-atj213x.c
 target/mips/atj213x/wdt-atj213x.c
 target/mips/atj213x/dma-atj213x.c
+target/mips/atj213x/sdlib.c
+target/mips/atj213x/sd-drv-atj213x.c
 #endif
 
 #if defined(RK27_GENERIC)

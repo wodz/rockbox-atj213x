@@ -1,6 +1,34 @@
+/***************************************************************************
+ *             __________               __   ___.
+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *                     \/            \/     \/    \/            \/
+ *
+ * Copyright (C) 2015 by Marcin Bukat
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ****************************************************************************/
+
+#include "system.h"
+#include "semaphore.h"
+#include "panic.h"
+#include "sdlib.h"
 #include "gpio-atj213x.h"
+#include "dma-atj213x.h"
+#include "regs/regs-dmac.h"
 #include "regs/regs-cmu.h"
 #include "regs/regs-sd.h"
+
+static struct semaphore sd_semaphore;
 
 void sdc_init(void)
 {
@@ -35,10 +63,10 @@ void sdc_set_speed(unsigned sdfreq)
     unsigned int corefreq = atj213x_get_coreclk();
     unsigned int sddiv = (corefreq + sdfreq - 1)/sdfreq;
 
-    if (sddive > 15)
+    if (sddiv > 15)
     {
         /* when low clock is needed during initialization */
-        sddiv = ((corefreq/128) + freq - 1)/freq;
+        sddiv = ((corefreq/128) + sdfreq - 1)/sdfreq;
         sddiv |= BM_CMU_SDCLK_D128;
     }
 
@@ -63,19 +91,24 @@ bool sdc_card_present(void)
 /* called between DMA channel setup
  * and DMA channel start
  */
-static void sdc_dma_rd_callback(void)
+static void sdc_dma_rd_callback(struct ll_dma_t *ll)
 {
     // TODO remove magic values
-    SD_BYTECNT = size;
+    SD_BYTECNT = ll->hwinfo.cnt;
     SD_FIFOCTL = 0x259;
     SD_RW = 0x3c0;
 }
 
-void sdc_dma_rd(void *buf, int size)
+static bool iram_address(void *buf)
+{
+    return (PHYSADDR((uint32_t)buf) >= 0x14040000);
+}
+
+static void sdc_dma_rd(void *buf, int size)
 {
     /* This allows for ~4MB chained transfer */
     static struct ll_dma_t sd_ll[4];
-    int xsize;
+    int i, xsize;
     unsigned int mode = BF_DMAC_DMA_MODE_DDIR_V(INCREASE) |
                         BF_DMAC_DMA_MODE_SFXA_V(FIXED) |
                         BF_DMAC_DMA_MODE_STRG_V(SD);
@@ -83,10 +116,10 @@ void sdc_dma_rd(void *buf, int size)
     /* dma mode depends on dst address (dram/iram)
      * and buffer alignment
      */
-    if (iram) // TODO
+    if (iram_address(buf))
         mode |= BF_DMAC_DMA_MODE_DTRG_V(IRAM);
     else
-        mode |= BF_DMAC_DMA_MODE_DTRG_V(DRAM);
+        mode |= BF_DMAC_DMA_MODE_DTRG_V(SDRAM);
 
     if (((unsigned int)buf & 3) == 0)
         mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32);
@@ -101,11 +134,11 @@ void sdc_dma_rd(void *buf, int size)
         sd_ll[i].hwinfo.dst = PHYSADDR((uint32_t)buf);
         sd_ll[i].hwinfo.src = PHYSADDR((uint32_t)&SD_DAT);
         sd_ll[i].hwinfo.mode = mode;
-        sd_ll[i].hwinfo.size = xsize;
+        sd_ll[i].hwinfo.cnt = xsize;
 
         size -= xsize;
         buf = (void *)((char *)buf + xsize);
-        sd_ll[].next = (size) ? &sd_ll[i+1] : NULL;
+        sd_ll[i].next = (size) ? &sd_ll[i+1] : NULL;
 
         if (size == 0)
             break;
@@ -117,63 +150,51 @@ void sdc_dma_rd(void *buf, int size)
         panicf("sdc_dma_rd(): can't transfer that much!");
     }
 
-    ll_dma_setup(DMA_CH_SD, struct ll_dma_t *ll,
+    ll_dma_setup(DMA_CH_SD, sd_ll,
                  sdc_dma_rd_callback, &sd_semaphore);
     ll_dma_start(DMA_CH_SD);
 
     semaphore_wait(&sd_semaphore, TIMEOUT_BLOCK);
 }
 
-void sdc_dma_wr(void *buf, int size)
+static void sdc_dma_wr(void *buf, int size)
 {
+    (void)buf;
+    (void)size;
 }
-
-struct sd_cmd_t {
-    uint32_t cmd;
-    enum sd_rsp_t rsp;
-};
-
-struct sd_rspdat_t {
-    uint32_t response[4];
-    void *data;
-    bool rd;
-};
 
 int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
                  struct sd_rspdat_t *rspdat, int datlen)
 {
     unsigned long tmo = current_tick + HZ;
-    unsigned int cmdrsp;
-    struct sd_cmd_t *sd = &sd_cmd_table[cmd];
-
-    if (sd->opcode > 256)
-        sdc_send_cmd(SD_APP_CMD, card_info.rca, rspdat, 0);
+    unsigned int cmdrsp, crc7, rescrc;
+    unsigned rsp = SDLIB_RSP(cmd);
 
     SD_ARG = arg;
-    SD_CMD = (sd->cmd % 256);
+    SD_CMD = SDLIB_CMD(cmd);
 
     /* this sets bit0 to clear STAT and mark response type */
-    switch (sd->rsp)
+    switch (rsp)
     {
-        case SD_RSP_NRSP:
+        case SDLIB_RSP_NRSP:
             cmdrsp = 0x05;
             break;
 
-        case SD_RSP_R1:
-        case SD_RSP_R6:
+        case SDLIB_RSP_R1:
+        case SDLIB_RSP_R6:
             cmdrsp = 0x03;
             break;
 
-        case SD_RSP_R2:
+        case SDLIB_RSP_R2:
             cmdrsp = 0x11;
             break;
 
-        case SD_RSP_R3:
+        case SDLIB_RSP_R3:
             cmdrsp = 0x09;
             break;
 
         default:
-            panicf("Invalid SD response requested: 0x%0x", sd->rsp);
+            panicf("Invalid SD response requested: 0x%0x", rsp);
     }
 
     /* prepare transfer to sd in case of wr data command */
@@ -187,10 +208,10 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
         if (TIME_AFTER(current_tick, tmo))
             return -1; /// error code?
 
-    if (sd->rsp != SD_RSP_NRSP)
+    if (rsp != SDLIB_RSP_NRSP)
     {
         /* check CRC */
-        if (sd->rsp == SD_RSP_R1)
+        if (rsp == SDLIB_RSP_R1)
         {
             crc7 = SD_CRC7;
             rescrc = SD_RSPBUF(0) & 0xff;
@@ -199,7 +220,7 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
                 panicf("Invalid SD CRC: 0x%02x != 0x%02x", rescrc, crc7);
         }
 
-        if (sd->rsp == SD_RSP_R2)
+        if (rsp == SDLIB_RSP_R2)
         {
             rspdat->response[0] = SD_RSPBUF(3);
             rspdat->response[1] = SD_RSPBUF(2);

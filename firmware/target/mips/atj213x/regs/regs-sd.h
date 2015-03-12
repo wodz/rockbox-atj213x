@@ -260,6 +260,7 @@
  * Address: 0x1c 0x20 0x24 0x28 0x2c
  * SCT: no
  */
+#define SD_RSPBUF(x) (*(volatile unsigned long *)(REGS_SD_BASE + 0x1c + 4*(x)))
 #define SD_RSPBUF0  (*(volatile unsigned long *)(REGS_SD_BASE + 0x1c))
 #define SD_RSPBUF1  (*(volatile unsigned long *)(REGS_SD_BASE + 0x20))
 #define SD_RSPBUF2  (*(volatile unsigned long *)(REGS_SD_BASE + 0x24))

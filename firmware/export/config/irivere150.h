@@ -11,8 +11,9 @@
 #define HAVE_FLASH_STORAGE
 
 /* define this if the flash memory uses the SecureDigital Memory Card protocol */
-#define CONFIG_STORAGE (STORAGE_SD | STORAGE_MMC)
-#define NUM_DRIVES 2
+#define CONFIG_STORAGE STORAGE_SD
+#define NUM_DRIVES 1
+#define SDMMC_NUM_DRIVES NUM_DRIVES
 
 /* define this if you have a bitmap LCD display */
 #define HAVE_LCD_BITMAP

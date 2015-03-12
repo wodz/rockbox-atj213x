@@ -19,27 +19,56 @@
  *
  ****************************************************************************/
 
+#include "config.h"
+#include "system.h"
+#include "panic.h"
+#include "disk.h"
+#include "usb.h"
+#include "ata_idle_notify.h"
+#include "led.h"
+#include "sdmmc.h"
+#include "sdlib.h"
+
+#ifdef HAVE_MULTIDRIVE
 #define SDMMC_INFO(drive) sdmmc_card_info[drive]
+#else
+#define SDMMC_INFO(drive) sdmmc_card_info[0]
+#endif
+
 #define SDMMC_RCA(drive) SDMMC_INFO(drive).rca
 #define SDMMC_CSD(drive) SDMMC_INFO(drive).csd
 #define SDMMC_CID(drive) SDMMC_INFO(drive).cid
+#define SDMMC_OCR(drive) SDMMC_INFO(drive).ocr
 #define SDMMC_SPEED(drive) SDMMC_INFO(drive).speed
 
 static tCardInfo sdmmc_card_info[SDMMC_NUM_DRIVES];
 static int disk_last_activity[SDMMC_NUM_DRIVES];
+static struct mutex sdmmc_mtx[SDMMC_NUM_DRIVES];
 
 static long sdmmc_stack[(DEFAULT_STACK_SIZE*2 + 0x200)/sizeof(long)];
 static const char sdmmc_thread_name[] = "sdmmc";
 static struct event_queue sdmmc_queue;
 
-int sd_wait_for_state(int drive, unsigned state)
+static int sdlib_send_cmd(IF_MD(int drive,) const uint32_t cmd, const uint32_t arg,
+                        struct sd_rspdat_t *rspdat, int datlen)
+{
+    if (SDLIB_ACMD(cmd))
+    {
+        if (sdc_send_cmd(IF_MD(drive,) SDLIB_APP_CMD, SDMMC_RCA(drive), rspdat, 0) != 0)
+            return -1;
+    }
+
+    return sdc_send_cmd(IF_MD(drive,) cmd, arg, rspdat, datlen);
+}
+
+int sd_wait_for_state(IF_MD(int drive,) unsigned state)
 {
     int retry = 50;
     struct sd_rspdat_t rspdat;
 
     while (retry-- > 0)
     {
-        sdc_send_cmd(drive, SD_SEND_STATUS, SDMMC_RCA(drive), &rspdat, 0);
+        sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_STATUS, SDMMC_RCA(drive), &rspdat, 0);
 
         if (((rspdat.response[1] >> 9) & 0xf) == state)
              return 0;
@@ -50,30 +79,33 @@ int sd_wait_for_state(int drive, unsigned state)
     return -1;
 }
 
-int sd_card_init(int drive)
+int sd_card_init(IF_MD(int drive))
 {
     bool sd_v2 = false;
     uint32_t arg;
     uint8_t buf[64];
-    struct sd_rspdat_t rspdat;
+    struct sd_rspdat_t rspdat = {
+        .response = {0,0,0,0},
+        .data = buf,
+        .rd = true
+    };
+
     long init_tmo;
 
-    rspdat.data = buf;
-		
     /* bomb out if the card is not present */
-    if (!sdc_card_present(drive))
+    if (!sdc_card_present(IF_MD(drive)))
         return -1;
 
     /* init at max 400kHz */
     sdc_set_speed(400000);
 
-    sdc_send_cmd(drive, SD_GO_IDLE_STATE, 0, &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_GO_IDLE_STATE, 0, &rspdat, 0);
 
     /* CMD8 Check for v2 sd card. Must be sent before using ACMD41
      * Non v2 cards will not respond to this command
      * bit [7:1] are crc, bit0 is 1
      */
-    sdc_send_cmd(drive, SD_SEND_IF_COND, 0x1AA, &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_IF_COND, 0x1AA, &rspdat, 0);
 
     if ((rspdat.response[1] & 0xfff) == 0x1aa)
         sd_v2 = true;
@@ -87,23 +119,23 @@ int sd_card_init(int drive)
             return -2;
 
         /* ACMD41 For v2 cards set HCS bit[30] & send host voltage range to all */
-	sdc_send_cmd(drive, SD_APP_OP_COND, arg, &rspdat, 0);
+	sdlib_send_cmd(IF_MD(drive,) SDLIB_APP_OP_COND, arg, &rspdat, 0);
 	SDMMC_OCR(drive) = rspdat.response[1];
-    } while ((SDMMC_OCR(drive) & 0x80000000) == 0)
+    } while ((SDMMC_OCR(drive) & 0x80000000) == 0);
 
 
-    sdc_send_cmd(drive, SD_ALL_SEND_CID, 0, &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_ALL_SEND_CID, 0, &rspdat, 0);
     SDMMC_CID(drive)[1] = rspdat.response[1];
     SDMMC_CID(drive)[2] = rspdat.response[2];
     SDMMC_CID(drive)[3] = rspdat.response[3];
     SDMMC_CID(drive)[4] = rspdat.response[4];
 
-    sdc_send_cmd(drive, SD_SEND_RELATIVE_ADDR, 0, &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_RELATIVE_ADDR, 0, &rspdat, 0);
     SDMMC_RCA(drive) = rspdat.response[1];
 
     /* End of Card Identification Mode */
 
-    sdc_send_cmd(drive, SD_SEND_CSD, SDMMC_RCA(drive), &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_CSD, SDMMC_RCA(drive), &rspdat, 0);
     SDMMC_CSD(drive)[1] = rspdat.response[1];
     SDMMC_CSD(drive)[2] = rspdat.response[2];
     SDMMC_CSD(drive)[3] = rspdat.response[3];
@@ -111,28 +143,28 @@ int sd_card_init(int drive)
 
     sd_parse_csd(&SDMMC_INFO(drive));
 
-    sdc_send_cmd(drive, SD_SELECT_CARD, SDMMC_RCA(drive), &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SELECT_CARD, SDMMC_RCA(drive), &rspdat, 0);
 
     /* wait for tran state */
-    if (sd_wait_for_state(drive, SD_STS_TRAN))
+    if (sd_wait_for_state(IF_MD(drive,) SDLIB_STS_TRAN))
         return -2;
 
     /* switch card to 4bit interface
      * TODO: add some configuration here
      */
-    sdc_send_cmd(drive, SD_SET_BUS_WIDTH, 2, &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SET_BUS_WIDTH, 2, &rspdat, 0);
     sdc_set_bus_width(4);
 
     /* disconnect the pull-up resistor on CD/DAT3 */
-    sdc_send_cmd(drive, SD_SET_CLR_CARD_DETECT, 0, &rspdat, 0);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SET_CLR_CARD_DETECT, 0, &rspdat, 0);
 
     /* try switching to HS timing, non-HS cards seems to ignore this
      * the command returns 64bytes of data
      */
-    sdc_send_cmd(drive, SD_SWITCH_FUNC, 0x80fffff1, &rspdat, 64);
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SWITCH_FUNC, 0x80fffff1, &rspdat, 64);
 
     /* rise SD clock */
-    sdc_set_speed(SDMMC_SPEED(drive));
+    sdc_set_speed(SDMMC_SPEED(IF_MD(drive)));
 
     return 0;
 }
@@ -191,7 +223,7 @@ static void sdmmc_thread(void)
 #endif /* HAVE_HOTSWAP */
 
         case SYS_TIMEOUT:
-            if (TIME_BEFORE(current_tick, last_disk_activity+(3*HZ)))
+            if (TIME_BEFORE(current_tick, disk_last_activity+(3*HZ)))
             {
                 idle_notified = false;
             }
@@ -205,7 +237,7 @@ static void sdmmc_thread(void)
         case SYS_USB_CONNECTED:
             usb_acknowledge(SYS_USB_CONNECTED_ACK);
             /* Wait until the USB cable is extracted again */
-            usb_wait_for_disconnect(&sd_queue);
+            usb_wait_for_disconnect(&sdmmc_queue);
 
             break;
         }
@@ -215,33 +247,84 @@ static void sdmmc_thread(void)
 #if CONFIG_STORAGE & STORAGE_SD
 int sd_init(void)
 {
-    int ret;
+    int i, rc;
 
     /* initialize controller */
     sdc_init();
 
-    ret = sd_init_card();
-    if(ret < 0)
-        return ret;
+    rc = sd_card_init();
+    if(rc < 0)
+        return rc;
 
     /* init mutex */
-    mutex_init(&sd_mtx);
+    for (i=0; i<SDMMC_NUM_DRIVES; i++)
+        mutex_init(&sdmmc_mtx[i]);
 
-    queue_init(&sd_queue, true);
+    queue_init(&sdmmc_queue, true);
     create_thread(sdmmc_thread, sdmmc_stack, sizeof(sdmmc_stack), 0,
             sdmmc_thread_name IF_PRIO(, PRIORITY_USER_INTERFACE) IF_COP(, CPU));
 
-    return 0;
+    return SDLIB_OK;
 }
 
 int sd_read_sectors(IF_MD(int drive,) unsigned long start, int count,
                     void* buf)
 {
+    int rc = SDLIB_OK;
+    struct sd_rspdat_t rspdat = {
+        .response = {0,0,0,0},
+        .data = buf,
+        .rd = true
+    };
+
+    if (count == 0)
+        return rc;
+
+#ifdef HAVE_MULTIDRIVE
+    mutex_lock(&sdmmc_mtx[drive]);
+#else
+    mutex_lock(&sdmmc_mtx[0]);
+#endif
+
+    if (count < 0 || (start + count > SDMMC_INFO(drive).numblocks))
+        panicf("SD out of bound read request"
+               " start: %ld count: %d while numblocks: %ld",
+               start, count, SDMMC_INFO(drive).numblocks);
+
+    led(true);
+
+    if(!(SDMMC_OCR(drive) & 0x40000000))
+        start = start * 512;    /* not SDHC */
+
+    if(sdlib_send_cmd(IF_MD(drive,) SDLIB_READ_MULTIPLE_BLOCK,
+                      start, &rspdat, count*512) != SDLIB_OK)
+    {
+        SDLIB_ERR(rc, SDLIB_READ_MULTIPLE_BLOCK);
+    }
+
+    if(sdlib_send_cmd(IF_MD(drive,) SDLIB_STOP_TRANSMISSION,
+                      0, &rspdat, 0) != SDLIB_OK)
+    {
+        SDLIB_ERR(rc, SDLIB_STOP_TRANSMISSION);
+    }
+
+    led(false);
+#ifdef HAVE_MULTIDRIVE
+    mutex_unlock(&sdmmc_mtx[drive]);
+#else
+    mutex_unlock(&sdmmc_mtx[0]);
+#endif
+    return rc;
 }
 
 int sd_write_sectors(IF_MD(int drive,) unsigned long start, int count,
                      const void* buf)
 {
+    IF_MD((void)drive;)
+    (void)start;
+    (void)count;
+    (void)buf;
+    return -1;
 }
 
 #ifndef BOOTLOADER
@@ -252,8 +335,7 @@ long sd_last_disk_activity(void)
 
 tCardInfo *card_get_info_target(int card_no)
 {
-    (void)card_no;
-    return &card_info;
+    return &SDMMC_INFO(card_no);
 }
 #endif /* BOOTLOADER */
 
