@@ -47,15 +47,47 @@
 extern void show_logo( void );
 void main(void)
 {
-    unsigned int cnt = 0;
+    unsigned int button = BUTTON_NONE;
     system_init();
     kernel_init();
     lcd_init();
+    button_init();
     backlight_hw_init();
-    show_logo();
+
+    unsigned int test = 0xa1b2c3d4;
+    printf("test: 0x%08x", test);
+    printf("swap32_hw: 0x%08x", swap32_hw(test));
+    printf("swap16_hw: 0x%04x", swap16_hw((short)test));
+    printf("swap_odd_even32_hw: 0x%08x", swap_odd_even32_hw(test));
     while(1)
     {
-        printf("cnt: %d", cnt++);
-        sleep(HZ);
+        button = button_get_w_tmo(HZ);
+        switch (button)
+        {
+            case BUTTON_ON:
+                printf("Button ON");
+                break;
+            case BUTTON_LEFT:
+                printf("Button left");
+                break;
+            case BUTTON_RIGHT:
+                printf("Button right");
+                break;
+            case BUTTON_UP:
+                printf("Button up");
+                break;
+            case BUTTON_DOWN:
+                printf("Button down");
+                break;
+            case BUTTON_SELECT:
+                printf("Button select");
+                break;
+            case BUTTON_VOL_UP:
+                printf("Button vol+");
+                break;
+            case BUTTON_VOL_DOWN:
+                printf("Button vol-");
+                break;
+        }
     }
 }
