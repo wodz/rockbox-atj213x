@@ -26,6 +26,12 @@
 /* 20 bits so 1 Mb - 1 */
 #define DMA_MAX_XFER_SIZE 0xfffff
 
+/* Static dma channels allocation
+ * channels 0-3 use regular AHB bus
+ * channels 4-7 are special DMA bus
+ */
+#define DMA_CH_SD 1
+
 /* data to setup DMAC hardware */
 struct dma_hwinfo_t {
     uint32_t src;
@@ -42,7 +48,7 @@ struct ll_dma_t {
 
 struct ll_dma_ctl_t {
     struct ll_dma_t *ll;
-    void (*callback)(void);
+    void (*callback)(struct ll_dma_t *);
     struct semaphore *semaphore;
 };
 
@@ -53,7 +59,8 @@ void dma_reset(unsigned int chan);
 void dma_tcirq_ack(unsigned int chan);
 void dma_tcirq_enable(unsigned int chan);
 void dma_tcirq_disable(unsigned int chan);
-void ll_dma_setup(unsigned int chan, struct ll_dma_t *ll, void (*cb)(void), struct semaphore *s);
+void ll_dma_setup(unsigned int chan, struct ll_dma_t *ll,
+                  void (*cb)(struct ll_dma_t *), struct semaphore *s);
 void ll_dma_stop(unsigned int chan);
 void ll_dma_start(unsigned int chan);
 

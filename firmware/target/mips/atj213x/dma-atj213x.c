@@ -95,7 +95,7 @@ static unsigned int dma_find_irqpd_chan(void)
 }
 
 void ll_dma_setup(unsigned int chan, struct ll_dma_t *ll,
-                           void (*cb)(void), struct semaphore *s)
+                  void (*cb)(struct ll_dma_t *), struct semaphore *s)
 {
     dma_ll[chan].ll = ll;
     dma_ll[chan].callback = cb;
@@ -117,7 +117,7 @@ void ll_dma_start(unsigned int chan)
     dma_setup(chan, &dma_ll[chan].ll->hwinfo);
 
     if (dma_ll[chan].callback)
-        (*dma_ll[chan].callback)();
+        (*dma_ll[chan].callback)(dma_ll[chan].ll);
 
     commit_discard_dcache();
     dma_ll[chan].ll = dma_ll[chan].ll->next;
@@ -143,7 +143,7 @@ void INT_DMA(void)
         dma_setup(chan, &dma_ll[chan].ll->hwinfo);
 
         if (dma_ll[chan].callback)
-            (*dma_ll[chan].callback)();
+            (*dma_ll[chan].callback)(dma_ll[chan].ll);
 
         commit_discard_dcache();
         dma_ll[chan].ll = dma_ll[chan].ll->next;
