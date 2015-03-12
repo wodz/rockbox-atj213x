@@ -926,7 +926,8 @@ Lyre prototype 1 */
     || (CONFIG_CPU == AS3525) || (CONFIG_CPU == AS3525v2) \
     || defined(CPU_S5L870X) || (CONFIG_CPU == S3C2440) \
     || defined(APPLICATION) || (CONFIG_CPU == PP5002) \
-    || (CONFIG_CPU == RK27XX) || (CONFIG_CPU == IMX233)
+    || (CONFIG_CPU == RK27XX) || (CONFIG_CPU == IMX233) \
+    || (CONFIG_CPU == ATJ213X)
 #define HAVE_SEMAPHORE_OBJECTS
 #endif
 
