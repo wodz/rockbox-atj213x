@@ -23,12 +23,16 @@
 #include "gpio-atj213x.h"
 #include "regs/regs-gpio.h"
 
-static struct mutex muxsel_mtx;
-static unsigned gpio_muxsel_owner = GPIO_MUXSEL_FREE;
-
-void atj213x_gpio_muxsel(unsigned module)
+/* returns previous 'saved' gpio muxsel value
+ * this way you can switch back if needed
+ */
+enum gpio_mux_t atj213x_gpio_muxsel(enum gpio_mux_t module)
 {
+    static enum gpio_mux_t gpio_muxsel = GPIO_MUXSEL_FREE;
+    enum gpio_mux_t gpio_muxsel_save = gpio_muxsel;
+
     uint32_t mfctl0 = GPIO_MFCTL0;
+
     switch (module)
     {
         case GPIO_MUXSEL_LCM:
@@ -49,43 +53,30 @@ void atj213x_gpio_muxsel(unsigned module)
             mfctl0 |= 0x00400449;
             break;
 
-        default:
-            panicf("Wrong gpio muxsel argument");
-    }
+        case GPIO_MUXSEL_FREE:
+            return gpio_muxsel_save;
 
-    atj213x_gpio_mux_lock(module);
+        default:
+            panicf("atj213x_gpio_muxsel() wrong module");
+    }
 
     /* enable multifunction mux */
     GPIO_MFCTL1 = (1<<31);
 
     /* write multifunction mux selection */
     GPIO_MFCTL0 = mfctl0;
+
+    gpio_muxsel = module;
+    return gpio_muxsel_save;
 }
 
-void atj213x_gpio_mux_lock(unsigned module)
-{
-    mutex_lock(&muxsel_mtx);
-    gpio_muxsel_owner = module;
-}
-
-void atj213x_gpio_mux_unlock(unsigned module)
-{
-    if (gpio_muxsel_owner == module)
-    {
-        gpio_muxsel_owner = GPIO_MUXSEL_FREE;
-        mutex_unlock(&muxsel_mtx);
-    }
-    else
-        panicf("atj213x_gpio_mux_unlock() not an owner");
-}
-
-static inline void check_gpio_port_valid(unsigned port)
+static inline void check_gpio_port_valid(enum gpio_port_t port)
 {
     if (port > GPIO_PORTB)
         panicf("atj213x_gpio_setup() invalid port");
 }
 
-void atj213x_gpio_setup(unsigned port, unsigned pin, bool in)
+void atj213x_gpio_setup(enum gpio_port_t port, unsigned pin, bool in)
 {
     check_gpio_port_valid(port);
 
@@ -104,7 +95,7 @@ void atj213x_gpio_setup(unsigned port, unsigned pin, bool in)
     }
 }
 
-void atj213x_gpio_set(unsigned port, unsigned pin, bool val)
+void atj213x_gpio_set(enum gpio_port_t port, unsigned pin, bool val)
 {
     check_gpio_port_valid(port);
 
@@ -116,7 +107,7 @@ void atj213x_gpio_set(unsigned port, unsigned pin, bool val)
         *dat &= ~(1<<pin);
 }
 
-bool atj213x_gpio_get(unsigned port, unsigned pin)
+bool atj213x_gpio_get(enum gpio_port_t port, unsigned pin)
 {
     check_gpio_port_valid(port);
 
