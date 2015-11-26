@@ -52,6 +52,8 @@ static struct event_queue sdmmc_queue;
 static int sdlib_send_cmd(IF_MD(int drive,) const uint32_t cmd, const uint32_t arg,
                         struct sd_rspdat_t *rspdat, int datlen)
 {
+    printf("sdlib_send_cmd(%d, %x, %d)", SDLIB_CMD(cmd), arg, datlen);
+
     if (SDLIB_ACMD(cmd))
     {
         if (sdc_send_cmd(IF_MD(drive,) SDLIB_APP_CMD, SDMMC_RCA(drive), rspdat, 0) != 0)
@@ -70,7 +72,7 @@ int sd_wait_for_state(IF_MD(int drive,) unsigned state)
     {
         sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_STATUS, SDMMC_RCA(drive), &rspdat, 0);
 
-        if (((rspdat.response[1] >> 9) & 0xf) == state)
+        if (((rspdat.response[0] >> 9) & 0xf) == state)
              return 0;
 
         mdelay(100);
@@ -81,7 +83,10 @@ int sd_wait_for_state(IF_MD(int drive,) unsigned state)
 
 int sd_card_init(IF_MD(int drive))
 {
-    bool sd_v2 = false;
+asm volatile("nop");
+asm volatile("nop");
+
+    //bool sd_v2 = false;
     uint32_t arg;
     uint8_t buf[64];
     struct sd_rspdat_t rspdat = {
@@ -94,52 +99,63 @@ int sd_card_init(IF_MD(int drive))
 
     /* bomb out if the card is not present */
     if (!sdc_card_present(IF_MD(drive)))
-        return -1;
+    {
+        //return -1;
+        printf("sd_card_init(): card not present");
+        while(1);
+    }
 
     /* init at max 400kHz */
     sdc_set_speed(400000);
 
     sdlib_send_cmd(IF_MD(drive,) SDLIB_GO_IDLE_STATE, 0, &rspdat, 0);
-
     /* CMD8 Check for v2 sd card. Must be sent before using ACMD41
      * Non v2 cards will not respond to this command
      * bit [7:1] are crc, bit0 is 1
      */
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_IF_COND, 0x1AA, &rspdat, 0);
-
-    if ((rspdat.response[1] & 0xfff) == 0x1aa)
-        sd_v2 = true;
-
-    arg = sd_v2 ? 0x40FF8000 : 0x00FF8000;
+    sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_IF_COND, 0x1aa, &rspdat, 0);
+    if ((rspdat.response[0] & 0xfff) == 0x1aa)
+    {
+        /* v2 card */
+        arg = 0x40FF8000;
+    }
+    else
+    {
+        arg = 0x00FF8000;
+    }
 
     /* 1s init timeout according to SD spec 2.0 */
     init_tmo = current_tick + HZ;
     do {
         if(TIME_AFTER(current_tick, init_tmo))
-            return -2;
+        {
+            printf("SD spec 1s timeout");
+            while(1);
+            //return -2;
+        }
 
         /* ACMD41 For v2 cards set HCS bit[30] & send host voltage range to all */
 	sdlib_send_cmd(IF_MD(drive,) SDLIB_APP_OP_COND, arg, &rspdat, 0);
-	SDMMC_OCR(drive) = rspdat.response[1];
+	SDMMC_OCR(drive) = rspdat.response[0];
     } while ((SDMMC_OCR(drive) & 0x80000000) == 0);
 
 
     sdlib_send_cmd(IF_MD(drive,) SDLIB_ALL_SEND_CID, 0, &rspdat, 0);
+    SDMMC_CID(drive)[0] = rspdat.response[0];
     SDMMC_CID(drive)[1] = rspdat.response[1];
     SDMMC_CID(drive)[2] = rspdat.response[2];
     SDMMC_CID(drive)[3] = rspdat.response[3];
-    SDMMC_CID(drive)[4] = rspdat.response[4];
 
     sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_RELATIVE_ADDR, 0, &rspdat, 0);
-    SDMMC_RCA(drive) = rspdat.response[1];
+    SDMMC_RCA(drive) = rspdat.response[0];
 
     /* End of Card Identification Mode */
 
     sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_CSD, SDMMC_RCA(drive), &rspdat, 0);
+    SDMMC_CSD(drive)[0] = rspdat.response[0];
     SDMMC_CSD(drive)[1] = rspdat.response[1];
     SDMMC_CSD(drive)[2] = rspdat.response[2];
     SDMMC_CSD(drive)[3] = rspdat.response[3];
-    SDMMC_CSD(drive)[4] = rspdat.response[4];
 
     sd_parse_csd(&SDMMC_INFO(drive));
 
@@ -147,7 +163,11 @@ int sd_card_init(IF_MD(int drive))
 
     /* wait for tran state */
     if (sd_wait_for_state(IF_MD(drive,) SDLIB_STS_TRAN))
-        return -2;
+    {
+        printf("wait for tran timeout");
+        while(1);
+        //return -2;
+    }
 
     /* switch card to 4bit interface
      * TODO: add some configuration here
@@ -166,7 +186,10 @@ int sd_card_init(IF_MD(int drive))
     /* rise SD clock */
     sdc_set_speed(SDMMC_SPEED(IF_MD(drive)));
 
+    printf("sd_card_init(): OK");
+
     return 0;
+
 }
 
 static void sdmmc_thread(void) NORETURN_ATTR;
@@ -253,6 +276,7 @@ int sd_init(void)
     sdc_init();
 
     rc = sd_card_init();
+
     if(rc < 0)
         return rc;
 

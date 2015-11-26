@@ -13,48 +13,47 @@ STARTUP(target/mips/atj213x/crt0.o)
 
 MEMORY
 {
-   DRAM : ORIGIN = DRAMORIG, LENGTH = DRAMSIZE
    IRAM : ORIGIN = IRAMORIG, LENGTH = IRAMSIZE
 }
 
 SECTIONS
 {
+    .exception_vectors :
+    {
+        /* vectors needs to be 4k aligned */
+        . = ALIGN(0x1000);
+
+        _iramstart = .;
+        _irqbase = .;
+        KEEP(*(.vectors.tlb_refill));
+        . = _iramstart + 0x100;
+        KEEP(*(.vectors.cache_error));
+        . = _iramstart + 0x180;
+        KEEP(*(.vectors.exception));
+        . = _iramstart + 0x200;
+        KEEP(*(.vectors.interrupt));
+        KEEP(*(.vectors));
+    } > IRAM
+
     .text :
     {
         _relocstart = .;
         *(.init.text);
         *(.text*);
-    } > DRAM
+        *(.icode);
+    } > IRAM
 
     .data :
     {
-        . = ALIGN(4);
+        . = ALIGN(16);
         *(.rodata*);
+        *(.irodata);
         *(.data*);
+        *(.idata);
         *(.sdata*);
         *(.rel.dyn);
-    } > DRAM
+    } > IRAM
 
-    .iram IRAMORIG:
-    {
-        _iramstart = .;
-        _irqbase = .;
-        KEEP(*(.vectors.tlb_refill));
-        . = 0x100;
-        KEEP(*(.vectors.cache_error));
-        . = 0x180;
-        KEEP(*(.vectors.exception));
-        . = 0x200;
-        KEEP(*(.vectors.interrupt));
-        KEEP(*(.vectors));
-
-        *(.icode);
-        *(.irodata);
-        *(.idata);
-
-        _iramend = .;
-    } > IRAM AT> DRAM
-    _iramcopy = LOADADDR(.iram);
 
     .bss (NOLOAD):
     {
@@ -63,17 +62,10 @@ SECTIONS
          _bss_start = .;
          *(.sbss*);
          *(.bss*);
+         *(.ibss*);
          *(COMMON);
          *(.scommon*);
          _bss_end = .;
-    } > DRAM
-
-    .ibss (NOLOAD):
-    {
-        . = ALIGN(4);
-        _ibss_start = .;
-        *(.ibss*);
-        _ibss_end = .;
     } > IRAM
 
     .stack (NOLOAD):

@@ -515,7 +515,7 @@ mips32cc () {
 mips32r2cc () {
  prefixtools mipsel-elf-
  # mips is predefined, but we want it for paths. use __mips instead
- GCCOPTS="$CCOPTS -march=mips32r2 -mno-mips16 -mlong-calls -Umips"
+ GCCOPTS="$CCOPTS -march=mips32r2 -mno-mips16 -mno-long-calls -Umips"
  GCCOPTS="$GCCOPTS -ffunction-sections -msoft-float -G 0"
  GCCOPTIMIZE="-fomit-frame-pointer"
  endian="little"

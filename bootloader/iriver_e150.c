@@ -54,11 +54,15 @@ void main(void)
     button_init();
     backlight_hw_init();
 
-    unsigned int test = 0xa1b2c3d4;
-    printf("test: 0x%08x", test);
-    printf("swap32_hw: 0x%08x", swap32_hw(test));
-    printf("swap16_hw: 0x%04x", swap16_hw((short)test));
-    printf("swap_odd_even32_hw: 0x%08x", swap_odd_even32_hw(test));
+//    show_logo();
+
+//    sleep(HZ*2);
+    int ret = storage_init();
+    lcd_clear_display();
+    lcd_update();
+
+    printf("storage_init(): %d", ret);
+
     while(1)
     {
         button = button_get_w_tmo(HZ);

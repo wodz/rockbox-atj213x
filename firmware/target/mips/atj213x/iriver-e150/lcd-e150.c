@@ -136,12 +136,12 @@ void lcd_init_device(void)
     atj213x_gpio_set(GPIO_PORTA, 16, 1);
     mdelay(10);
 
-    enum gpio_mux_t mux_save = atj213x_gpio_muxsel(GPIO_MUXSEL_LCM);
+    enum gpio_mux_t muxsel_save = atj213x_gpio_muxsel(GPIO_MUXSEL_LCM);
 
     lcm_init();
     hx8347d_init();
 
-    atj213x_gpio_muxsel(mux_save);
+    atj213x_gpio_muxsel(muxsel_save);
 }
 
 void lcd_update_rect(int x, int y, int width, int height)
@@ -154,7 +154,7 @@ void lcd_update_rect(int x, int y, int width, int height)
     end_x = x + width - 1;
     end_y = y + height - 1;
 
-    enum gpio_mux_t mux_save = atj213x_gpio_muxsel(GPIO_MUXSEL_LCM);
+    enum gpio_mux_t muxsel_save = atj213x_gpio_muxsel(GPIO_MUXSEL_LCM);
 
     lcd_set_gram_area(x, y, end_x, end_y); /* set GRAM window */
     lcm_fb_data(); /* prepare for AHB write to fifo */
@@ -166,7 +166,7 @@ void lcd_update_rect(int x, int y, int width, int height)
             YUV2RGB_FIFODATA = *fbptr++;
     }
 
-    atj213x_gpio_muxsel(mux_save);
+    atj213x_gpio_muxsel(muxsel_save);
 }
 
 void lcd_update(void)

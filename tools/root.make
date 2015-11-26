@@ -75,6 +75,9 @@ ifeq (,$(findstring checkwps,$(APP_TYPE)))
       ifeq (arch_arm,$(ARCH))
           include $(ROOTDIR)/lib/unwarminder/unwarminder.make
       endif
+      ifeq (arch_mips,$(ARCH))
+          include $(ROOTDIR)/lib/mipsunwinder/mipsunwinder.make
+      endif
       ifeq (,$(findstring bootloader,$(APPSDIR)))
         include $(ROOTDIR)/lib/skin_parser/skin_parser.make
         include $(ROOTDIR)/lib/tlsf/libtlsf.make

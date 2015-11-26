@@ -112,6 +112,7 @@ core_irq_setup:
     mtc0   t1, C0_CAUSE       # DC=1, IV=1
     mtc0   zero, C0_INTCTL    # VS = 0
 
+#if 0
 iram_copy:
     la     a0, _iramcopy
     la     a1, _iramstart
@@ -122,6 +123,7 @@ iram_copy:
 
     bal    code_copy
     nop
+#endif
 
 clear_bss:
     la     t0, _bss_start
@@ -134,6 +136,7 @@ clear_bss_loop:
     bne    t0, t1, clear_bss_loop
     addiu  t0, 4
 
+#if 0
 clear_ibss:
     la     t0, _ibss_start
     la     t1, _ibss_end
@@ -144,6 +147,7 @@ clear_ibss_loop:
     sw     zero, 0(t0)
     bne    t0, t1, clear_ibss_loop
     addiu  t0, 4
+#endif
 
 stack_setup:
     # setup stack

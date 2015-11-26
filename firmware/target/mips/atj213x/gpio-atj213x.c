@@ -26,10 +26,16 @@
 /* returns previous 'saved' gpio muxsel value
  * this way you can switch back if needed
  */
+enum gpio_mux_t gpio_muxsel[32] = {[0 ... 31] = GPIO_MUXSEL_FREE};
+unsigned muxsel_idx = 31;
+
 enum gpio_mux_t atj213x_gpio_muxsel(enum gpio_mux_t module)
 {
-    static enum gpio_mux_t gpio_muxsel = GPIO_MUXSEL_FREE;
-    enum gpio_mux_t gpio_muxsel_save = gpio_muxsel;
+
+    enum gpio_mux_t gpio_muxsel_save = gpio_muxsel[muxsel_idx-1];
+
+    if (module == gpio_muxsel_save)
+        return gpio_muxsel_save;
 
     uint32_t mfctl0 = GPIO_MFCTL0;
 
@@ -37,23 +43,25 @@ enum gpio_mux_t atj213x_gpio_muxsel(enum gpio_mux_t module)
     {
         case GPIO_MUXSEL_LCM:
             /* taken from WELCOME.BIN */
-            mfctl0 &= 0xfe3f3f00;
-            mfctl0 |= 0x00808092;
-            break;
+            mfctl0 &= 0xfe3f3f00; /* ~((7<<22) | (3<<14) | 0xff) */
+            mfctl0 |= 0x00808092; /* (1<<23) | (1<<15) | (1<<7) | (1<<4) | (1<<1) */
+            break;                /* RGB_RS, WD9, WD0, CEB3 - RGB_CE, RGB_WD[17:10], RGB_WD[8:1] */
 
         case GPIO_MUXSEL_SD:
             /* taken from CARD.DRV */
-            mfctl0 &= 0xff3ffffc;
-            mfctl0 |= 0x01300004;
-            break;
+            mfctl0 &= 0xff3ffffc; /* ~((3<<22) | 0x03) */
+            mfctl0 |= 0x01300004; /* (1<<24) | (1<<21) | (1<<20) | (1<<2) */
+            break;                /* SD_CMD, CEB6 - SDCLK, SD_D[7:0] */
 
         case GPIO_MUXSEL_NAND:
             /* taken from BROM dump */
-            mfctl0 &= 0xfe3ff300;
-            mfctl0 |= 0x00400449;
-            break;
+            mfctl0 &= 0xfe3ff300; /* ~((7<<22) | (3<<10) | 0xff) */
+            mfctl0 |= 0x00400449; /* (1<<22) | (1<<10) | (1<<6) | (1<<3) | 1 */
+            break;                /* NAND_CLE, NAND_RB, NAND_ALE, CEB1 - NAND_CEB1, NAND_D[7:0], NAND_D[15:8] */
 
         case GPIO_MUXSEL_FREE:
+            muxsel_idx = (muxsel_idx + 1) & 0x1f;
+            gpio_muxsel[muxsel_idx] = module;
             return gpio_muxsel_save;
 
         default:
@@ -66,7 +74,9 @@ enum gpio_mux_t atj213x_gpio_muxsel(enum gpio_mux_t module)
     /* write multifunction mux selection */
     GPIO_MFCTL0 = mfctl0;
 
-    gpio_muxsel = module;
+    muxsel_idx = (muxsel_idx + 1) & 0x1f;
+    gpio_muxsel[muxsel_idx] = module;
+
     return gpio_muxsel_save;
 }
 

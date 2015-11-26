@@ -36,9 +36,9 @@ void sdc_init(void)
     CMU_DEVCLKEN |= BM_CMU_DEVCLKEN_SD | BM_CMU_DEVCLKEN_DMAC;
 
     SD_CTL = BM_SD_CTL_RESE |
-             BM_SD_CTL_EN |
+            BM_SD_CTL_EN |
              BF_SD_CTL_BSEL_V(BUS) |
-             BF_SD_CTL_BUSWID_V(WIDTH_4BIT); /* 0x4c1 */
+             BF_SD_CTL_BUSWID_V(WIDTH_4BIT); /* 0x481 */
 
     SD_FIFOCTL = BM_SD_FIFOCTL_EMPTY |
                  BM_SD_FIFOCTL_RST |
@@ -52,21 +52,30 @@ void sdc_init(void)
             BM_SD_RW_WCST |
             BM_SD_RW_RCST; /* 0x340 */
 
+    SD_CMDRSP = 0x10000;
+
+    /* Send 127 dummy clocks to the card */
+    SD_CLK = 0xff;
+
     /* B22 sd detect active low */
     atj213x_gpio_setup(GPIO_PORTB, 22, GPIO_IN);
 
+dump_callstack();
     semaphore_init(&sd_semaphore, 1, 0);
 }
 
 void sdc_set_speed(unsigned sdfreq)
 {
+    if (sdfreq == 0)
+        panicf("sdc_set_speed() called with sdfreq == 0");
+
     unsigned int corefreq = atj213x_get_coreclk();
-    unsigned int sddiv = (corefreq + sdfreq - 1)/sdfreq;
+    unsigned int sddiv = ((corefreq + sdfreq - 1)/sdfreq) - 1;
 
     if (sddiv > 15)
     {
         /* when low clock is needed during initialization */
-        sddiv = ((corefreq/128) + sdfreq - 1)/sdfreq;
+        sddiv = (((corefreq/128) + sdfreq - 1)/sdfreq) - 1;
         sddiv |= BM_CMU_SDCLK_D128;
     }
 
@@ -163,14 +172,28 @@ static void sdc_dma_wr(void *buf, int size)
     (void)size;
 }
 
+extern enum gpio_mux_t gpio_muxsel[];
+extern unsigned muxsel_idx;
+#define CHECK_MUX() \
+    if(gpio_muxsel[muxsel_idx] != GPIO_MUXSEL_SD) \
+        panicf("SD: wrong muxsel %d: %d %d %d %d %d %d %d %d", muxsel_idx, gpio_muxsel[0], gpio_muxsel[1], gpio_muxsel[2], gpio_muxsel[3], gpio_muxsel[4], gpio_muxsel[5], gpio_muxsel[6], gpio_muxsel[7])
+
+#define CHECK_MUX_FREE() \
+    if(gpio_muxsel[muxsel_idx] != GPIO_MUXSEL_FREE) \
+        panicf("SD: muxsel not free %d: %d %d %d %d %d %d %d %d", muxsel_idx, gpio_muxsel[0], gpio_muxsel[1], gpio_muxsel[2], gpio_muxsel[3], gpio_muxsel[4], gpio_muxsel[5], gpio_muxsel[6], gpio_muxsel[7])
+
 int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
                  struct sd_rspdat_t *rspdat, int datlen)
 {
-    unsigned long tmo = current_tick + HZ;
+    unsigned long tmo = current_tick + HZ/5;
     unsigned int cmdrsp, crc7, rescrc;
     unsigned rsp = SDLIB_RSP(cmd);
 
+    enum gpio_mux_t muxsel_save = atj213x_gpio_muxsel(GPIO_MUXSEL_SD);
+
+//CHECK_MUX();
     SD_ARG = arg;
+//CHECK_MUX();
     SD_CMD = SDLIB_CMD(cmd);
 
     /* this sets bit0 to clear STAT and mark response type */
@@ -198,42 +221,63 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
     }
 
     /* prepare transfer to sd in case of wr data command */
-    if (rspdat->data && datlen > 0 && !rspdat->rd)
-        sdc_dma_wr(rspdat->data, datlen);
+//    if (rspdat->data && datlen > 0 && !rspdat->rd)
+//        sdc_dma_wr(rspdat->data, datlen);
 
+//CHECK_MUX();
     SD_CMDRSP = cmdrsp;
 
     /* command finish wait */
-    while (SD_CMDRSP & cmdrsp)
+    do
+    {
         if (TIME_AFTER(current_tick, tmo))
+        {
+//            panicf("sdc_send_cmd: timeout");
             return -1; /// error code?
+        }
+//CHECK_MUX();
+    } while (SD_CMDRSP & cmdrsp);
+
 
     if (rsp != SDLIB_RSP_NRSP)
     {
         /* check CRC */
         if (rsp == SDLIB_RSP_R1)
         {
+//CHECK_MUX();
             crc7 = SD_CRC7;
             rescrc = SD_RSPBUF(0) & 0xff;
 
             if (crc7 ^ rescrc)
+            {
                 panicf("Invalid SD CRC: 0x%02x != 0x%02x", rescrc, crc7);
+//                printf("Invalid SD CRC: 0x%02x != 0x%02x", rescrc, crc7);
+            }
         }
 
         if (rsp == SDLIB_RSP_R2)
         {
+//CHECK_MUX();
             rspdat->response[0] = SD_RSPBUF(3);
             rspdat->response[1] = SD_RSPBUF(2);
             rspdat->response[2] = SD_RSPBUF(1);
             rspdat->response[3] = SD_RSPBUF(0);
+            //printf("rsp: %0x %0x %0x %0x", rspdat->response[0], rspdat->response[1], rspdat->response[2], rspdat->response[3]);
         }
         else
         {
+//CHECK_MUX();
             rspdat->response[0] = (SD_RSPBUF(1)<<24) | (SD_RSPBUF(0)>>8);
+            //printf("rsp: %0x", rspdat->response[0]);
         }
     }
 
     /* data stage */
     if (rspdat->data && datlen > 0 && rspdat->rd)
-        sdc_dma_rd(rspdat->data, datlen);
+        //sdc_dma_rd(rspdat->data, datlen);
+
+//CHECK_MUX();
+    atj213x_gpio_muxsel(muxsel_save);
+//CHECK_MUX_FREE();
+    return 0;
 }
