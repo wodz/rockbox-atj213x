@@ -23,22 +23,12 @@
 #include "gpio-atj213x.h"
 #include "regs/regs-gpio.h"
 
-/* returns previous 'saved' gpio muxsel value
- * this way you can switch back if needed
- */
-enum gpio_mux_t gpio_muxsel[32] = {[0 ... 31] = GPIO_MUXSEL_FREE};
-unsigned muxsel_idx = 31;
+static struct mutex muxsel_mtx;
+static unsigned gpio_muxsel_owner = GPIO_MUXSEL_FREE;
 
-enum gpio_mux_t atj213x_gpio_muxsel(enum gpio_mux_t module)
+void atj213x_gpio_muxsel(unsigned module)
 {
-
-    enum gpio_mux_t gpio_muxsel_save = gpio_muxsel[muxsel_idx-1];
-
-    if (module == gpio_muxsel_save)
-        return gpio_muxsel_save;
-
     uint32_t mfctl0 = GPIO_MFCTL0;
-
     switch (module)
     {
         case GPIO_MUXSEL_LCM:
@@ -59,34 +49,43 @@ enum gpio_mux_t atj213x_gpio_muxsel(enum gpio_mux_t module)
             mfctl0 |= 0x00400449; /* (1<<22) | (1<<10) | (1<<6) | (1<<3) | 1 */
             break;                /* NAND_CLE, NAND_RB, NAND_ALE, CEB1 - NAND_CEB1, NAND_D[7:0], NAND_D[15:8] */
 
-        case GPIO_MUXSEL_FREE:
-            muxsel_idx = (muxsel_idx + 1) & 0x1f;
-            gpio_muxsel[muxsel_idx] = module;
-            return gpio_muxsel_save;
-
         default:
-            panicf("atj213x_gpio_muxsel() wrong module");
+            panicf("Wrong gpio muxsel argument");
     }
+
+    atj213x_gpio_mux_lock(module);
 
     /* enable multifunction mux */
     GPIO_MFCTL1 = (1<<31);
 
     /* write multifunction mux selection */
     GPIO_MFCTL0 = mfctl0;
-
-    muxsel_idx = (muxsel_idx + 1) & 0x1f;
-    gpio_muxsel[muxsel_idx] = module;
-
-    return gpio_muxsel_save;
 }
 
-static inline void check_gpio_port_valid(enum gpio_port_t port)
+void atj213x_gpio_mux_lock(unsigned module)
+{
+    mutex_lock(&muxsel_mtx);
+    gpio_muxsel_owner = module;
+}
+
+void atj213x_gpio_mux_unlock(unsigned module)
+{
+    if (gpio_muxsel_owner == module)
+    {
+        gpio_muxsel_owner = GPIO_MUXSEL_FREE;
+        mutex_unlock(&muxsel_mtx);
+    }
+    else
+        panicf("atj213x_gpio_mux_unlock() not an owner");
+}
+
+static inline void check_gpio_port_valid(unsigned port)
 {
     if (port > GPIO_PORTB)
         panicf("atj213x_gpio_setup() invalid port");
 }
 
-void atj213x_gpio_setup(enum gpio_port_t port, unsigned pin, bool in)
+void atj213x_gpio_setup(unsigned port, unsigned pin, bool in)
 {
     check_gpio_port_valid(port);
 
@@ -105,7 +104,7 @@ void atj213x_gpio_setup(enum gpio_port_t port, unsigned pin, bool in)
     }
 }
 
-void atj213x_gpio_set(enum gpio_port_t port, unsigned pin, bool val)
+void atj213x_gpio_set(unsigned port, unsigned pin, bool val)
 {
     check_gpio_port_valid(port);
 
@@ -117,7 +116,7 @@ void atj213x_gpio_set(enum gpio_port_t port, unsigned pin, bool val)
         *dat &= ~(1<<pin);
 }
 
-bool atj213x_gpio_get(enum gpio_port_t port, unsigned pin)
+bool atj213x_gpio_get(unsigned port, unsigned pin)
 {
     check_gpio_port_valid(port);
 

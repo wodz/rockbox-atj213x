@@ -21,26 +21,28 @@
 #ifndef GPIO_ATJ213X_H
 #define GPIO_ATJ213X_H
  
-enum gpio_mux_t {
+enum {
     GPIO_MUXSEL_FREE = -1,
     GPIO_MUXSEL_LCM,
     GPIO_MUXSEL_SD,
     GPIO_MUXSEL_NAND,
 };
 
-enum gpio_port_t {
+enum {
     GPIO_PORTA,
     GPIO_PORTB
 };
 
-enum gpio_dir_t {
+enum {
     GPIO_OUT,
     GPIO_IN
 };
 
-enum gpio_mux_t atj213x_gpio_muxsel(enum gpio_mux_t module);
-void atj213x_gpio_setup(enum gpio_port_t port, unsigned pin, bool in);
-void atj213x_gpio_set(enum gpio_port_t port, unsigned pin, bool val);
-bool atj213x_gpio_get(enum gpio_port_t port, unsigned pin);
+void atj213x_gpio_muxsel(unsigned module);
+void atj213x_gpio_setup(unsigned module, unsigned pin, bool in);
+void atj213x_gpio_set(unsigned port, unsigned pin, bool val);
+bool atj213x_gpio_get(unsigned port, unsigned pin);
+void atj213x_gpio_mux_lock(unsigned module);
+void atj213x_gpio_mux_unlock(unsigned module);
 
 #endif /* GPIO_ATJ213X_H */
