@@ -1,0 +1,9 @@
+Slightly modyfied version which rips off OSE part and 64bit support.
+
+1) Scan forward until return from function is found
+2) Checks for SP adjustments to figure out stackframe size
+3) Checks for RA restore
+4) Unconditional jumps and branches are followed with the exception of jr rX form since register values are not tracked
+5) Conditional branches are followed both ways starting with NOT TAKEN path
+6) The search is bound to 128 branches, 128 jumps and 2048 instructions when determining stackframe
+

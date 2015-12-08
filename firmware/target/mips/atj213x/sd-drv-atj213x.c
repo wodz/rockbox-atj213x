@@ -60,7 +60,6 @@ void sdc_init(void)
     /* B22 sd detect active low */
     atj213x_gpio_setup(GPIO_PORTB, 22, GPIO_IN);
 
-dump_callstack();
     semaphore_init(&sd_semaphore, 1, 0);
 }
 
@@ -172,16 +171,6 @@ static void sdc_dma_wr(void *buf, int size)
     (void)size;
 }
 
-extern enum gpio_mux_t gpio_muxsel[];
-extern unsigned muxsel_idx;
-#define CHECK_MUX() \
-    if(gpio_muxsel[muxsel_idx] != GPIO_MUXSEL_SD) \
-        panicf("SD: wrong muxsel %d: %d %d %d %d %d %d %d %d", muxsel_idx, gpio_muxsel[0], gpio_muxsel[1], gpio_muxsel[2], gpio_muxsel[3], gpio_muxsel[4], gpio_muxsel[5], gpio_muxsel[6], gpio_muxsel[7])
-
-#define CHECK_MUX_FREE() \
-    if(gpio_muxsel[muxsel_idx] != GPIO_MUXSEL_FREE) \
-        panicf("SD: muxsel not free %d: %d %d %d %d %d %d %d %d", muxsel_idx, gpio_muxsel[0], gpio_muxsel[1], gpio_muxsel[2], gpio_muxsel[3], gpio_muxsel[4], gpio_muxsel[5], gpio_muxsel[6], gpio_muxsel[7])
-
 int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
                  struct sd_rspdat_t *rspdat, int datlen)
 {
@@ -189,7 +178,7 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
     unsigned int cmdrsp, crc7, rescrc;
     unsigned rsp = SDLIB_RSP(cmd);
 
-    enum gpio_mux_t muxsel_save = atj213x_gpio_muxsel(GPIO_MUXSEL_SD);
+    atj213x_gpio_muxsel(GPIO_MUXSEL_SD);
 
 //CHECK_MUX();
     SD_ARG = arg;
@@ -217,6 +206,7 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
             break;
 
         default:
+            atj213x_gpio_mux_unlock(GPIO_MUXSEL_SD);
             panicf("Invalid SD response requested: 0x%0x", rsp);
     }
 
@@ -250,6 +240,7 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
 
             if (crc7 ^ rescrc)
             {
+                atj213x_gpio_mux_unlock(GPIO_MUXSEL_SD);
                 panicf("Invalid SD CRC: 0x%02x != 0x%02x", rescrc, crc7);
 //                printf("Invalid SD CRC: 0x%02x != 0x%02x", rescrc, crc7);
             }
@@ -277,7 +268,7 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
         //sdc_dma_rd(rspdat->data, datlen);
 
 //CHECK_MUX();
-    atj213x_gpio_muxsel(muxsel_save);
+    atj213x_gpio_mux_unlock(GPIO_MUXSEL_SD);
 //CHECK_MUX_FREE();
     return 0;
 }

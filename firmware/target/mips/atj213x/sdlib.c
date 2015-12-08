@@ -52,8 +52,6 @@ static struct event_queue sdmmc_queue;
 static int sdlib_send_cmd(IF_MD(int drive,) const uint32_t cmd, const uint32_t arg,
                         struct sd_rspdat_t *rspdat, int datlen)
 {
-    printf("sdlib_send_cmd(%d, %x, %d)", SDLIB_CMD(cmd), arg, datlen);
-
     if (SDLIB_ACMD(cmd))
     {
         if (sdc_send_cmd(IF_MD(drive,) SDLIB_APP_CMD, SDMMC_RCA(drive), rspdat, 0) != 0)
@@ -83,9 +81,6 @@ int sd_wait_for_state(IF_MD(int drive,) unsigned state)
 
 int sd_card_init(IF_MD(int drive))
 {
-asm volatile("nop");
-asm volatile("nop");
-
     //bool sd_v2 = false;
     uint32_t arg;
     uint8_t buf[64];
@@ -113,7 +108,10 @@ asm volatile("nop");
      * Non v2 cards will not respond to this command
      * bit [7:1] are crc, bit0 is 1
      */
+
     sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_IF_COND, 0x1aa, &rspdat, 0);
+while(1);
+
     if ((rspdat.response[0] & 0xfff) == 0x1aa)
     {
         /* v2 card */

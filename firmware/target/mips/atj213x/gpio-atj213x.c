@@ -23,10 +23,9 @@
 #include "gpio-atj213x.h"
 #include "regs/regs-gpio.h"
 
-static struct mutex muxsel_mtx;
-static unsigned gpio_muxsel_owner = GPIO_MUXSEL_FREE;
+static int gpio_muxsel_owner = GPIO_MUXSEL_FREE;
 
-void atj213x_gpio_muxsel(unsigned module)
+void atj213x_gpio_muxsel(int module)
 {
     uint32_t mfctl0 = GPIO_MFCTL0;
     switch (module)
@@ -62,21 +61,37 @@ void atj213x_gpio_muxsel(unsigned module)
     GPIO_MFCTL0 = mfctl0;
 }
 
-void atj213x_gpio_mux_lock(unsigned module)
+void atj213x_gpio_mux_lock(int module)
 {
-    mutex_lock(&muxsel_mtx);
+    long tmo = current_tick + HZ/10;
+    int owner_save;
+
+    while (gpio_muxsel_owner != GPIO_MUXSEL_FREE)
+    {
+        if (TIME_AFTER(current_tick, tmo))
+        {
+            owner_save = gpio_muxsel_owner;
+            gpio_muxsel_owner = GPIO_MUXSEL_FREE;
+            panicf("atj213x_gpio_mux_lock(%d) timeout, owner: %d",
+                   module, owner_save);
+        }
+        yield();
+    }
     gpio_muxsel_owner = module;
 }
 
-void atj213x_gpio_mux_unlock(unsigned module)
+void atj213x_gpio_mux_unlock(int module)
 {
-    if (gpio_muxsel_owner == module)
+    int owner_save;
+
+    if (gpio_muxsel_owner != module)
     {
+        owner_save = gpio_muxsel_owner;
         gpio_muxsel_owner = GPIO_MUXSEL_FREE;
-        mutex_unlock(&muxsel_mtx);
+        panicf("atj213x_gpio_mux_unlock(%d) not lock owner: %d",
+               module, owner_save);
     }
-    else
-        panicf("atj213x_gpio_mux_unlock() not an owner");
+    gpio_muxsel_owner = GPIO_MUXSEL_FREE;
 }
 
 static inline void check_gpio_port_valid(unsigned port)
