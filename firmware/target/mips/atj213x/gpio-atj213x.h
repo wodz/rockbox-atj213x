@@ -41,6 +41,7 @@ enum {
 void atj213x_gpio_muxsel(int module);
 void atj213x_gpio_mux_lock(int module);
 void atj213x_gpio_mux_unlock(int module);
+void atj213x_gpio_mux_reset(void);
 
 void atj213x_gpio_setup(unsigned port, unsigned pin, bool in);
 void atj213x_gpio_set(unsigned port, unsigned pin, bool val);

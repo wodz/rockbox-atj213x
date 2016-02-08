@@ -59,25 +59,29 @@ void atj213x_gpio_muxsel(int module)
 
     /* write multifunction mux selection */
     GPIO_MFCTL0 = mfctl0;
+    udelay(10);
 }
 
 void atj213x_gpio_mux_lock(int module)
 {
-    long tmo = current_tick + HZ/10;
-    int owner_save;
-
-    while (gpio_muxsel_owner != GPIO_MUXSEL_FREE)
+    int retry = 512;
+    while (retry--)
     {
-        if (TIME_AFTER(current_tick, tmo))
+        int irq_save = disable_irq_save();
+        if (gpio_muxsel_owner == GPIO_MUXSEL_FREE)
         {
-            owner_save = gpio_muxsel_owner;
-            gpio_muxsel_owner = GPIO_MUXSEL_FREE;
-            panicf("atj213x_gpio_mux_lock(%d) timeout, owner: %d",
-                   module, owner_save);
+            gpio_muxsel_owner = module;
+            restore_irq(irq_save);
+            return;
         }
+        restore_irq(irq_save);
         yield();
     }
-    gpio_muxsel_owner = module;
+
+    int owner_save = gpio_muxsel_owner;
+    gpio_muxsel_owner = GPIO_MUXSEL_FREE;
+    panicf("atj213x_gpio_mux_lock(%d) timeout, owner: %d",
+           module, owner_save);
 }
 
 void atj213x_gpio_mux_unlock(int module)
@@ -91,6 +95,11 @@ void atj213x_gpio_mux_unlock(int module)
         panicf("atj213x_gpio_mux_unlock(%d) not lock owner: %d",
                module, owner_save);
     }
+    gpio_muxsel_owner = GPIO_MUXSEL_FREE;
+}
+
+void atj213x_gpio_mux_reset(void)
+{
     gpio_muxsel_owner = GPIO_MUXSEL_FREE;
 }
 
