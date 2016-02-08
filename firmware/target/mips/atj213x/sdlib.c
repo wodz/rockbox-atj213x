@@ -26,13 +26,17 @@
 #include "usb.h"
 #include "ata_idle_notify.h"
 #include "led.h"
-#include "sdmmc.h"
 #include "sdlib.h"
 
+#include "dma-atj213x.h"
+#include "regs/regs-dmac.h"
+
 #ifdef HAVE_MULTIDRIVE
-#define SDMMC_INFO(drive) sdmmc_card_info[drive]
+#define SDMMC_INFO(drive) sdmmc_card_info[drive].info
+#define SDMMC_FLAGS(drive) sdmmc_card_info[drive].flags
 #else
-#define SDMMC_INFO(drive) sdmmc_card_info[0]
+#define SDMMC_INFO(drive) sdmmc_card_info[0].info
+#define SDMMC_FLAGS(drive) sdmmc_card_info[0].flags
 #endif
 
 #define SDMMC_RCA(drive) SDMMC_INFO(drive).rca
@@ -41,7 +45,7 @@
 #define SDMMC_OCR(drive) SDMMC_INFO(drive).ocr
 #define SDMMC_SPEED(drive) SDMMC_INFO(drive).speed
 
-static tCardInfo sdmmc_card_info[SDMMC_NUM_DRIVES];
+static struct sdlib_card_info_t sdmmc_card_info[SDMMC_NUM_DRIVES];
 static int disk_last_activity[SDMMC_NUM_DRIVES];
 static struct mutex sdmmc_mtx[SDMMC_NUM_DRIVES];
 
@@ -81,9 +85,8 @@ int sd_wait_for_state(IF_MD(int drive,) unsigned state)
 
 int sd_card_init(IF_MD(int drive))
 {
-    //bool sd_v2 = false;
     uint32_t arg;
-    uint8_t buf[64];
+    uint8_t buf[64] __attribute__((aligned(4)));
     struct sd_rspdat_t rspdat = {
         .response = {0,0,0,0},
         .data = buf,
@@ -95,27 +98,31 @@ int sd_card_init(IF_MD(int drive))
     /* bomb out if the card is not present */
     if (!sdc_card_present(IF_MD(drive)))
     {
-        //return -1;
-        printf("sd_card_init(): card not present");
-        while(1);
+        return -1;
     }
 
     /* init at max 400kHz */
     sdc_set_speed(400000);
 
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_GO_IDLE_STATE, 0, &rspdat, 0);
+    sdc_card_reset();
+
+    /* CMD0 Software reset card */
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_GO_IDLE_STATE,
+                       0, &rspdat, 0) != SDLIB_OK)
+    {
+        return -2;
+    }
+
     /* CMD8 Check for v2 sd card. Must be sent before using ACMD41
      * Non v2 cards will not respond to this command
      * bit [7:1] are crc, bit0 is 1
      */
-
     sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_IF_COND, 0x1aa, &rspdat, 0);
-while(1);
-
     if ((rspdat.response[0] & 0xfff) == 0x1aa)
     {
         /* v2 card */
         arg = 0x40FF8000;
+        SDMMC_FLAGS(drive) |= SDLIB_SD_V2;
     }
     else
     {
@@ -127,67 +134,129 @@ while(1);
     do {
         if(TIME_AFTER(current_tick, init_tmo))
         {
-            printf("SD spec 1s timeout");
-            while(1);
-            //return -2;
+            return -3;
         }
 
         /* ACMD41 For v2 cards set HCS bit[30] & send host voltage range to all */
 	sdlib_send_cmd(IF_MD(drive,) SDLIB_APP_OP_COND, arg, &rspdat, 0);
 	SDMMC_OCR(drive) = rspdat.response[0];
+
+        /* Note: do not issue subseqent queries too quickly
+         *  as some cards hangs and start to return CRC errors
+         */
+        udelay(1000);
     } while ((SDMMC_OCR(drive) & 0x80000000) == 0);
 
+    /* CMD2 */
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_ALL_SEND_CID,
+                       0, &rspdat, 0) != SDLIB_OK)
+    {
+        return -4;
+    }
 
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_ALL_SEND_CID, 0, &rspdat, 0);
     SDMMC_CID(drive)[0] = rspdat.response[0];
     SDMMC_CID(drive)[1] = rspdat.response[1];
     SDMMC_CID(drive)[2] = rspdat.response[2];
     SDMMC_CID(drive)[3] = rspdat.response[3];
 
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_RELATIVE_ADDR, 0, &rspdat, 0);
+    /* CMD3 */
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_RELATIVE_ADDR,
+                       0, &rspdat, 0) != SDLIB_OK)
+    {
+        return -5;
+    }
+
     SDMMC_RCA(drive) = rspdat.response[0];
 
     /* End of Card Identification Mode */
 
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_CSD, SDMMC_RCA(drive), &rspdat, 0);
+    /* CMD9 */
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_CSD,
+                       SDMMC_RCA(drive), &rspdat, 0) != SDLIB_OK)
+    {
+        return -6;
+    }
+
     SDMMC_CSD(drive)[0] = rspdat.response[0];
     SDMMC_CSD(drive)[1] = rspdat.response[1];
     SDMMC_CSD(drive)[2] = rspdat.response[2];
     SDMMC_CSD(drive)[3] = rspdat.response[3];
 
-    sd_parse_csd(&SDMMC_INFO(drive));
+    sd_parse_csd(&(SDMMC_INFO(drive)));
 
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_SELECT_CARD, SDMMC_RCA(drive), &rspdat, 0);
+    /* CMD7 */
+    int select_retry = 5;
+    while (select_retry-- &&
+           sdlib_send_cmd(IF_MD(drive,) SDLIB_SELECT_CARD,
+                          SDMMC_RCA(drive), &rspdat, 0) != SDLIB_OK);
+
+    if (select_retry == 0)
+    {
+        return -7;
+    }
 
     /* wait for tran state */
     if (sd_wait_for_state(IF_MD(drive,) SDLIB_STS_TRAN))
     {
-        printf("wait for tran timeout");
-        while(1);
-        //return -2;
+        return -8;
     }
 
-    /* switch card to 4bit interface
+    /* ACMD6 switch card to 4bit interface
      * TODO: add some configuration here
      */
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_SET_BUS_WIDTH, 2, &rspdat, 0);
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_SET_BUS_WIDTH,
+                       2, &rspdat, 0) != SDLIB_OK)
+    {
+        return -9;
+    }
+
     sdc_set_bus_width(4);
 
-    /* disconnect the pull-up resistor on CD/DAT3 */
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_SET_CLR_CARD_DETECT, 0, &rspdat, 0);
+    /* ACMD42 disconnect the pull-up resistor on CD/DAT3 */
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_SET_CLR_CARD_DETECT,
+                       0, &rspdat, 0) != SDLIB_OK)
+    {
+        return -10;
+    }
 
-    /* try switching to HS timing, non-HS cards seems to ignore this
-     * the command returns 64bytes of data
-     */
-    sdlib_send_cmd(IF_MD(drive,) SDLIB_SWITCH_FUNC, 0x80fffff1, &rspdat, 64);
+    if (SDMMC_FLAGS(drive) & SDLIB_SD_V2)
+    {
+        /* CMD6 try switching to HS timing, non-HS cards seems to ignore this.
+         * The command returns 64bytes of data
+         */
+        if (sdlib_send_cmd(IF_MD(drive,) SDLIB_SWITCH_FUNC,
+                           0x80fffff1, &rspdat, 64) == SDLIB_OK)
+        {
+            if ((rspdat.data[16] & 0xf) == 1)
+            {
+                SDMMC_FLAGS(drive) |= SDLIB_SD_HS;
+            }
+        }
+    }
+
+    /* ACMD51 get SCR register */
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_SEND_SCR,
+                       0, &rspdat, 8) != SDLIB_OK)
+    {
+        return -11;
+    }
+
+    if (rspdat.data[3] & 2)
+    {
+        SDMMC_FLAGS(drive) |= SDLIB_SD_CMD23;
+    }
 
     /* rise SD clock */
     sdc_set_speed(SDMMC_SPEED(IF_MD(drive)));
 
-    printf("sd_card_init(): OK");
+    /* Finally deselect the card to enter STBY */
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_DESELECT_CARD,
+                       0, &rspdat, 0) != SDLIB_OK)
+    {
+        return -12;
+    }
 
     return 0;
-
 }
 
 static void sdmmc_thread(void) NORETURN_ATTR;
@@ -292,6 +361,7 @@ int sd_init(void)
 int sd_read_sectors(IF_MD(int drive,) unsigned long start, int count,
                     void* buf)
 {
+    bool stop = true;
     int rc = SDLIB_OK;
     struct sd_rspdat_t rspdat = {
         .response = {0,0,0,0},
@@ -315,22 +385,65 @@ int sd_read_sectors(IF_MD(int drive,) unsigned long start, int count,
 
     led(true);
 
-    if(!(SDMMC_OCR(drive) & 0x40000000))
+    /* I have one particular card which fails to SELECT on the first try
+     * usually seccond attempt is successful, sometimes third
+     */
+    int select_retry = 5;
+    while (--select_retry &&
+           sdlib_send_cmd(IF_MD(drive,) SDLIB_SELECT_CARD,
+                          SDMMC_RCA(drive), &rspdat, 0) != SDLIB_OK) ;
+
+    if (select_retry == 0)
+    {
+        SDLIB_ERR(rc, SDLIB_SELECT_CARD);
+        goto L_end;
+    }
+
+    if (sd_wait_for_state(IF_MD(drive,) SDLIB_STS_TRAN))
+    {
+        goto L_deselect;
+    }
+    
+    /* It is advertised that CMD23 allows cards to perform
+     * internal optimization of transfer scheduling
+     */
+    if(SDMMC_FLAGS(drive) & SDLIB_SD_CMD23)
+    {
+        if (sdlib_send_cmd(IF_MD(drive,) SDLIB_SET_BLOCK_COUNT,
+                           count, &rspdat, 0) == SDLIB_OK)
+        {
+            stop = false;
+        }
+    }
+
+    if(!(SDMMC_OCR(drive) & (1<<30)))
         start = start * 512;    /* not SDHC */
 
     if(sdlib_send_cmd(IF_MD(drive,) SDLIB_READ_MULTIPLE_BLOCK,
-                      start, &rspdat, count*512) != SDLIB_OK)
+                      start, &rspdat, count * 512) != SDLIB_OK)
     {
         SDLIB_ERR(rc, SDLIB_READ_MULTIPLE_BLOCK);
     }
 
-    if(sdlib_send_cmd(IF_MD(drive,) SDLIB_STOP_TRANSMISSION,
-                      0, &rspdat, 0) != SDLIB_OK)
+    if (stop)
     {
-        SDLIB_ERR(rc, SDLIB_STOP_TRANSMISSION);
+        if(sdlib_send_cmd(IF_MD(drive,) SDLIB_STOP_TRANSMISSION,
+                          0, &rspdat, 0) != SDLIB_OK)
+        {
+            SDLIB_ERR(rc, SDLIB_STOP_TRANSMISSION);
+        }
+    }
+
+L_deselect:
+    if (sdlib_send_cmd(IF_MD(drive,) SDLIB_DESELECT_CARD,
+                       0, &rspdat, 0) != SDLIB_OK)
+    {
+        SDLIB_ERR(rc, SDLIB_DESELECT_CARD);
     }
 
     led(false);
+
+L_end:
 #ifdef HAVE_MULTIDRIVE
     mutex_unlock(&sdmmc_mtx[drive]);
 #else
