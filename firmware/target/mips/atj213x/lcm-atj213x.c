@@ -59,6 +59,7 @@ void lcm_fb_data(void)
 void lcm_init(void)
 {
     CMU_DEVCLKEN |= (1<<8)|(1<<1); /* dma clk, lcm clk */
+    udelay(10);
 
     lcm_rs_command();   /* this has side effect of enabling whole block */
     YUV2RGB_CLKCTL = 0x102; /* lcm clock divider */
