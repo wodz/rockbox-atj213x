@@ -170,4 +170,5 @@
 #define BM_GPIO_MFCTL1_RESERVED3_0          0xf
 #define BF_GPIO_MFCTL1_RESERVED3_0(v)       (((v) << 0) & 0xf)
 
+#define GPIO_PADDRV                         (*(volatile unsigned long *)(REGS_GPIO_BASE + 0x88))
 #endif /* __HEADERGEN__ATJ213X__GPIO__H__ */
