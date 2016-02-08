@@ -20,8 +20,10 @@
 
 #include "semaphore.h"
 #include "panic.h"
+#include "intc-atj213x.h"
 #include "dma-atj213x.h"
 #include "regs/regs-dmac.h"
+#include "regs/regs-intc.h"
 
 static volatile struct ll_dma_ctl_t dma_ll[8] = {
     {NULL, NULL, NULL}, {NULL, NULL, NULL},
@@ -40,6 +42,7 @@ void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo)
 
 void dma_start(unsigned int chan)
 {
+    /* DMA kick in */
     DMAC_DMA_CMD(chan) = 1;
 }
 
@@ -58,26 +61,33 @@ bool dma_wait_complete(unsigned int chan, unsigned tmo)
 
 void dma_reset(unsigned int chan)
 {
+    /* Reset DMA channel */
     DMAC_CTL |= (1<<(16+chan));
 }
 
 void dma_tcirq_ack(unsigned int chan)
 {
+    /* Acknowledge DMA transfer complete irq */
     DMAC_IRQPD |= (3<<(chan));
 }
 
 void dma_tcirq_disable(unsigned int chan)
 {
+    /* Disable DMA transfer complete irq */
     DMAC_IRQEN &= ~(1<<chan*2);
 }
 
 void dma_tcirq_enable(unsigned int chan)
 {
+    /* Enable DMA transfer complete irq */
     DMAC_IRQEN |= (1<<chan*2);
 }
 
 static unsigned int dma_find_irqpd_chan(void)
 {
+    /* Find the highest number of DMA channel
+     * which has Transfer complete flag pending
+     */
     unsigned int irqpd = DMAC_IRQPD;
     unsigned int chan = 7;
     unsigned int mask = (1<<14);
@@ -119,9 +129,15 @@ void ll_dma_start(unsigned int chan)
     if (dma_ll[chan].callback)
         (*dma_ll[chan].callback)(dma_ll[chan].ll);
 
+    /* cache coherency */
     commit_discard_dcache();
+
     dma_ll[chan].ll = dma_ll[chan].ll->next;
     dma_tcirq_enable(chan);
+
+    /* enable DMA irq in INTC */
+    atj213x_intc_unmask(BP_INTC_MSK_DMA);
+
     dma_start(chan);
 }
 
@@ -145,7 +161,9 @@ void INT_DMA(void)
         if (dma_ll[chan].callback)
             (*dma_ll[chan].callback)(dma_ll[chan].ll);
 
+        /* cache coherency */
         commit_discard_dcache();
+
         dma_ll[chan].ll = dma_ll[chan].ll->next;
         dma_tcirq_ack(chan);
         dma_start(chan);
