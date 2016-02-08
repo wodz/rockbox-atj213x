@@ -58,10 +58,15 @@ void main(void)
 
 //    sleep(HZ*2);
     int ret = storage_init();
-    lcd_clear_display();
-    lcd_update();
+//    lcd_clear_display();
+//    lcd_update();
 
     printf("storage_init(): %d", ret);
+
+    filesystem_init();
+    ret = disk_mount_all();
+
+    printf("disk_mount_all(): %d", ret);
 
     while(1)
     {

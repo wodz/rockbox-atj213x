@@ -14,6 +14,8 @@
 #define CONFIG_STORAGE STORAGE_SD
 #define NUM_DRIVES 1
 #define SDMMC_NUM_DRIVES NUM_DRIVES
+#define HAVE_FAT16SUPPORT
+#define STORAGE_NEEDS_ALIGN
 
 /* define this if you have a bitmap LCD display */
 #define HAVE_LCD_BITMAP
@@ -129,7 +131,7 @@
  * when running */
 #define HAVE_BATTERY_SWITCH
 
-/* Define this if you have a Motorola SCF5249 */
+/* Define this if you have a Actions ATJ213X SoC */
 #define CONFIG_CPU ATJ213X
 
 /* Define this if you want to use coldfire's i2c interface */
@@ -140,6 +142,8 @@
 #define CPU_FREQ 36000000
 
 #define CONFIG_LCD LCD_HX8347D
+
+#define CONFIG_LED LED_VIRTUAL
 
 /* Define this if you have adjustable CPU frequency */
 /* #define HAVE_ADJUSTABLE_CPU_FREQ */
