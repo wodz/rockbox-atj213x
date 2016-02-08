@@ -59,7 +59,7 @@ SECTIONS
 
     .bss (NOLOAD):
     {
-         . = ALIGN(4);
+         . = ALIGN(16);
          _relocend = .;
          _bss_start = .;
          *(.sbss*);
@@ -71,7 +71,7 @@ SECTIONS
 
     .ibss (NOLOAD):
     {
-        . = ALIGN(4);
+        . = ALIGN(16);
         _ibss_start = .;
         *(.ibss*);
         _ibss_end = .;
