@@ -358,15 +358,16 @@ int sd_init(void)
     return SDLIB_OK;
 }
 
-int sd_read_sectors(IF_MD(int drive,) unsigned long start, int count,
-                    void* buf)
+
+static int sd_xfer(IF_MD(int drive,) unsigned long start, int count,
+                   void* buf, bool rd)
 {
     bool stop = true;
     int rc = SDLIB_OK;
     struct sd_rspdat_t rspdat = {
         .response = {0,0,0,0},
         .data = buf,
-        .rd = true
+        .rd = rd
     };
 
     if (count == 0)
@@ -379,7 +380,7 @@ int sd_read_sectors(IF_MD(int drive,) unsigned long start, int count,
 #endif
 
     if (count < 0 || (start + count > SDMMC_INFO(drive).numblocks))
-        panicf("SD out of bound read request"
+        panicf("SD out of bound read/write request"
                " start: %ld count: %d while numblocks: %ld",
                start, count, SDMMC_INFO(drive).numblocks);
 
@@ -419,7 +420,9 @@ int sd_read_sectors(IF_MD(int drive,) unsigned long start, int count,
     if(!(SDMMC_OCR(drive) & (1<<30)))
         start = start * 512;    /* not SDHC */
 
-    if(sdlib_send_cmd(IF_MD(drive,) SDLIB_READ_MULTIPLE_BLOCK,
+    if(sdlib_send_cmd(IF_MD(drive,)
+                      rd ? SDLIB_READ_MULTIPLE_BLOCK :
+                           SDLIB_WRITE_MULTIPLE_BLOCK,
                       start, &rspdat, count * 512) != SDLIB_OK)
     {
         SDLIB_ERR(rc, SDLIB_READ_MULTIPLE_BLOCK);
@@ -452,14 +455,16 @@ L_end:
     return rc;
 }
 
+int sd_read_sectors(IF_MD(int drive,) unsigned long start, int count,
+                    void* buf)
+{
+    return sd_xfer(IF_MD(drive,) start, count, buf, true);
+}
+
 int sd_write_sectors(IF_MD(int drive,) unsigned long start, int count,
                      const void* buf)
 {
-    IF_MD((void)drive;)
-    (void)start;
-    (void)count;
-    (void)buf;
-    return -1;
+    return sd_xfer(IF_MD(drive,) start, count, (void *)buf, false);
 }
 
 #ifndef BOOTLOADER
