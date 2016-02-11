@@ -48,6 +48,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#include "lcd.h"
 
 #define MAX_STACK_FRAMES 8
 #define MAXBRANCHES 128
@@ -73,14 +75,14 @@ typedef unsigned long address_t;
 extern unsigned long stackbegin[];
 extern unsigned long irqstackend[];
 
-static void __attribute__((used))
-dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
+void __attribute__((used))
+dump_callstack_mips (address_t _pc, address_t _sp, unsigned *line)
 {
     unsigned i, j, k;
-    address_t ra = 0;
+    address_t _ra = 0;
 
     PRINTF ("no: PC SP (fsz)", 0);
-    PRINTF ("0: 0x%lx 0x%lx (?)", pc, sp);
+    PRINTF ("0: 0x%lx 0x%lx (?)", _pc, _sp);
 
 
     for (i = 1; i <= MAX_STACK_FRAMES; i++)
@@ -90,9 +92,9 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
 
         int16_t stk_size = 0;   /* Default no stack frame */
         /* npc because of MIPS delayed branches */
-        address_t npc = pc + 4;
+        address_t _npc = _pc + 4;
         /* nnpc because of simulator updating pc/npc late */
-        address_t nnpc = pc + 8;
+        address_t _nnpc = _pc + 8;
 
         /* Conditional branch history table */
         address_t braddr[MAXBRANCHES];
@@ -108,9 +110,9 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
             uint32_t insn, ninsn;
             uint32_t opcode, subcode;
 
-            READMEM (pc, &insn, sizeof insn);
+            READMEM (_pc, &insn, sizeof insn);
             /* Read potential branch/jump delay slot */
-            READMEM (npc, &ninsn, sizeof ninsn);
+            READMEM (_npc, &ninsn, sizeof ninsn);
             opcode = (insn >> 26) & 0x3F;
             subcode = (insn >> 16) & 0x1F;
 
@@ -119,14 +121,14 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
                 ((insn >> 21) & 0x1F) /* s-reg */  == subcode /* t-reg */ )
             {
                 int32_t offset = 4 * (int16_t) (insn & 0xffff);
-                nnpc = npc + offset;
+                _nnpc = _npc + offset;
                 /* mark that we need to check branch delay slot */
                 branch_jump = true;
             }
             else if ((insn & 0xfc000000) == 0x08000000) /* j target */
             {
                 uint32_t offset = (insn & 0x03ffffff) << 2;
-                nnpc = (pc & 0xfc000000) | offset;
+                _nnpc = (_pc & 0xfc000000) | offset;
                 /* mark that we need to check branch delay slot */
                 branch_jump = true;
             }
@@ -139,14 +141,14 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
                 unsigned k;
                 int32_t broffset = 4 * (int16_t) (insn & 0xffff);
 
-                DBG_PRINTF ("0x%lx: CondBranch (%d)", pc, broffset);
+                DBG_PRINTF ("0x%lx: CondBranch (%d)", _pc, broffset);
                 for (k = 0; k < numbr; k++)
                 {
-                    if ((braddr[k] & ~1) == pc)
+                    if ((braddr[k] & ~1) == _pc)
                     {
                         if ((braddr[k] & 1) == 0)       /* Branch not taken, take it */
                         {
-                            nnpc = npc + broffset;
+                            _nnpc = _npc + broffset;
                             braddr[k] |= 1;
                             DBG_PRINTF ("Taking branch");
                         }
@@ -167,7 +169,7 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
                     if (numbr < MAXBRANCHES)
                     {
                         /* OK, save PC in branch history table */
-                        braddr[numbr] = pc;     /* LSB = 0 */
+                        braddr[numbr] = _pc;     /* LSB = 0 */
                         numbr++;
                         /* FIXME: Skip delay insn for not taken branch likely? */
 
@@ -188,14 +190,14 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
             {
                 /* Save size of stack frame */
                 stk_size = (int16_t) (insn & 0xffff);
-                DBG_PRINTF ("0x%lx: Restore SP (fsz %d)", pc, stk_size);
+                DBG_PRINTF ("0x%lx: Restore SP (fsz %d)", _pc, stk_size);
             }
 
             /* 4: check for stack frame allocate */
             else if ((insn & 0xffff8000) == 0x27bd8000) /* addiu sp,sp,-offset */
             {
                 /* Don't save stk_size! */
-                DBG_PRINTF ("0x%lx: Save SP (fsz %d)", pc, (int16_t) (insn & 0xffff));
+                DBG_PRINTF ("0x%lx: Save SP (fsz %d)", _pc, (int16_t) (insn & 0xffff));
                 if (!branch_jump)
                 {
                     DBG_PRINTF ("Leaf function");
@@ -207,27 +209,27 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
             else if ((insn & 0xffff8000) == 0x8fbf0000) /* lw ra,+offset(sp) */
             {
                 int16_t ra_offset = (int16_t) (insn & 0xffff);
-                READMEM (sp + ra_offset, &ra, sizeof (ra));
-                DBG_PRINTF ("0x%lx: Restore RA (offset %d)", pc, ra_offset);
+                READMEM (_sp + ra_offset, &_ra, sizeof (_ra));
+                DBG_PRINTF ("0x%lx: Restore RA (offset %d)", _pc, ra_offset);
             }
 
             /* 6: check for return */
             else if (insn == 0x03e00008)        /* jr ra */
             {
-                DBG_PRINTF ("0x%lx: Function return", pc);
+                DBG_PRINTF ("0x%lx: Function return", _pc);
 
                 /* 6b: Must check delay slot, may contain stack restore insn */
                 if ((ninsn & 0xffff8000) == 0x27bd0000) /* addiu sp,sp,+offset */
                 {
                     /* Save size of stack frame */
                     stk_size = (int16_t) (ninsn & 0xffff);
-                    DBG_PRINTF ("0x%lx: Restore SP (fsz %d)", npc, stk_size);
+                    DBG_PRINTF ("0x%lx: Restore SP (fsz %d)", _npc, stk_size);
                 }
                 break;
             }
             else if ((insn & ~0x03d00000) == 0x00000008)        /* jr s */
             {
-                DBG_PRINTF ("0x%lx: Jump register!!!", pc);
+                DBG_PRINTF ("0x%lx: Jump register!!!", _pc);
                 break;
             }
 
@@ -238,9 +240,9 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
             {
                 for (k = 0; k < numjp; k++)
                 {
-                    if (jpaddr[k] == pc)
+                    if (jpaddr[k] == _pc)
                     {
-                        DBG_PRINTF ("0x%lx: Found PC in jump history", pc);
+                        DBG_PRINTF ("0x%lx: Found PC in jump history", _pc);
                         DBG_PRINTF ("Potential infinite loop detected", 0);
                         while(1);
                         return;
@@ -252,9 +254,9 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
                     /* Save PC of jump in jump history table */
                     if (numjp < MAXJUMPS)
                     {
-                        jpaddr[k] = pc;
+                        jpaddr[k] = _pc;
                         numjp++;
-                        DBG_PRINTF("0x%lx: Jump/branch", pc);
+                        DBG_PRINTF("0x%lx: Jump/branch", _pc);
                     }
                     else
                     {
@@ -277,11 +279,11 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
             } /* if (check_ninsn) */
 
             /* Update architecture's pc/npc registers */
-            pc = npc;
-            npc = nnpc;
+            _pc = _npc;
+            _npc = _nnpc;
 
             /* Update simulator's nnpc register */
-            nnpc = nnpc + 4;
+            _nnpc = _nnpc + 4;
         }                       /* for instruction */
 
         if (j == MAXINSN)
@@ -291,7 +293,7 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
             return;
         }
 
-        if (ra == 0)
+        if (_ra == 0)
         {
             PRINTF("Invalid return address", 0);
             while(1);
@@ -300,20 +302,20 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
 
 
         /* Unwind to next stack frame */
-        sp += stk_size;
-        pc = ra;
-        ra = 0;
+        _sp += stk_size;
+        _pc = _ra;
+        _ra = 0;
 
-        PRINTF ("%d: 0x%08lx 0x%08lx (%d)", i, pc, sp, stk_size);
+        PRINTF ("%d: 0x%08lx 0x%08lx (%d)", i, _pc, _sp, stk_size);
 
-        if ((pc & 3) != 0)
+        if ((_pc & 3) != 0)
         {
             PRINTF ("Found invalid return address", 0);
             while(1);
             return;
         }
 
-        if (sp < (address_t)stackbegin || sp > (address_t)irqstackend)
+        if (_sp < (address_t)stackbegin || _sp > (address_t)irqstackend)
         {
             DBG_PRINTF("SP out of bounds");
             while(1);
@@ -323,36 +325,16 @@ dump_callstack_mips (address_t pc, address_t sp, unsigned *line)
     }
 }
 
+#if 0
 void dump_callstack(unsigned *line)
 {
     asm volatile (
                   ".set noreorder\n"
-                  "move $a2, $a0\n"
-                  "move $a0, $ra\n"
-                  "j dump_callstack_mips\n"
-                  "move $a1, $sp\n"
-                  ".set reorder\n"
+                  "move a2 , a0 \n"
+                  "move a0 , ra \n"
+                  "j dump_callstack_mips \n"
+                  "move a1 , sp \n"
+                  ".set reorder \n"
     );
-}
-
-#if 0
-/*
-** NOTE! the sp argument is ignored. To make a backtrace, we need not only
-** sp, but also a matching pc and return address. Therefore, current sp
-** is fetched below.
-*/
-void
-dump_callstack (void)
-{
-    address_t current_sp = (address_t) __builtin_frame_address (0);
-
-my_current_pc:
-    {
-        void *current_pc = &&my_current_pc;
-        dump_callstack_mips ((address_t) current_pc, current_sp,
-                             (address_t) __builtin_return_address (0));
-    }
-
-    while (1);
 }
 #endif
