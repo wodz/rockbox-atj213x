@@ -31,6 +31,7 @@
  * channels 4-7 are special DMA bus
  */
 #define DMA_CH_SD 1
+#define DMA_CH_PLAYBACK 2
 
 /* data to setup DMAC hardware */
 struct dma_hwinfo_t {

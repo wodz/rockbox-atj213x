@@ -46,6 +46,18 @@ void dma_start(unsigned int chan)
     DMAC_DMA_CMD(chan) = 1;
 }
 
+void dma_pause(unsigned int chan, bool pause)
+{
+    if (pause)
+    {
+        DMAC_DMA_CMD(chan) |= 2;
+    }
+    else
+    {
+        DMAC_DMA_CMD(chan) &= ~2;
+    }
+}
+
 bool dma_wait_complete(unsigned int chan, unsigned tmo)
 {
     tmo += current_tick;
@@ -171,9 +183,12 @@ void INT_DMA(void)
     else
     {
         /* terminal node */
+        dma_tcirq_ack(chan);
+
+        if (dma_ll[chan].callback)
+            (*dma_ll[chan].callback)(dma_ll[chan].ll);
+
         if (dma_ll[chan].semaphore)
             semaphore_release(dma_ll[chan].semaphore);
-
-        dma_tcirq_ack(chan);
     }
 }

@@ -122,18 +122,21 @@ bool sdc_card_present(void)
  */
 static void sdc_dma_rd_callback(struct ll_dma_t *ll)
 {
-    SD_BYTECNT = ll->hwinfo.cnt;
+    if (ll)
+    {
+        SD_BYTECNT = ll->hwinfo.cnt;
 
-    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
-                 BF_SD_FIFOCTL_RST(1)            |
-                 BF_SD_FIFOCTL_THRH_V(THR_10_16) |
-                 BF_SD_FIFOCTL_FULL(1)           |
-                 BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
+        SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
+                     BF_SD_FIFOCTL_RST(1)            |
+                     BF_SD_FIFOCTL_THRH_V(THR_10_16) |
+                     BF_SD_FIFOCTL_FULL(1)           |
+                     BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
 
-    SD_RW = BF_SD_RW_WCEF(1) | 
-            BF_SD_RW_WCST(1) |
-            BF_SD_RW_STRD(1) |
-            BF_SD_RW_RCST(1); /* 0x3c0 */
+        SD_RW = BF_SD_RW_WCEF(1) | 
+                BF_SD_RW_WCST(1) |
+                BF_SD_RW_STRD(1) |
+                BF_SD_RW_RCST(1); /* 0x3c0 */
+    }
 }
 
 /* called between DMA channel setup
@@ -141,20 +144,23 @@ static void sdc_dma_rd_callback(struct ll_dma_t *ll)
  */
 static void sdc_dma_wr_callback(struct ll_dma_t *ll)
 {
-    SD_BYTECNT = ll->hwinfo.cnt;
+    if (ll)
+    {
+        SD_BYTECNT = ll->hwinfo.cnt;
 
-    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
-                 BF_SD_FIFOCTL_RST(1)            |
-                 BF_SD_FIFOCTL_THRH_V(THR_10_16) |
-                 BF_SD_FIFOCTL_FULL(1)           |
-                 BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
+        SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
+                     BF_SD_FIFOCTL_RST(1)            |
+                     BF_SD_FIFOCTL_THRH_V(THR_10_16) |
+                     BF_SD_FIFOCTL_FULL(1)           |
+                     BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
 
-    SD_RW = BF_SD_RW_STWR(1) |
-            BF_SD_RW_WCEF(1) | 
-            BF_SD_RW_WCST(1) |
-            BF_SD_RW_STRD(0) |
-            BF_SD_RW_RCST(1) |
-            BF_SD_RW_RWST(1); /* 0x8341 */
+        SD_RW = BF_SD_RW_STWR(1) |
+                BF_SD_RW_WCEF(1) | 
+                BF_SD_RW_WCST(1) |
+                BF_SD_RW_STRD(0) |
+                BF_SD_RW_RCST(1) |
+                BF_SD_RW_RWST(1); /* 0x8341 */
+    }
 }
 
 static bool iram_address(void *buf)
