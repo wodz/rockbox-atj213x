@@ -116,8 +116,8 @@
 
 #define CONFIG_BATTERY_MEASURE VOLTAGE_MEASURE
 
-/* Hardware controlled charging with monitoring */
-#define CONFIG_CHARGING CHARGING_MONITOR
+/* Charging implemented in a target-specific algorithm */
+#define CONFIG_CHARGING CHARGING_TARGET
 
 /* define current usage levels */
 #define CURRENT_NORMAL     46 /* 18 hours from an 830 mah battery*/  
@@ -134,7 +134,7 @@
 /* Define this if you have a Actions ATJ213X SoC */
 #define CONFIG_CPU ATJ213X
 
-/* Define this if you want to use coldfire's i2c interface */
+/* Define this if you want to use ATJ213X i2c interface */
 #define CONFIG_I2C I2C_ATJ213X
 
 /* Define this to the CPU frequency 

@@ -19,8 +19,6 @@
  ****************************************************************************/
 
 #include "config.h"
-//#include "adc.h"
-//#include "adc-target.h"
 #include "lradc-atj213x.h"
 #include "powermgmt.h"
 
@@ -47,11 +45,4 @@ const unsigned short percent_to_volt_discharge[BATTERY_TYPES_COUNT][11] =
 const unsigned short percent_to_volt_charge[11] =
     /* TODO: simple uncalibrated curve, linear except for first 10% */
     { 3300, 3600, 3665, 3730, 3795, 3860, 3925, 3990, 4055, 4120, 4185 };
-
-/* Returns battery voltage from ADC [millivolts] */
-/* according to datasheet 6bit adc value scales to 2.1-4.5V range */
-int _battery_voltage(void)
-{
-    return ((lradc_read(LRADC_CH_BAT)*38 + 2100));
-}
 
