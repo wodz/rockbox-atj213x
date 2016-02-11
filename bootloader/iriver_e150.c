@@ -38,6 +38,7 @@
 #include "panic.h"
 #include "power.h"
 #include "file.h"
+#include "file_internal.h"
 #include "common.h"
 
 #include "regs/regs-intc.h"
