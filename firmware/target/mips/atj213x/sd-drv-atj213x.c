@@ -18,6 +18,7 @@
  *
  ****************************************************************************/
 
+#include <string.h>
 #include "system.h"
 #include "semaphore.h"
 #include "panic.h"
