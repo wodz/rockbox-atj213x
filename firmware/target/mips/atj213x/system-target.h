@@ -48,8 +48,6 @@ static inline void mdelay(unsigned msecs)
     udelay(1000 * msecs);
 }
 
-
-
 #if 0
 /* Write DCache back to RAM for the given range and remove cache lines
  * from DCache afterwards */
@@ -59,7 +57,6 @@ static inline void commit_dcache(void) {}
 void commit_discard_dcache(void);
 void commit_discard_idcache(void);
 #endif
-
 
 /* MIPS32R2 variants */
 static inline uint16_t swap16_hw(uint16_t value)
@@ -156,6 +153,11 @@ static inline unsigned int atj213x_get_pclk(void)
     pclkdiv = pclkdiv ? (pclkdiv + 1) : 2;
 
     return ((corepllfreq/cclkdiv)/sclkdiv)/pclkdiv;
+}
+
+static inline bool iram_address(void *buf)
+{
+    return (PHYSADDR((uint32_t)buf) >= 0x14040000);
 }
 
 #endif /* SYSTEM_TARGET_H */

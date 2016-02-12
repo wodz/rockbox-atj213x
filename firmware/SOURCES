@@ -1656,6 +1656,7 @@ target/mips/atj213x/dma-atj213x.c
 target/mips/atj213x/sdlib.c
 target/mips/atj213x/sd-drv-atj213x.c
 target/mips/atj213x/powermgmt-atj213x.c
+target/mips/atj213x/pcm-atj213x.c
 #endif
 
 #if defined(RK27_GENERIC)

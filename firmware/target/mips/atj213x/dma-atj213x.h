@@ -22,6 +22,7 @@
 #define DMA_ATJ213X_H
 
 #include "kernel.h"
+#include "regs/regs-dmac.h"
 
 /* 20 bits so 1 Mb - 1 */
 #define DMA_MAX_XFER_SIZE 0xfffff
@@ -53,8 +54,24 @@ struct ll_dma_ctl_t {
     struct semaphore *semaphore;
 };
 
+static inline unsigned int dma_get_src(unsigned int chan)
+{
+    return DMAC_DMA_SRC(chan);
+}
+
+static inline unsigned int dma_get_cnt(unsigned int chan)
+{
+    return DMAC_DMA_CNT(chan);
+}
+
+static inline unsigned int dma_get_remining(unsigned int chan)
+{
+    return DMAC_DMA_REM(chan);
+}
+
 void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo);
 void dma_start(unsigned int chan);
+void dma_pause(unsigned int chan, bool pause);
 bool dma_wait_complete(unsigned int chan, unsigned tmo);
 void dma_reset(unsigned int chan);
 void dma_tcirq_ack(unsigned int chan);

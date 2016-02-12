@@ -28,4 +28,5 @@
 
 #define REGS_DAC_VERSION "1.0"
 
+#define DAC_DAT                 (*(volatile unsigned long *)(REGS_DAC_BASE + 0x8))
 #endif /* __HEADERGEN__ATJ213X__DAC__H__ */

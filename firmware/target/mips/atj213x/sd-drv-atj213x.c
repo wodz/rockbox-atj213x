@@ -163,11 +163,6 @@ static void sdc_dma_wr_callback(struct ll_dma_t *ll)
     }
 }
 
-static bool iram_address(void *buf)
-{
-    return (PHYSADDR((uint32_t)buf) >= 0x14040000);
-}
-
 static void sdc_dma_rd(void *buf, int size)
 {
     /* This allows for ~4MB chained transfer */

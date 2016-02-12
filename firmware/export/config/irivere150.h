@@ -93,17 +93,12 @@
 
 #define AB_REPEAT_ENABLE
 
-/* Define this if you have the WM8975 audio codec */
-//#define HAVE_WM8751
+/* Define this if you have the ATJ213X built-in audio codec */
+//#define HAVE_ATJ213X_CODEC
 
-#define HW_SAMPR_CAPS (SAMPR_CAP_88 | SAMPR_CAP_44 | SAMPR_CAP_22 | \
-                       SAMPR_CAP_11)
-
-/* All exact rates for 16.9344MHz clock */
-#define CODEC_SRCTRL_11025HZ     (0x19 << 1)
-#define CODEC_SRCTRL_22050HZ     (0x1b << 1)
-#define CODEC_SRCTRL_44100HZ     (0x11 << 1)
-#define CODEC_SRCTRL_88200HZ     (0x1f << 1)
+#define HW_SAMPR_CAPS (SAMPR_CAP_96 | SAMPR_CAP_48 | SAMPR_CAP_32 | \
+                       SAMPR_CAP_24 | SAMPR_CAP_16 | SAMPR_CAP_12 | \
+                       SAMPR_CAP_8)
 
 #define HAVE_HEADPHONE_DETECTION
 

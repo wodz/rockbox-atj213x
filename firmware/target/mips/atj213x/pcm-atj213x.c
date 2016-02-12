@@ -26,6 +26,12 @@
 #include "audiohw.h"
 #include "sound.h"
 #include "pcm-internal.h"
+#include "dma-atj213x.h"
+
+#include "regs/regs-dac.h"
+#include "regs/regs-cmu.h"
+
+static void playback_callback(struct ll_dma_t *ll);
 
 static int locked = 0;
 
@@ -59,69 +65,50 @@ void pcm_play_dma_stop(void)
     locked = 1;
 }
 
-static void hdma_i2s_transfer(const void *addr, size_t size)
-{
-    SCU_CLKCFG &= ~CLKCFG_HDMA; /* enable HDMA clock */
-
-    commit_discard_dcache_range(addr, size);
-
-    HDMA_ISRC0 = (uint32_t)addr;               /* source address */
-    HDMA_IDST0 = (uint32_t)&I2S_TXR;           /* i2s tx fifo */
-    HDMA_ICNT0 = (uint16_t)((size>>2) - 1);    /* number of dma transactions
-                                                * of transfer size bytes
-                                                * (zero based)
-                                                */
-
-    HDMA_ISR = ((1<<13) |    /* mask ch1 accumulation overflow irq */
-                (1<<12) |    /* mask ch0 accumulation overflow irq */
-                (1<<11) |    /* mask ch1 page count down irq */
-                (0<<10) |    /* UNMASK ch0 page count down irq */
-                 (1<<9) |    /* mask ch0 transfer irq */
-                 (1<<8) |    /* mask ch1 transfer irq */
-                 (0<<5) |    /* clear ch1 accumulation overflow flag */
-                 (0<<4) |    /* clear ch0 accumulation overflow flag */
-                 (0<<3) |    /* clear ch1 count down to zero flag */
-                 (0<<2) |    /* clear ch0 count down to zero flag */
-                 (0<<1) |    /* clear ch1 active flag */
-                 (0<<0));    /* clear ch0 active flag */
-
-    HDMA_ISCNT0 = 0x07;      /* slice size in transfer size units (zero base) */
-
-    HDMA_IPNCNTD0 = 0x01;    /* page count */
-
-    HDMA_CON0 = ((0<<23) |   /* page mode */
-                 (1<<22) |   /* slice mode */
-                 (1<<21) |   /* DMA enable */
-                 (1<<18) |   /* generate interrupt */
-                 (0<<16) |   /* on-the-fly is not supported by rk27xx */
-                 (5<<13) |   /* transfer mode inc8 */
-                  (6<<9) |   /* external hdreq from i2s tx */
-                  (0<<7) |   /* increment source address */
-                  (1<<5) |   /* fixed destination address */
-                  (2<<3) |   /* transfer size = 32bits word */
-                  (0<<1) |   /* command of software DMA (not relevant) */
-                  (1<<0));   /* hardware trigger DMA mode */
-}
-
 static void pcm_play_dma_run(const void *addr, size_t size)
 {
     static struct ll_dma_t playback_ll;
 
-    commit_dcache();
+    unsigned int mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
+                        BF_DMAC_DMA_MODE_RELO(0)             |
+                        BF_DMAC_DMA_MODE_DDSP(0)             |
+                        BF_DMAC_DMA_MODE_DCOL(0)             |
+                        BF_DMAC_DMA_MODE_DDIR(0)             |
+                        BF_DMAC_DMA_MODE_DFXA_V(FIXED)       |
+                        BF_DMAC_DMA_MODE_DTRG_V(DAC)         |
+                        BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32) |
+                        BF_DMAC_DMA_MODE_DFXS(0)             |
+                        BF_DMAC_DMA_MODE_SBURLEN_V(SINGLE)   |
+                        BF_DMAC_DMA_MODE_SDSP(0)             |
+                        BF_DMAC_DMA_MODE_SCOL(0)             |
+                        BF_DMAC_DMA_MODE_SDIR_V(INCREASE)    |
+                        BF_DMAC_DMA_MODE_SFXA_V(NOT_FIXED)   |
+                        BF_DMAC_DMA_MODE_STRANWID_V(WIDTH32) |
+                        BF_DMAC_DMA_MODE_SFXS(0);
 
-    playback_ll.hwinfo.dst = PHYSADDR((uint32_t)
+    if (iram_address((void *)addr))
+    {
+        mode |= BF_DMAC_DMA_MODE_STRG_V(IRAM);
+    }
+    else
+    {
+        mode |= BF_DMAC_DMA_MODE_STRG_V(SDRAM);
+    }
+
+    playback_ll.hwinfo.dst = PHYSADDR((uint32_t)&DAC_DAT);
     playback_ll.hwinfo.src = PHYSADDR((uint32_t)addr);
     playback_ll.hwinfo.mode = mode;
     playback_ll.hwinfo.cnt = size;
     playback_ll.next = NULL;
 
     /* kick in DMA transfer */
-    ll_dma_setup(DMA_CH_PLAYBACK, playback_callback, NULL);
+    ll_dma_setup(DMA_CH_PLAYBACK, &playback_ll, playback_callback, NULL);
     ll_dma_start(DMA_CH_PLAYBACK);
 }
 
-static void playback_callback()
+void playback_callback(struct ll_dma_t *ll)
 {
+    (void)ll;
     const void *start;
     size_t size;
 
@@ -148,67 +135,28 @@ void pcm_play_dma_pause(bool pause)
     locked = pause ? 1 : 0;
 }
 
-
-#ifdef CODEC_SLAVE
-/* When codec is slave we need to setup i2s MCLK clock using codec pll.
- * The MCLK frequency is 256*codec frequency as i2s setup is:
- * LRCK/SCLK = 64 and MCLK/SCLK = 4 (see i2s_init() for reference)
- *
- * PLL output frequency:
- * Fout = ((Fref / (CLKR+1)) * (CLKF+1)) / (CLKOD+1)
- * Fref = 24 MHz
- */
 static void set_codec_freq(unsigned int freq)
 {
-    long timeout;
-
-    /* {CLKR, CLKF, CLKOD, CODECPLL_DIV} */
-    static const unsigned int pcm_freq_params[HW_NUM_FREQ][4] = 
+    /* 24Mhz base clock */
+    static const unsigned int pcm_freq_params[HW_NUM_FREQ] = 
     {
-        [HW_FREQ_96] = {24, 255, 4, 1},
-        [HW_FREQ_48] = {24, 127, 4, 1},
-        [HW_FREQ_44] = {24, 293, 4, 4},
-        [HW_FREQ_32] = {24, 127, 4, 2},
-        [HW_FREQ_24] = {24, 127, 4, 3},
-        [HW_FREQ_22] = {24, 146, 4, 4},
-        [HW_FREQ_16] = {24, 127, 5, 4},
-        [HW_FREQ_12] = {24, 127, 4, 7},
-        [HW_FREQ_11] = {24, 146, 4, 9},
-        [HW_FREQ_8]  = {24, 127, 5, 9},
+        [HW_FREQ_96] = 0,
+        [HW_FREQ_48] = 1,
+        [HW_FREQ_32] = 2,
+        [HW_FREQ_24] = 3,
+        [HW_FREQ_16] = 4,
+        [HW_FREQ_12] = 5,
+        [HW_FREQ_8]  = 6,
     };
-    /* select divider output from codec pll */
-    SCU_DIVCON1 &= ~((1<<9) | (0xF<<5));
-    SCU_DIVCON1 |= (pcm_freq_params[freq][3]<<5);
 
-    /* Codec PLL power up */
-    SCU_PLLCON3 &= ~(1<<22);
-
-    SCU_PLLCON3 = (1<<24) |    /* Saturation behavior enable */
-                  (1<<23) |    /* Enable fast locking circuit */
-                  (pcm_freq_params[freq][0]<<16) | /* CLKR factor */
-                  (pcm_freq_params[freq][1]<<4)  | /* CLKF factor */
-                  (pcm_freq_params[freq][2]<<1) ; /* CLKOD factor */
-
-/* wait for CODEC PLL lock with 10 ms timeout
- * datasheet states that pll lock should take approx. 0.3 ms
- */
-    timeout = current_tick + (HZ/100);
-    while (!(SCU_STATUS & (1<<2)))
-        if (TIME_AFTER(current_tick, timeout))
-            break;
-
+    CMU_AUDIOPLL = BF_CMU_AUDIOPLL_APEN(1) |
+                   BF_CMU_AUDIOPLL_DACPLL(0) |
+                   BF_CMU_AUDIOPLL_DACCLK(pcm_freq_params[freq]);
 }
-#endif
 
 void pcm_play_dma_init(void)
 {
-    /* unmask HDMA interrupt in INTC */
-    INTC_IMR |= IRQ_ARM_HDMA;
-    INTC_IECR |= IRQ_ARM_HDMA;
-
     audiohw_preinit();
-    
-    i2s_init();
 }
 
 void pcm_play_dma_postinit(void)
@@ -218,42 +166,26 @@ void pcm_play_dma_postinit(void)
 
 void pcm_dma_apply_settings(void)
 {
-#ifdef CODEC_SLAVE
     set_codec_freq(pcm_fsel);
-#endif
-
     audiohw_set_frequency(pcm_fsel);
 }
 
 size_t pcm_get_bytes_waiting(void)
 {
-    /* current terminate count is in transfer size units (4bytes here) */
-    return (HDMA_CCNT0 & 0xffff)<<2;
-}
-
-/* audio DMA ISR called when chunk from callers buffer has been transfered */
-void INT_HDMA(void)
-{
-    const void *start;
-    size_t size;
-
-    if (pcm_play_dma_complete_callback(PCM_DMAST_OK, &start, &size))
-    {
-        hdma_i2s_transfer(start, size);
-        pcm_play_dma_status_callback(PCM_DMAST_STARTED);
-    }
+    return dma_get_remining(DMA_CH_PLAYBACK);
 }
 
 const void * pcm_play_dma_get_peak_buffer(int *count)
 {
-    uint32_t addr;
-    
     int old = disable_irq_save();
-    addr = HDMA_CSRC0;
-    *count = ((HDMA_CCNT0 & 0xffff)<<2);
+    uint32_t cnt = dma_get_cnt(DMA_CH_PLAYBACK);
+    uint32_t rem = dma_get_remining(DMA_CH_PLAYBACK);
+    uint32_t src = dma_get_src(DMA_CH_PLAYBACK);
+
+    *count = rem;
     restore_interrupt(old);
 
-    return (void*)addr;
+    return (void*)(src + cnt - rem);
 }
 
 /****************************************************************************
