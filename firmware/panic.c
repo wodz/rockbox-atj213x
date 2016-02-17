@@ -36,6 +36,9 @@
 #include "gcc_extensions.h"
 #include <backtrace.h>
 #endif
+#if defined(CPU_MIPS)
+#include <mips_backtrace.h>
+#endif
 
 static char panic_buf[128];
 #define LINECHARS (LCD_WIDTH/SYSFONT_WIDTH) - 2
@@ -117,7 +120,9 @@ void panicf( const char *fmt, ...)
 #if defined(CPU_ARM)
     backtrace(pc, sp, &y);
 #endif
+#if defined(CPU_MIPS)
     dump_callstack(&y);
+#endif
 #ifdef ROCKBOX_HAS_LOGF
     logf_panic_dump(&y);
 #endif
