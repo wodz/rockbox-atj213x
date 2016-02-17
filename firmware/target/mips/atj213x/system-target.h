@@ -20,6 +20,8 @@
 #ifndef SYSTEM_TARGET_H
 #define SYSTEM_TARGET_H
 
+#include <stdint.h>
+#include <stdbool.h>
 #include "regs/regs-cmu.h"
 #include "mipsregs.h"
 
