@@ -22,8 +22,8 @@
 #include "panic.h"
 #include "gpio-atj213x.h"
 #include "lcm-atj213x.h"
+#include "cmu-atj213x.h"
 #include "regs/regs-yuv2rgb.h"
-#include "regs/regs-cmu.h"
 
 void lcm_wait_fifo_empty()
 {
@@ -58,8 +58,8 @@ void lcm_fb_data(void)
 
 void lcm_init(void)
 {
-    CMU_DEVCLKEN |= (1<<8)|(1<<1); /* dma clk, lcm clk */
-    udelay(10);
+    /* ungate YUV block clock */
+    atj213x_clk_enable(BP_CMU_DEVCLKEN_YUV);
 
     lcm_rs_command();   /* this has side effect of enabling whole block */
     YUV2RGB_CLKCTL = 0x102; /* lcm clock divider */

@@ -123,7 +123,8 @@ static void atj213x_i2c_reset(unsigned iface)
 
 void atj213x_i2c_init(unsigned iface)
 {
-    CMU_DEVCLKEN |= BM_CMU_DEVCLKEN_I2C; /* enable i2c APB clock */
+    /* enable i2c APB clock */
+    atj213x_clk_enable(BP_CMU_DEVCLKEN_I2C);
 
     if (iface == 1)
         GPIO_MFCTL1 &= ~BM_GPIO_MFCTL1_I2C1SS;

@@ -25,6 +25,7 @@
 #include "sdlib.h"
 #include "gpio-atj213x.h"
 #include "dma-atj213x.h"
+#include "cmu-atj213x.h"
 #include "regs/regs-dmac.h"
 #include "regs/regs-cmu.h"
 #include "regs/regs-sd.h"
@@ -39,11 +40,9 @@ static struct semaphore sd_semaphore;
 
 void sdc_init(void)
 {
-    /* ungate SD block clock */
-    CMU_DEVCLKEN |= BM_CMU_DEVCLKEN_SD | BM_CMU_DEVCLKEN_DMAC;
-
-    /* wait for clock to propagate */
-    udelay(10);
+    /* ungate SD and DMA blocks clock */
+    atj213x_clk_enable(BP_CMU_DEVCLKEN_SD);
+    atj213x_clk_enable(BP_CMU_DEVCLKEN_DMAC);
 
     /* Setup pad drive strength ?
      * Without this sd transfers kill lcd communication
