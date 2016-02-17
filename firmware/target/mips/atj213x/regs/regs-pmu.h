@@ -98,9 +98,11 @@
  * SCT: no
  */
 #define PMU_LRADC                       (*(volatile unsigned long *)(REGS_PMU_BASE + 0x4))
-#define BP_PMU_LRADC_RESERVED31_28      28
-#define BM_PMU_LRADC_RESERVED31_28      0xf0000000
-#define BF_PMU_LRADC_RESERVED31_28(v)   (((v) << 28) & 0xf0000000)
+#define BP_PMU_LRADC_DC5V               31
+#define BM_PMU_LRADC_DC5V               0x80000000
+#define BP_PMU_LRADC_RESERVED30_28      28
+#define BM_PMU_LRADC_RESERVED30_28      0xf0000000
+#define BF_PMU_LRADC_RESERVED30_28(v)   (((v) << 28) & 0x70000000)
 #define BP_PMU_LRADC_REMOADC4           24
 #define BM_PMU_LRADC_REMOADC4           0xf000000
 #define BF_PMU_LRADC_REMOADC4(v)        (((v) << 24) & 0xf000000)
