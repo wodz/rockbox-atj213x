@@ -17,19 +17,20 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
- 
+
+#include "system-target.h" 
 #include "cmu-atj213x.h"
 #include "regs/regs-cmu.h"
 
 void atj213x_clk_enable(unsigned int blockno)
 {
-    CMU_DEVCLKEN |= (1<<clkno);
+    CMU_DEVCLKEN |= (1<<blockno);
     udelay(1);
 }
 
 void atj213x_clk_disable(unsigned int blockno)
 {
-    CMU_DEVCLKEN &= ~(1<<clkno);
+    CMU_DEVCLKEN &= ~(1<<blockno);
     udelay(1);
 }
 
