@@ -774,6 +774,8 @@ target/arm/usb-s3c6400x.c
 drivers/isp1583.c
 #elif CONFIG_USBOTG == USBOTG_RK27XX
 target/arm/rk27xx/usb-drv-rk27xx.c
+#elif CONFIG_USBOTG == USBOTG_ATJ213X
+target/mips/atj213x/usb-drv-atj213x.c
 #endif
 #else /* !defined(HAVE_USBSTACK) */
 #if CONFIG_USBOTG == USBOTG_ISP1362	 

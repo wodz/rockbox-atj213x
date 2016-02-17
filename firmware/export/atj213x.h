@@ -5,9 +5,8 @@
  *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
- * $Id$
  *
- * Copyright (C) 2011 by Amaury Pouly
+ * Copyright (C) 2016 by Marcin Bukat
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,8 +17,8 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef __IMX233_H__
-#define __IMX233_H__
+#ifndef __ATJ213X_H__
+#define __ATJ213X_H__
 
 #define IRAM_ORIG           0x94040000
 #define IRAM_SIZE           (96 * 1024)
@@ -33,5 +32,6 @@
 /* 16 bytes per cache line */
 #define CACHEALIGN_BITS     4
 
-
+#define USB_NUM_ENDPOINTS   3
+#define USB_DEVBSS_ATTR __attribute__((aligned(16)))
 #endif /* __ATJ213X_H__ */

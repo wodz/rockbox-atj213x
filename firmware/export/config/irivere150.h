@@ -122,9 +122,15 @@
 /* define this if the unit can be powered or charged via USB */
 #define HAVE_USB_POWER
 
-/* define this if the unit has a battery switch or battery can be removed
- * when running */
-#define HAVE_BATTERY_SWITCH
+/* usb core type */
+#define ONFIG_USBOTG USBOTG_ATJ213X
+
+#define HAVE_USBSTACK
+
+/* OF Iriver E150 in MSC mode */
+#define USB_VENDOR_ID 0x4102
+#define USB_PRODUCT_ID 0x1052
+//#define HAVE_BOOTLOADER_USB_MODE
 
 /* Define this if you have a Actions ATJ213X SoC */
 #define CONFIG_CPU ATJ213X
