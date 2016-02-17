@@ -22,6 +22,7 @@
 #include "kernel.h"
 #include "system.h"
 #include "i2c-atj213x.h"
+#include "cmu-atj213x.h"
 #include "regs/regs-cmu.h"
 #include "regs/regs-i2c.h"
 #include "regs/regs-gpio.h"
