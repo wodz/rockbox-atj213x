@@ -103,9 +103,9 @@
 #define BP_INTC_PD_DSP              5
 #define BM_INTC_PD_DSP              0x20
 #define BF_INTC_PD_DSP(v)           (((v) << 5) & 0x20)
-#define BP_INTC_PD_USB              5
-#define BM_INTC_PD_USB              0x20
-#define BF_INTC_PD_USB(v)           (((v) << 5) & 0x20)
+#define BP_INTC_PD_USB              4
+#define BM_INTC_PD_USB              0x10
+#define BF_INTC_PD_USB(v)           (((v) << 4) & 0x10)
 #define BP_INTC_PD_MHA              3
 #define BM_INTC_PD_MHA              0x8
 #define BF_INTC_PD_MHA(v)           (((v) << 3) & 0x8)
@@ -194,9 +194,9 @@
 #define BP_INTC_MSK_DSP                 5
 #define BM_INTC_MSK_DSP                 0x20
 #define BF_INTC_MSK_DSP(v)              (((v) << 5) & 0x20)
-#define BP_INTC_MSK_USB                 5
-#define BM_INTC_MSK_USB                 0x20
-#define BF_INTC_MSK_USB(v)              (((v) << 5) & 0x20)
+#define BP_INTC_MSK_USB                 4
+#define BM_INTC_MSK_USB                 0x10
+#define BF_INTC_MSK_USB(v)              (((v) << 4) & 0x10)
 #define BP_INTC_MSK_MHA                 3
 #define BM_INTC_MSK_MHA                 0x8
 #define BF_INTC_MSK_MHA(v)              (((v) << 3) & 0x8)
