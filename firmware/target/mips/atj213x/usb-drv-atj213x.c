@@ -47,8 +47,56 @@
 #define USB_FULL_SPEED 0
 #define USB_HIGH_SPEED 1
 
-static volatile bool setup_data_valid = false;
 static volatile int udc_speed = USB_FULL_SPEED;
+
+static void usb_copy_from(void *ptr, volatile void *reg, size_t sz)
+{
+    uint32_t *p = ptr;
+    volatile uint32_t *rp = reg;
+    /* do not overflow the destination buffer ! */
+    while(sz >= 4)
+    {
+        *p++ = *rp++;
+        sz -= 4;
+    }
+
+    if(sz == 0)
+        return;
+
+    /* reminder */
+    uint32_t cache = *rp;
+    uint8_t *p8 = (void *)p;
+    while(sz-- > 0)
+    {
+        *p8++ = cache;
+        cache >>= 8;
+    }
+}
+
+static void usb_copy_to(volatile void *reg, void *ptr, size_t sz)
+{
+    uint32_t *p = ptr;
+    volatile uint32_t *rp = reg;
+    sz = (sz + 3) / 4;
+    /* read may overflow the source buffer but
+     * it will not overwrite anything
+     */
+    while(sz-- > 0)
+        *rp++ = *p++;
+}
+
+static void udc_ep_reset(int ep, bool in)
+{
+    UDC_ENDPRST = BF_UDC_ENDPRST_FIFO_RESET(0)   |
+                  BF_UDC_ENDPRST_TOGGLE_RESET(0) |
+                  BF_UDC_ENDPRST_DIR(in ? 1 : 0) |
+                  BF_UDC_ENDPRST_EP_NUM(ep);
+
+    UDC_ENDPRST = BF_UDC_ENDPRST_FIFO_RESET(1)   |
+                  BF_UDC_ENDPRST_TOGGLE_RESET(1) |
+                  BF_UDC_ENDPRST_DIR(in ? 1 : 0) |
+                  BF_UDC_ENDPRST_EP_NUM(ep);
+}
 
 /* return port speed FS=0, HS=1 */
 int usb_drv_port_speed(void)
@@ -59,15 +107,63 @@ int usb_drv_port_speed(void)
 /* Reserve endpoint */
 int usb_drv_request_endpoint(int type, int dir)
 {
-    (void)type;
-    (void)dir;
+    int ep_dir = EP_DIR(dir);
+    int ep_type = type & USB_ENDPOINT_XFERTYPE_MASK;
+
+    /* IN1, IN2, OUT1, OUT2 */
+    for (int ep_num=1; ep_num<=USB_NUM_ENDPOINTS/2; ep_num++)
+    {
+        /* OUT1CON, IN1CON, OUT2CON, IN2CON */
+        volatile unsigned char *con = (volatile unsigned char *)
+            (REGS_UDC_BASE + (in ? 0x6 : 0x2) + ep_num * 8);
+
+        if (*con & BM_UDC_CON_EP_ENABLE == 0)
+        {
+            /* configure free EP */
+            *con = BF_UDC_CON_EP_ENABLE(1) |
+                   BF_UDC_CON_EP_TYPE(ep_type) |
+                   BF_UDC_CON_SUBFIFOS_V(SINGLE);
+
+            /* reset fifo */
+            udc_ep_reset(ep_num, (ep_dir == DIR_IN) ? true : false);
+
+            /* enable EP interrupt */
+            if (ep_dir == DIR_IN)
+            {
+                IN04IEN |= (1 << ep_num);
+            }
+            else
+            {
+                OUT04IEN |= (1 << ep_num);
+            }
+
+            return (ep_num | (dir & USB_ENDPOINT_DIR_MASK));
+        }
+    }
+
     return -1;
 }
 
 /* Free endpoint */
 void usb_drv_release_endpoint(int ep)
 {
-    (void)ep;
+    int ep_num = EP_NUM(ep);
+    int ep_dir = EP_DIR(ep);
+
+    volatile unsigned char *con = (volatile unsigned char *)
+        (REGS_UDC_BASE + (in ? 0x6 : 0x2) + ep_num * 8);
+
+    /* disable EP */
+    *con &= ~BF_UDC_CON_EP_ENABLE(1);
+
+    if (ep_dir == DIR_IN)
+    {
+        IN04IE &= ~(1 << ep_num);
+    }
+    else
+    {
+        OUT04IE &= ~(1 << ep_num);
+    }
 }
 
 /* Set the address (usually it's in a register).
@@ -128,7 +224,6 @@ void usb_drv_set_test_mode(int mode)
 bool usb_drv_stalled(int endpoint, bool in)
 {
     int ep_num = EP_NUM(endpoint);
-    volatile unsigned char *reg;
 
     if (ep_num == 0)
     {
@@ -137,8 +232,8 @@ bool usb_drv_stalled(int endpoint, bool in)
     else
     {
         /* OUT1CON, IN1CON, OUT2CON, IN2CON */
-        reg = (volatile unsigned char *)
-                  (REGS_UDC_BASE + (in ? 0x6 : 0x2) + ep_num * 8);
+        volatile unsigned char *reg = (volatile unsigned char *)
+            (REGS_UDC_BASE + (in ? 0x6 : 0x2) + ep_num * 8);
 
         return (*reg & 0x40) ? true : false;
     }
@@ -148,7 +243,6 @@ bool usb_drv_stalled(int endpoint, bool in)
 void usb_drv_stall(int endpoint, bool stall, bool in)
 {
     int ep_num = EP_NUM(endpoint);
-    volatile unsigned char *reg;
 
     /* EP0 */
     if (ep_num == 0)
@@ -165,8 +259,8 @@ void usb_drv_stall(int endpoint, bool stall, bool in)
     else
     {
         /* OUT1CON, IN1CON, OUT2CON, IN2CON */
-        reg = (volatile unsigned char *)
-                  (REGS_UDC_BASE + (in ? 0x6 : 0x2) + ep_num * 8);
+        volatile unsigned char *reg = (volatile unsigned char *)
+            (REGS_UDC_BASE + (in ? 0x6 : 0x2) + ep_num * 8);
 
         if (stall)
         {
@@ -179,6 +273,7 @@ void usb_drv_stall(int endpoint, bool stall, bool in)
     }
 }
 
+
 /* one time init (once per connection) - basicaly enable usb core */
 void usb_drv_init(void)
 {
@@ -189,26 +284,8 @@ void usb_drv_init(void)
     UDC_USBCS |= BM_UDC_USBCS_SOFT_CONNECT;
 
     /* reset EP0 IN fifo */
-    UDC_ENDPRST = BF_UDC_ENDPRST_FIFO_RESET(0) |
-                  BF_UDC_ENDPRST_TOGGLE_RESET(0) |
-                  BF_UDC_ENDPRST_DIR_V(IN) |
-                  BF_UDC_ENDPRST_EP_NUM(0);
-
-    UDC_ENDPRST = BF_UDC_ENDPRST_FIFO_RESET(1) |
-                  BF_UDC_ENDPRST_TOGGLE_RESET(1) |
-                  BF_UDC_ENDPRST_DIR_V(IN) |
-                  BF_UDC_ENDPRST_EP_NUM(0); /* 0x70 */
-
-    /* reset EP0 OUT fifo */
-    UDC_ENDPRST = BF_UDC_ENDPRST_FIFO_RESET(0) |
-                  BF_UDC_ENDPRST_TOGGLE_RESET(0) |
-                  BF_UDC_ENDPRST_DIR_V(OUT) |
-                  BF_UDC_ENDPRST_EP_NUM(0);
-
-    UDC_ENDPRST = BF_UDC_ENDPRST_FIFO_RESET(1) |
-                  BF_UDC_ENDPRST_TOGGLE_RESET(1) |
-                  BF_UDC_ENDPRST_DIR_V(OUT) |
-                  BF_UDC_ENDPRST_EP_NUM(0); /* 0x60 */
+    udc_ep_reset(0, true); /* IN0 */
+    udc_ep_reset(0, false); /* OUT0 */
 
     /* clear all pending interrupts */
     UDC_USBIRQ = 0xff;
@@ -286,8 +363,15 @@ void INT_USB(void)
         }
         else if (usbirq & BM_UDC_USBIRQ_SETUP_DATA)
         {
-            /* Setup data valid */
-            setup_data_valid = true;
+            static struct usb_ctlrequest setup_data;
+
+            /* Copy request received. Beware that ONLY 32bit access is allowed
+             * to hardware buffer or data get corrupted.
+             */
+            usb_copy_from(&setup_data, &USB_SETUPDAT, sizeof(struct usb_ctrlrequest));
+
+            /* pass setup data to the upper layer */
+            usb_core_control_request(&setup_data);
         }
 
         /* clear irq flags */

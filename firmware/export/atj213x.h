@@ -32,6 +32,6 @@
 /* 16 bytes per cache line */
 #define CACHEALIGN_BITS     4
 
-#define USB_NUM_ENDPOINTS   3
+#define USB_NUM_ENDPOINTS   5
 #define USB_DEVBSS_ATTR __attribute__((aligned(16)))
 #endif /* __ATJ213X_H__ */
