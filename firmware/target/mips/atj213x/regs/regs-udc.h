@@ -34,8 +34,8 @@
  * SCT: no
  * Description: ep0 byte count register
  */
-#define UDC_OUT0BC                  (*(volatile unsigned long *)(REGS_UDC_BASE + 0x0))
-#define UDC_IN0BC                   (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1))
+#define UDC_OUT0BC                  (*(volatile unsigned char *)(REGS_UDC_BASE + 0x0))
+#define UDC_IN0BC                   (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1))
 #define BP_UDC_EP0BC_RESERVED       8
 #define BM_UDC_EP0BC_RESERVED       0xffffff00
 #define BF_UDC_EP0BC_RESERVED(v)    (((v) << 8) & 0xffffff00)
@@ -48,7 +48,7 @@
  * Address: 0x2
  * SCT: no
  */
-#define UDC_EP0CS                   (*(volatile unsigned long *)(REGS_UDC_BASE + 0x2))
+#define UDC_EP0CS                   (*(volatile unsigned char *)(REGS_UDC_BASE + 0x2))
 #define BP_UDC_EP0CS_RESERVED       8
 #define BM_UDC_EP0CS_RESERVED       0xffffff00
 #define BF_UDC_EP0CS_RESERVED(v)    (((v) << 8) & 0xffffff00)
@@ -73,10 +73,10 @@
  * SCT: no
  * Description: Endpoint byte count LSB register
  */
-#define UDC_OUT1BCL (*(volatile unsigned long *)(REGS_UDC_BASE + 0x8))
-#define UDC_IN1BCL  (*(volatile unsigned long *)(REGS_UDC_BASE + 0xc))
-#define UDC_OUT2BCL (*(volatile unsigned long *)(REGS_UDC_BASE + 0x10))
-#define UDC_IN2BCL  (*(volatile unsigned long *)(REGS_UDC_BASE + 0x14))
+#define UDC_OUT1BCL (*(volatile unsigned char *)(REGS_UDC_BASE + 0x8))
+#define UDC_IN1BCL  (*(volatile unsigned char *)(REGS_UDC_BASE + 0xc))
+#define UDC_OUT2BCL (*(volatile unsigned char *)(REGS_UDC_BASE + 0x10))
+#define UDC_IN2BCL  (*(volatile unsigned char *)(REGS_UDC_BASE + 0x14))
 
 /**
  * Register: UDC_BCH
@@ -84,10 +84,10 @@
  * SCT: no
  * Description: Endpoint byte count MSB
  */
-#define UDC_OUT1BCH (*(volatile unsigned long *)(REGS_UDC_BASE + 0x9))
-#define UDC_IN1BCH  (*(volatile unsigned long *)(REGS_UDC_BASE + 0xd))
-#define UDC_OUT2BCH (*(volatile unsigned long *)(REGS_UDC_BASE + 0x11))
-#define UDC_IN2BCH  (*(volatile unsigned long *)(REGS_UDC_BASE + 0x15))
+#define UDC_OUT1BCH (*(volatile unsigned char *)(REGS_UDC_BASE + 0x9))
+#define UDC_IN1BCH  (*(volatile unsigned char *)(REGS_UDC_BASE + 0xd))
+#define UDC_OUT2BCH (*(volatile unsigned char *)(REGS_UDC_BASE + 0x11))
+#define UDC_IN2BCH  (*(volatile unsigned char *)(REGS_UDC_BASE + 0x15))
 
 /**
  * Register: UDC_CON
@@ -95,10 +95,10 @@
  * SCT: no
  * Description: Endpoint configuration register
  */
-#define UDC_OUT1CON                     (*(volatile unsigned long *)(REGS_UDC_BASE + 0xa))
-#define UDC_IN1CON                      (*(volatile unsigned long *)(REGS_UDC_BASE + 0xe))
-#define UDC_OUT2CON                     (*(volatile unsigned long *)(REGS_UDC_BASE + 0x12))
-#define UDC_IN2CON                      (*(volatile unsigned long *)(REGS_UDC_BASE + 0x16))
+#define UDC_OUT1CON                     (*(volatile unsigned char *)(REGS_UDC_BASE + 0xa))
+#define UDC_IN1CON                      (*(volatile unsigned char *)(REGS_UDC_BASE + 0xe))
+#define UDC_OUT2CON                     (*(volatile unsigned char *)(REGS_UDC_BASE + 0x12))
+#define UDC_IN2CON                      (*(volatile unsigned char *)(REGS_UDC_BASE + 0x16))
 #define BP_UDC_CON_EP_ENABLE            7
 #define BM_UDC_CON_EP_ENABLE            0x80
 #define BF_UDC_CON_EP_ENABLE(v)         (((v) << 7) & 0x80)
@@ -128,10 +128,10 @@
  * SCT: no
  * Description: Endpoint status register
  */
-#define UDC_OUT1CS          (*(volatile unsigned long *)(REGS_UDC_BASE + 0xb))
-#define UDC_IN1CS           (*(volatile unsigned long *)(REGS_UDC_BASE + 0xf))
-#define UDC_OUT2CS          (*(volatile unsigned long *)(REGS_UDC_BASE + 0x13))
-#define UDC_IN2CS           (*(volatile unsigned long *)(REGS_UDC_BASE + 0x17))
+#define UDC_OUT1CS          (*(volatile unsigned char *)(REGS_UDC_BASE + 0xb))
+#define UDC_IN1CS           (*(volatile unsigned char *)(REGS_UDC_BASE + 0xf))
+#define UDC_OUT2CS          (*(volatile unsigned char *)(REGS_UDC_BASE + 0x13))
+#define UDC_IN2CS           (*(volatile unsigned char *)(REGS_UDC_BASE + 0x17))
 #define BP_UDC_CS_AUTO      4
 #define BM_UDC_CS_AUTO      0x10
 #define BF_UDC_CS_AUTO(v)   (((v) << 4) & 0x10)
@@ -180,8 +180,8 @@
  * SCT: no
  * Description: Endpoint irq flag register
  */
-#define UDC_IN04IRQ             (*(volatile unsigned long *)(REGS_UDC_BASE + 0x188))
-#define UDC_OUT04IRQ            (*(volatile unsigned long *)(REGS_UDC_BASE + 0x18a))
+#define UDC_IN04IRQ             (*(volatile unsigned char *)(REGS_UDC_BASE + 0x188))
+#define UDC_OUT04IRQ            (*(volatile unsigned char *)(REGS_UDC_BASE + 0x18a))
 #define BP_UDC_EPIRQ_EP_NUM     0
 #define BM_UDC_EPIRQ_EP_NUM     0x7
 #define BF_UDC_EPIRQ_EP_NUM(v)  (((v) << 0) & 0x7)
@@ -192,7 +192,7 @@
  * SCT: no
  * Description: General usb core irq flags
  */
-#define UDC_USBIRQ                      (*(volatile unsigned long *)(REGS_UDC_BASE + 0x18c))
+#define UDC_USBIRQ                      (*(volatile unsigned char *)(REGS_UDC_BASE + 0x18c))
 /* Field: HS
  * Description: Enter high speed operation. Set by core on connection. */
 #define BP_UDC_USBIRQ_HS                5
@@ -224,8 +224,8 @@
  * SCT: no
  * Description: Endpoint interrupt enable register
  */
-#define UDC_IN04IEN             (*(volatile unsigned long *)(REGS_UDC_BASE + 0x194))
-#define UDC_OUT04IEN            (*(volatile unsigned long *)(REGS_UDC_BASE + 0x196))
+#define UDC_IN04IEN             (*(volatile unsigned char *)(REGS_UDC_BASE + 0x194))
+#define UDC_OUT04IEN            (*(volatile unsigned char *)(REGS_UDC_BASE + 0x196))
 #define BP_UDC_EPIEN_EP_NUM     0
 #define BM_UDC_EPIEN_EP_NUM     0x7
 #define BF_UDC_EPIEN_EP_NUM(v)  (((v) << 0) & 0x7)
@@ -236,7 +236,7 @@
  * SCT: no
  * Description: General usb interrupts enable register
  */
-#define UDC_USBIEN                      (*(volatile unsigned long *)(REGS_UDC_BASE + 0x198))
+#define UDC_USBIEN                      (*(volatile unsigned char *)(REGS_UDC_BASE + 0x198))
 #define BP_UDC_USBIEN_HS                5
 #define BM_UDC_USBIEN_HS                0x20
 #define BF_UDC_USBIEN_HS(v)             (((v) << 5) & 0x20)
@@ -263,7 +263,7 @@
  * Description: Interrupt vector registerknown (guessed) values:0x00 - SETUP0x10
  *  - RESET0x14 - HS0x28 - EPs0xD8 - OTG
  */
-#define UDC_IVECT   (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1a0))
+#define UDC_IVECT   (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1a0))
 
 /**
  * Register: UDC_ENDPRST
@@ -271,7 +271,7 @@
  * SCT: no
  * Description: Endpoint reset register
  */
-#define UDC_ENDPRST                     (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1a2))
+#define UDC_ENDPRST                     (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1a2))
 #define BP_UDC_ENDPRST_FIFO_RESET       6
 #define BM_UDC_ENDPRST_FIFO_RESET       0x40
 #define BF_UDC_ENDPRST_FIFO_RESET(v)    (((v) << 6) & 0x40)
@@ -293,7 +293,7 @@
  * Address: 0x1a3
  * SCT: no
  */
-#define UDC_USBCS                       (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1a3))
+#define UDC_USBCS                       (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1a3))
 #define BP_UDC_USBCS_SOFT_CONNECT       6
 #define BM_UDC_USBCS_SOFT_CONNECT       0x40
 #define BF_UDC_USBCS_SOFT_CONNECT(v)    (((v) << 6) & 0x40)
@@ -312,7 +312,7 @@
  * Address: 0x1a8
  * SCT: no
  */
-#define UDC_FIFOCTRL                    (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1a8))
+#define UDC_FIFOCTRL                    (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1a8))
 #define BP_UDC_FIFOCTRL_DMA             0
 #define BM_UDC_FIFOCTRL_DMA             0xffffffff
 #define BF_UDC_FIFOCTRL_DMA(v)          (((v) << 0) & 0xffffffff)
@@ -334,7 +334,7 @@
  * Address: 0x1bc
  * SCT: no
  */
-#define UDC_OTGIRQ                  (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1bc))
+#define UDC_OTGIRQ                  (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1bc))
 #define BP_UDC_OTGIRQ_PERIPH        4
 #define BM_UDC_OTGIRQ_PERIPH        0x10
 #define BF_UDC_OTGIRQ_PERIPH(v)     (((v) << 4) & 0x10)
@@ -356,7 +356,7 @@
  * Address: 0x1bf
  * SCT: no
  */
-#define UDC_OTGSTATUS   (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1bf))
+#define UDC_OTGSTATUS   (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1bf))
 
 /**
  * Register: UDC_OTGIEN
@@ -364,7 +364,7 @@
  * SCT: no
  * Description: OTG interrupt enable register
  */
-#define UDC_OTGIEN  (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1c0))
+#define UDC_OTGIEN  (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1c0))
 
 /**
  * Register: UDC_HCMAXPCKL
@@ -372,8 +372,8 @@
  * SCT: no
  * Description: High speed max packed size LSB
  */
-#define UDC_HCIN1MAXPCKL    (*(volatile unsigned long *)(REGS_UDC_BASE + 0x1e2))
-#define UDC_HCOUT2MAXPCKL   (*(volatile unsigned long *)(REGS_UDC_BASE + 0x3e4))
+#define UDC_HCIN1MAXPCKL    (*(volatile unsigned char *)(REGS_UDC_BASE + 0x1e2))
+#define UDC_HCOUT2MAXPCKL   (*(volatile unsigned char *)(REGS_UDC_BASE + 0x3e4))
 
 /**
  * Register: UDC_STADDR
@@ -381,8 +381,8 @@
  * SCT: no
  * Description: Endpoint buffer start address
  */
-#define UDC_OUT1STADDR  (*(volatile unsigned long *)(REGS_UDC_BASE + 0x304))
-#define UDC_IN2STADDR   (*(volatile unsigned long *)(REGS_UDC_BASE + 0x348))
+#define UDC_OUT1STADDR  (*(volatile unsigned char *)(REGS_UDC_BASE + 0x304))
+#define UDC_IN2STADDR   (*(volatile unsigned char *)(REGS_UDC_BASE + 0x348))
 
 /**
  * Register: UDC_USBEIRQ
@@ -390,7 +390,7 @@
  * SCT: no
  * Description: USB extended irq register
  */
-#define UDC_USBEIRQ                     (*(volatile unsigned long *)(REGS_UDC_BASE + 0x400))
+#define UDC_USBEIRQ                     (*(volatile unsigned char *)(REGS_UDC_BASE + 0x400))
 #define BP_UDC_USBEIRQ_USB              7
 #define BM_UDC_USBEIRQ_USB              0x80
 #define BF_UDC_USBEIRQ_USB(v)           (((v) << 7) & 0x80)
@@ -421,14 +421,14 @@
  * Address: 0x404
  * SCT: no
  */
-#define UDC_USBERST (*(volatile unsigned long *)(REGS_UDC_BASE + 0x404))
+#define UDC_USBERST (*(volatile unsigned char *)(REGS_UDC_BASE + 0x404))
 
 /**
  * Register: UDC_DMAEPSEL
  * Address: 0x40c
  * SCT: no
  */
-#define UDC_DMAEPSEL                    (*(volatile unsigned long *)(REGS_UDC_BASE + 0x40c))
+#define UDC_DMAEPSEL                    (*(volatile unsigned char *)(REGS_UDC_BASE + 0x40c))
 #define BP_UDC_DMAEPSEL_EP_SEL          0
 #define BM_UDC_DMAEPSEL_EP_SEL          0xffffffff
 #define BV_UDC_DMAEPSEL_EP_SEL__UNKNOWN 0x0
