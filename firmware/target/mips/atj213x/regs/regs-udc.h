@@ -381,8 +381,8 @@
  * SCT: no
  * Description: Endpoint buffer start address
  */
-#define UDC_OUT1STADDR  (*(volatile unsigned char *)(REGS_UDC_BASE + 0x304))
-#define UDC_IN2STADDR   (*(volatile unsigned char *)(REGS_UDC_BASE + 0x348))
+#define UDC_OUT1STADDR  (*(volatile unsigned short *)(REGS_UDC_BASE + 0x304))
+#define UDC_IN2STADDR   (*(volatile unsigned short *)(REGS_UDC_BASE + 0x348))
 
 /**
  * Register: UDC_USBEIRQ
