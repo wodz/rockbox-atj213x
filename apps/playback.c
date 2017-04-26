@@ -1704,7 +1704,7 @@ static bool audio_buffer_codec(struct track_info *track_info,
 
     if (track_info->codec_hid >= 0)
     {
-        logf("Buffered codec: %d", afmt);
+        logf("Buffered codec: %d", track_info->codec_hid);
         return true;
     }
 
@@ -1961,7 +1961,7 @@ static int audio_finish_load_track(struct track_info *info)
     resume_rewind_adjust_progress(track_id3, &elapsed, &offset);
 
     logf("%s: Set resume for %s to %lu %lX", __func__,
-         id3->title, elapsed, offset);
+         track_id3->title, elapsed, offset);
 
     enum data_type audiotype = rbcodec_format_is_atomic(track_id3->codectype) ?
                                       TYPE_ATOMIC_AUDIO : TYPE_PACKET_AUDIO;
@@ -2376,9 +2376,16 @@ static void audio_on_codec_complete(int status)
            Skipping: There was already a skip in progress, remember it and
                      allow no further progress until the PCM from the previous
                      song has finished
+
+           This function will be reentered upon completing the existing
+           transition in order to do the one that was just tried (below)
          */
         codec_skip_pending = true;
         codec_skip_status = status;
+
+        /* PCM buffer must know; audio could still be filling and hasn't
+           yet reached the play watermark */
+        pcmbuf_start_track_change(TRACK_CHANGE_AUTO_PILEUP);
         return;
     }
 

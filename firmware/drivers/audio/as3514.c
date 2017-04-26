@@ -34,7 +34,7 @@
 #include "i2s.h"
 #include "ascodec.h"
 
-#if CONFIG_CPU == AS3525v2 
+#ifdef HAVE_AS3543
 /* Headphone volume goes from -81.0 ... +6dB */
 #define VOLUME_MIN -820
 #define VOLUME_MAX   60
@@ -48,7 +48,7 @@
  * This drivers supports:
  * as3514 , as used in the PP targets
  * as3515 , as used in the as3525 targets
- * as3543 , as used in the as3525v2 targets
+ * as3543 , as used in the as3525v2 and other as3543 targets
  */
 
 #if CONFIG_CPU == AS3525
@@ -78,6 +78,8 @@
 
 /* Shadow registers */
 static uint8_t as3514_regs[AS3514_NUM_AUDIO_REGS]; /* 8-bit registers */
+/* Keep track of volume */
+static int current_vol_l, current_vol_r;
 
 /*
  * little helper method to set register values.
@@ -130,9 +132,11 @@ void audiohw_preinit(void)
     ascodec_readbytes(0x0, AS3514_NUM_AUDIO_REGS, as3514_regs);
 
 #ifdef HAVE_AS3543
+    /* Prevent increasing noise and power consumption if booted through rolo */
+    as3514_write(AS3514_HPH_OUT_L, 0x0);
 
-    as3514_write(AS3514_AUDIOSET1, AUDIOSET1_DAC_on | AUDIOSET1_DAC_GAIN_on);
-    as3514_write(AS3514_AUDIOSET2, AUDIOSET2_AGC_off | AUDIOSET2_HPH_QUALITY_LOW_POWER);
+    as3514_write(AS3514_AUDIOSET1, AUDIOSET1_DAC_on);
+    as3514_write(AS3514_AUDIOSET2, AUDIOSET2_SUM_off | AUDIOSET2_AGC_off | AUDIOSET2_HPH_QUALITY_LOW_POWER);
     /* common ground on, delay playback unmuting when inserting headphones */
     as3514_write(AS3514_AUDIOSET3, AUDIOSET3_HPCM_on | AUDIOSET3_HP_LONGSTART);
 
@@ -144,8 +148,8 @@ void audiohw_preinit(void)
     /* Select Line 2 for FM radio */
     as3514_set(AS3514_LINE_IN1_R, LINE_IN_R_LINE_SELECT);
 #endif
-    /* Output SUM of microphone/line/DAC */
-    as3514_write(AS3514_HPH_OUT_R, HPH_OUT_R_HEADPHONES | HPH_OUT_R_HP_OUT_SUM);
+    /* Set LINEOUT to minimize pop-click noise in headphone on init stage  */
+    as3514_write(AS3514_HPH_OUT_R, HPH_OUT_R_LINEOUT | HPH_OUT_R_HP_OUT_DAC);
 
 #else
     /* as3514/as3515 */
@@ -216,6 +220,11 @@ void audiohw_preinit(void)
 
     /* DAC_Mute_off */
     as3514_set(AS3514_DAC_L, DAC_L_DAC_MUTE_off);
+
+#ifdef HAVE_AS3543
+    /* DAC direct - gain, mixer and limitter bypassed */
+    as3514_write(AS3514_HPH_OUT_R, HPH_OUT_R_HEADPHONES | HPH_OUT_R_HP_OUT_DAC);
+#endif
 }
 
 static void audiohw_mute(bool mute)
@@ -257,6 +266,10 @@ void audiohw_set_volume(int vol_l, int vol_r)
     unsigned int hph_r, hph_l;
     unsigned int mix_l, mix_r;
 
+    /* remember volume */
+    current_vol_l = vol_l;
+    current_vol_r = vol_r;
+
     vol_l = vol_tenthdb2hw(vol_l);
     vol_r = vol_tenthdb2hw(vol_r);
 
@@ -266,13 +279,13 @@ void audiohw_set_volume(int vol_l, int vol_r)
     }
 
     /* We combine the mixer/DAC channel volume range with the headphone volume
-       range - keep first stage as loud as possible */
+     * range. We want to keep the mixers volume as high as possible and the
+     * headphone volume as low as possible. */
 
-/*AS3543 mixer can go a little louder then the as3514, although 
- * it might be possible to go louder on the as3514 as well */
- 
-#if CONFIG_CPU == AS3525v2 
-#define MIXER_MAX_VOLUME 0x1b
+    /* AS3543 mixer can go a little louder then the as3514, although
+     * it might be possible to go louder on the as3514 as well */
+#ifdef HAVE_AS3543
+#define MIXER_MAX_VOLUME 0x1b /* IMPORTANT corresponds to a volume of 0dB (see below) */
 #else /* lets leave the AS3514 alone until its better tested*/
 #define MIXER_MAX_VOLUME 0x16
 #endif
@@ -291,7 +304,33 @@ void audiohw_set_volume(int vol_l, int vol_r)
     } else {
         mix_l = MIXER_MAX_VOLUME;
         hph_l = vol_l - MIXER_MAX_VOLUME;
-    }    
+    }
+
+#ifdef HAVE_AS3543
+    bool dac_only = !(as3514_regs[AS3514_AUDIOSET1] & (AUDIOSET1_ADC_on | AUDIOSET1_LIN1_on));
+    if(dac_only && hph_l != 0 && hph_r != 0)
+    {
+        /* In DAC only mode, if both left and right volume are higher than
+         * MIXER_MAX_VOLUME, we disable and bypass the DAC mixer to slightly
+         * improve noise.
+         *
+         * WARNING this works because MIXER_MAX_VOLUME corresponds to a DAC mixer
+         * volume of 0dB, thus it's the same to bypass the mixer or set its
+         * level to MIXER_MAX_VOLUME, except that bypassing is less noisy */
+        as3514_clear(AS3514_AUDIOSET1, AUDIOSET1_DAC_GAIN_on);
+        as3514_set(AS3514_AUDIOSET2, AUDIOSET2_SUM_off);
+        as3514_write_masked(AS3514_HPH_OUT_R, HPH_OUT_R_HP_OUT_DAC, HPH_OUT_R_HP_OUT_MASK);
+    }
+    else
+    {
+        /* In all other cases, we have no choice but to go through the main mixer
+         * (aka SUM) to get the volume we want or to properly route audio from
+         * line-in/microphone. */
+        as3514_set(AS3514_AUDIOSET1, AUDIOSET1_DAC_GAIN_on);
+        as3514_clear(AS3514_AUDIOSET2, AUDIOSET2_SUM_off);
+        as3514_write_masked(AS3514_HPH_OUT_R, HPH_OUT_R_HP_OUT_SUM, HPH_OUT_R_HP_OUT_MASK);
+    }
+#endif
 
     as3514_write_masked(AS3514_DAC_R, mix_r, AS3514_VOL_MASK);
     as3514_write_masked(AS3514_DAC_L, mix_l, AS3514_VOL_MASK);
@@ -463,22 +502,32 @@ void audiohw_set_recvol(int left, int right, int type)
  */
 void audiohw_set_monitor(bool enable)
 {
+    /* On AS3543 we play with DAC mixer bypass to decrease noise. This means that
+     * even in DAC mode, the headphone mux might be set to HPH_OUT_R_HP_OUT_SUM or
+     * HPH_OUT_R_HP_OUT_DAC depending on the volume. Care must be taken when
+     * changing monitor.
+     *
+     * The only safe procedure is to first change the Audioset1 register to enable/disable
+     * monitor, then call audiohw_set_volume to recompute the audio routing, then
+     * mute/unmute lines-in. */
     if (enable) {
-        /* select either LIN1 or LIN2 */
+        /* select either LIN1 or LIN2 but keep them muted for now */
         as3514_write_masked(AS3514_AUDIOSET1, AUDIOSET1_LIN_on,
                             AUDIOSET1_LIN1_on | AUDIOSET1_LIN2_on);
+        /* change audio routing */
+        audiohw_set_volume(current_vol_l, current_vol_r);
+        /* finally unmute line-in */
         as3514_set(AS3514_LINE_IN_R, LINE_IN1_R_LI1R_MUTE_off);
         as3514_set(AS3514_LINE_IN_L, LINE_IN1_L_LI1L_MUTE_off);
     }
     else {
-        /* turn off both LIN1 and LIN2 (if present) */
-        as3514_clear(AS3514_LINE_IN1_R, LINE_IN1_R_LI1R_MUTE_off);
-        as3514_clear(AS3514_LINE_IN1_L, LINE_IN1_L_LI1L_MUTE_off);
-#ifndef HAVE_AS3543
-        as3514_clear(AS3514_LINE_IN2_R, LINE_IN2_R_LI2R_MUTE_off);
-        as3514_clear(AS3514_LINE_IN2_L, LINE_IN2_L_LI2L_MUTE_off);
-#endif
+        /* mute line-in */
+        as3514_clear(AS3514_LINE_IN_R, LINE_IN1_R_LI1R_MUTE_off);
+        as3514_clear(AS3514_LINE_IN_L, LINE_IN1_L_LI1L_MUTE_off);
+        /* disable line-in */
         as3514_clear(AS3514_AUDIOSET1, AUDIOSET1_LIN1_on | AUDIOSET1_LIN2_on);
+        /* change audio routing */
+        audiohw_set_volume(current_vol_l, current_vol_r);
     }
 }
 #endif /* HAVE_RECORDING || HAVE_FMRADIO_IN */

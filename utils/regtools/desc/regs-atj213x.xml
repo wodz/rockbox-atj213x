@@ -42,7 +42,7 @@
       <addr name="FIFOCTL" addr="0x2c"/>
     </reg>
     <reg name="FIFOCFG" desc="">
-      <addr name="FIFOCTL" addr="0x30"/>
+      <addr name="FIFOCFG" addr="0x30"/>
     </reg>
     <reg name="ADDRDEC" desc="">
       <addr name="ADDRDEC" addr="0x34"/>
@@ -235,7 +235,7 @@
       <addr name="IRQPD" addr="0x8"/>
     </reg>
     <reg name="DMA_MODE" desc="">
-      <formula string="0x100+0x20*n"/>
+      <formula string="0x100+n*0x20"/>
       <addr name="DMA_MODE0" addr="0x100"/>
       <addr name="DMA_MODE1" addr="0x120"/>
       <addr name="DMA_MODE2" addr="0x140"/>
@@ -305,7 +305,7 @@
       <field name="SFXS" desc="Source Fix Size. If DFXS=0, DMA will transfer in 8bit mode when remain counter is less than STRANWID. If SFXS=1, DMA will always transfer in STRANWID." bitrange="0:0"/>
     </reg>
     <reg name="DMA_SRC" desc="">
-      <formula string="0x104+0x20*n"/>
+      <formula string="0x104+n*0x20"/>
       <addr name="DMA_SRC0" addr="0x104"/>
       <addr name="DMA_SRC1" addr="0x124"/>
       <addr name="DMA_SRC2" addr="0x144"/>
@@ -316,7 +316,7 @@
       <addr name="DMA_SRC7" addr="0x1e4"/>
     </reg>
     <reg name="DMA_DST" desc="">
-      <formula string="0x108+0x20*n"/>
+      <formula string="0x108+n*0x20"/>
       <addr name="DMA_DST0" addr="0x108"/>
       <addr name="DMA_DST1" addr="0x128"/>
       <addr name="DMA_DST2" addr="0x148"/>
@@ -327,7 +327,7 @@
       <addr name="DMA_DST7" addr="0x1e8"/>
     </reg>
     <reg name="DMA_CNT" desc="">
-      <formula string="0x10c+0x20*n"/>
+      <formula string="0x10c+n*0x20"/>
       <addr name="DMA_CNT0" addr="0x10c"/>
       <addr name="DMA_CNT1" addr="0x12c"/>
       <addr name="DMA_CNT2" addr="0x14c"/>
@@ -338,7 +338,7 @@
       <addr name="DMA_CNT7" addr="0x1ec"/>
     </reg>
     <reg name="DMA_REM" desc="">
-      <formula string="0x110+0x20*n"/>
+      <formula string="0x110+n*0x20"/>
       <addr name="DMA_REM0" addr="0x110"/>
       <addr name="DMA_REM1" addr="0x130"/>
       <addr name="DMA_REM2" addr="0x150"/>
@@ -349,7 +349,7 @@
       <addr name="DMA_REM7" addr="0x1f0"/>
     </reg>
     <reg name="DMA_CMD" desc="">
-      <formula string="0x114+0x20*n"/>
+      <formula string="0x114+n*0x20"/>
       <addr name="DMA_CMD0" addr="0x114"/>
       <addr name="DMA_CMD1" addr="0x134"/>
       <addr name="DMA_CMD2" addr="0x154"/>
@@ -469,7 +469,7 @@
       <field name="IRQE" desc="IRQ Enable" bitrange="5:5"/>
       <field name="MS" desc="Mode select" bitrange="4:4">
         <value name="MASTER" value="0x0" desc=""/>
-        <value name="SLAVE" value="0x0" desc=""/>
+        <value name="SLAVE" value="0x1" desc=""/>
       </field>
       <field name="GBCC" desc="Generating Bus Control Condition (only for master mode)" bitrange="3:2">
         <value name="NOP" value="0x0" desc=""/>
@@ -1119,8 +1119,8 @@
     </reg>
     <reg name="FIFOCTRL" desc="">
       <addr name="FIFOCTRL" addr="0x1a8"/>
-      <field name="DMA" desc="" bitrange="31:0"/>
       <field name="CPU_ACCESS" desc="" bitrange="7:7"/>
+      <field name="DMA" desc="" bitrange="5:5"/>
       <field name="DIR" desc="" bitrange="4:4">
         <value name="OUT" value="0x0" desc=""/>
         <value name="IN" value="0x1" desc=""/>
@@ -1146,8 +1146,8 @@
       <addr name="HCOUT2MAXPCKL" addr="0x3e4"/>
     </reg>
     <reg name="STADDR" desc="Endpoint buffer start address">
-      <addr name="OUT1STADDR " addr="0x304"/>
-      <addr name="IN2STADDR " addr="0x348"/>
+      <addr name="OUT1STADDR" addr="0x304"/>
+      <addr name="IN2STADDR" addr="0x348"/>
     </reg>
     <reg name="USBEIRQ" desc="USB extended irq register">
       <addr name="USBEIRQ" addr="0x400"/>

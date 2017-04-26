@@ -31,13 +31,19 @@
 #define CACHEALIGN_BITS (5) /* 2^5 = 32 bytes */
 
 #define DRAM_ORIG 0x08000000
-#define IRAM_ORIG 0
+#define IRAM_ORIG 0x22000000
 
 #define DRAM_SIZE (MEMORYSIZE * 0x100000)
 #define IRAM_SIZE 0x40000
 
-#define TTB_SIZE                  0x4000
-#define TTB_BASE_ADDR             (DRAM_ORIG + DRAM_SIZE - TTB_SIZE)
+#define TTB_SIZE        0x4000
+#define TTB_BASE_ADDR   (DRAM_ORIG + DRAM_SIZE - TTB_SIZE)
+
+#define IRAM0_ORIG      0x22000000
+#define IRAM0_SIZE      0x20000
+#define IRAM1_ORIG      0x22020000
+#define IRAM1_SIZE      0x20000
+
 
 /////SYSTEM CONTROLLER/////
 #define CLKCON0      (*((volatile uint32_t*)(0x3C500000)))
@@ -60,6 +66,29 @@
                                              ((i) == 2 ? 0x58 : \
                                              ((i) == 1 ? 0x4C : \
                                                          0x48)))))))
+/* SW Reset Control Register */
+#define SWRCON      (*((volatile uint32_t*)(0x3C500050)))
+/* Reset Status Register */
+#define RSTSR       (*((volatile uint32_t*)(0x3C500054)))
+#define RSTSR_WDR_BIT   (1 << 2)
+#define RSTSR_SWR_BIT   (1 << 1)
+#define RSTSR_HWR_BIT   (1 << 0)
+
+
+/////WATCHDOG/////
+#define WDTCON      (*((volatile uint32_t*)(0x3C800000)))
+#define WDTCNT      (*((volatile uint32_t*)(0x3C800004)))
+
+
+/////MEMCONTROLLER/////
+#define MIU_BASE        (0x38100000)
+#define MIU_REG(off)    (*((uint32_t volatile*)(MIU_BASE + (off))))
+/* following registers are similar to s5l8700x */
+#define MIUCON          (*((uint32_t volatile*)(0x38100000)))
+#define MIUCOM          (*((uint32_t volatile*)(0x38100004)))
+#define MIUAREF         (*((uint32_t volatile*)(0x38100008)))
+#define MIUMRS          (*((uint32_t volatile*)(0x3810000C)))
+#define MIUSDPARA       (*((uint32_t volatile*)(0x38100010)))
 
 
 /////TIMER/////
@@ -146,15 +175,49 @@
 /////USB/////
 #define OTGBASE 0x38400000
 #define PHYBASE 0x3C400000
-#define SYNOPSYSOTG_CLOCK 0
-#define SYNOPSYSOTG_AHBCFG (GAHBCFG_dma_enable | (GAHBCFG_INT_DMA_BURST_INCR8 << GAHBCFG_hburstlen_bitp) | GAHBCFG_glblintrmsk)
+
+/* OTG PHY control registers */
+#define OPHYPWR     (*((uint32_t volatile*)(PHYBASE + 0x000)))
+#define OPHYCLK     (*((uint32_t volatile*)(PHYBASE + 0x004)))
+#define ORSTCON     (*((uint32_t volatile*)(PHYBASE + 0x008)))
+#define OPHYUNK3    (*((uint32_t volatile*)(PHYBASE + 0x018)))
+#define OPHYUNK1    (*((uint32_t volatile*)(PHYBASE + 0x01c)))
+#define OPHYUNK2    (*((uint32_t volatile*)(PHYBASE + 0x044)))
+
+/* 9 available EPs (0b00000001111101010000000111101011), 6 used */
+#define USB_NUM_ENDPOINTS 6
+
+/* Define this if the DWC implemented on this SoC does not support
+   DMA or you want to disable it. */
+// #define USB_DW_ARCH_SLAVE
 
 
 /////I2C/////
-#define IICCON(bus)  (*((uint32_t volatile*)(0x3C600000 + 0x300000 * (bus))))
-#define IICSTAT(bus) (*((uint32_t volatile*)(0x3C600004 + 0x300000 * (bus))))
-#define IICADD(bus)  (*((uint32_t volatile*)(0x3C600008 + 0x300000 * (bus))))
-#define IICDS(bus)   (*((uint32_t volatile*)(0x3C60000C + 0x300000 * (bus))))
+#define I2CCLKGATE(i)   ((i) == 1 ? CLOCKGATE_I2C1 : \
+                                    CLOCKGATE_I2C0)
+
+/*  s5l8702 I2C controller is similar to s5l8700, known differences are:
+
+    * IICCON[5] is not used in s5l8702.
+    * IICCON[13:8] are used to enable interrupts.
+      IICSTA2[13:8] are used to read the status and write-clear interrupts.
+      Known interrupts:
+       [13] STOP on bus (TBC)
+       [12] START on bus (TBC)
+       [8] byte transmited or received in Master mode (not tested in Slave)
+    * IICCON[4] does not clear interrupts, it is enabled when a byte is
+      transmited or received, in Master mode the tx/rx of the next byte
+      starts when it is written as "1".
+*/
+
+#define IICCON(bus)     (*((uint32_t volatile*)(0x3C600000 + 0x300000 * (bus))))
+#define IICSTAT(bus)    (*((uint32_t volatile*)(0x3C600004 + 0x300000 * (bus))))
+#define IICADD(bus)     (*((uint32_t volatile*)(0x3C600008 + 0x300000 * (bus))))
+#define IICDS(bus)      (*((uint32_t volatile*)(0x3C60000C + 0x300000 * (bus))))
+#define IICUNK10(bus)   (*((uint32_t volatile*)(0x3C600010 + 0x300000 * (bus))))
+#define IICUNK14(bus)   (*((uint32_t volatile*)(0x3C600014 + 0x300000 * (bus))))
+#define IICUNK18(bus)   (*((uint32_t volatile*)(0x3C600018 + 0x300000 * (bus))))
+#define IICSTA2(bus)    (*((uint32_t volatile*)(0x3C600020 + 0x300000 * (bus))))
 
 
 /////INTERRUPT CONTROLLERS/////
@@ -335,6 +398,7 @@
 #define PDAT(i)       (*((uint32_t volatile*)(0x3cf00004 + ((i) << 5))))
 #define PUNA(i)       (*((uint32_t volatile*)(0x3cf00008 + ((i) << 5))))
 #define PUNB(i)       (*((uint32_t volatile*)(0x3cf0000c + ((i) << 5))))
+#define PUNC(i)       (*((uint32_t volatile*)(0x3cf00010 + ((i) << 5))))
 #define PCON0         (*((uint32_t volatile*)(0x3cf00000)))
 #define PDAT0         (*((uint32_t volatile*)(0x3cf00004)))
 #define PCON1         (*((uint32_t volatile*)(0x3cf00020)))
@@ -374,21 +438,21 @@
 #define SPIBASE(i)      ((i) == 2 ? 0x3d200000 : \
                          (i) == 1 ? 0x3ce00000 : \
                                     0x3c300000)
-#define SPICLKGATE(i)   ((i) == 2 ? 0x2f : \
-                         (i) == 1 ? 0x2b : \
-                                    0x22)
+#define SPICLKGATE(i)   ((i) == 2 ? CLOCKGATE_SPI2 : \
+                         (i) == 1 ? CLOCKGATE_SPI1 : \
+                                    CLOCKGATE_SPI0)
 #define SPIDMA(i)       ((i) == 2 ? 0xd : \
                          (i) == 1 ? 0xf : \
                                     0x5)
 #define SPICTRL(i)    (*((uint32_t volatile*)(SPIBASE(i))))
 #define SPISETUP(i)   (*((uint32_t volatile*)(SPIBASE(i) + 0x4)))
 #define SPISTATUS(i)  (*((uint32_t volatile*)(SPIBASE(i) + 0x8)))
-#define SPIUNKREG1(i) (*((uint32_t volatile*)(SPIBASE(i) + 0xc)))
+#define SPIPIN(i)     (*((uint32_t volatile*)(SPIBASE(i) + 0xc)))
 #define SPITXDATA(i)  (*((uint32_t volatile*)(SPIBASE(i) + 0x10)))
 #define SPIRXDATA(i)  (*((uint32_t volatile*)(SPIBASE(i) + 0x20)))
 #define SPICLKDIV(i)  (*((uint32_t volatile*)(SPIBASE(i) + 0x30)))
 #define SPIRXLIMIT(i) (*((uint32_t volatile*)(SPIBASE(i) + 0x34)))
-#define SPIUNKREG3(i) (*((uint32_t volatile*)(SPIBASE(i) + 0x38)))
+#define SPIDD(i)      (*((uint32_t volatile*)(SPIBASE(i) + 0x38)))  /* TBC */
 
 
 /////AES/////
@@ -419,179 +483,12 @@
 #define SHA1DATAIN      ((uint32_t volatile*)(0x38000040))
 
 
-/////DMA/////
-#ifndef ASM
-struct dma_lli
-{
-    const void* srcaddr;
-    void* dstaddr;
-    const struct dma_lli* nextlli;
-    uint32_t control;
-};
-#endif
-#define DMACINTSTS(d)       (*((uint32_t volatile*)(0x38200000 + 0x1700000 * (d))))
-#define DMACINTTCSTS(d)     (*((uint32_t volatile*)(0x38200004 + 0x1700000 * (d))))
-#define DMACINTTCCLR(d)     (*((uint32_t volatile*)(0x38200008 + 0x1700000 * (d))))
-#define DMACINTERRSTS(d)    (*((uint32_t volatile*)(0x3820000c + 0x1700000 * (d))))
-#define DMACINTERRCLR(d)    (*((uint32_t volatile*)(0x38200010 + 0x1700000 * (d))))
-#define DMACRAWINTTCSTS(d)  (*((uint32_t volatile*)(0x38200014 + 0x1700000 * (d))))
-#define DMACRAWINTERRSTS(d) (*((uint32_t volatile*)(0x38200018 + 0x1700000 * (d))))
-#define DMACENABLEDCHANS(d) (*((uint32_t volatile*)(0x3820001c + 0x1700000 * (d))))
-#define DMACSOFTBREQ(d)     (*((uint32_t volatile*)(0x38200020 + 0x1700000 * (d))))
-#define DMACSOFTSREQ(d)     (*((uint32_t volatile*)(0x38200024 + 0x1700000 * (d))))
-#define DMACSOFTLBREQ(d)    (*((uint32_t volatile*)(0x38200028 + 0x1700000 * (d))))
-#define DMACSOFTLSREQ(d)    (*((uint32_t volatile*)(0x3820002c + 0x1700000 * (d))))
-#define DMACCONFIG(d)       (*((uint32_t volatile*)(0x38200030 + 0x1700000 * (d))))
-#define DMACSYNC(d)         (*((uint32_t volatile*)(0x38200034 + 0x1700000 * (d))))
-#define DMACCLLI(d, c)      (*((struct dma_lli volatile*)(0x38200100 + 0x1700000 * (d) + 0x20 * (c))))
-#define DMACCSRCADDR(d, c)  (*((const void* volatile*)(0x38200100 + 0x1700000 * (d) + 0x20 * (c))))
-#define DMACCDESTADDR(d, c) (*((void* volatile*)(0x38200104 + 0x1700000 * (d) + 0x20 * (c))))
-#define DMACCNEXTLLI(d, c)  (*((const void* volatile*)(0x38200108 + 0x1700000 * (d) + 0x20 * (c))))
-#define DMACCCONTROL(d, c)  (*((uint32_t volatile*)(0x3820010c + 0x1700000 * (d) + 0x20 * (c))))
-#define DMACCCONFIG(d, c)   (*((uint32_t volatile*)(0x38200110 + 0x1700000 * (d) + 0x20 * (c))))
-#define DMAC0INTSTS         (*((uint32_t volatile*)(0x38200000)))
-#define DMAC0INTTCSTS       (*((uint32_t volatile*)(0x38200004)))
-#define DMAC0INTTCCLR       (*((uint32_t volatile*)(0x38200008)))
-#define DMAC0INTERRSTS      (*((uint32_t volatile*)(0x3820000c)))
-#define DMAC0INTERRCLR      (*((uint32_t volatile*)(0x38200010)))
-#define DMAC0RAWINTTCSTS    (*((uint32_t volatile*)(0x38200014)))
-#define DMAC0RAWINTERRSTS   (*((uint32_t volatile*)(0x38200018)))
-#define DMAC0ENABLEDCHANS   (*((uint32_t volatile*)(0x3820001c)))
-#define DMAC0SOFTBREQ       (*((uint32_t volatile*)(0x38200020)))
-#define DMAC0SOFTSREQ       (*((uint32_t volatile*)(0x38200024)))
-#define DMAC0SOFTLBREQ      (*((uint32_t volatile*)(0x38200028)))
-#define DMAC0SOFTLSREQ      (*((uint32_t volatile*)(0x3820002c)))
-#define DMAC0CONFIG         (*((uint32_t volatile*)(0x38200030)))
-#define DMAC0SYNC           (*((uint32_t volatile*)(0x38200034)))
-#define DMAC0CLLI(c)        (*((struct dma_lli volatile*)(0x38200100 + 0x20 * (c))))
-#define DMAC0CSRCADDR(c)    (*((const void* volatile*)(0x38200100 + 0x20 * (c))))
-#define DMAC0CDESTADDR(c)   (*((void* volatile*)(0x38200104 + 0x20 * (c))))
-#define DMAC0CNEXTLLI(c)    (*((const void* volatile*)(0x38200108 + 0x20 * (c))))
-#define DMAC0CCONTROL(c)    (*((uint32_t volatile*)(0x3820010c + 0x20 * (c))))
-#define DMAC0CCONFIG(c)     (*((uint32_t volatile*)(0x38200110 + 0x20 * (c))))
-#define DMAC0C0LLI          (*((struct dma_lli volatile*)(0x38200100)))
-#define DMAC0C0SRCADDR      (*((const void* volatile*)(0x38200100)))
-#define DMAC0C0DESTADDR     (*((void* volatile*)(0x38200104)))
-#define DMAC0C0NEXTLLI      (*((const struct dma_lli* volatile*)(0x38200108)))
-#define DMAC0C0CONTROL      (*((uint32_t volatile*)(0x3820010c)))
-#define DMAC0C0CONFIG       (*((uint32_t volatile*)(0x38200110)))
-#define DMAC0C1LLI          (*((struct dma_lli volatile*)(0x38200120)))
-#define DMAC0C1SRCADDR      (*((const void* volatile*)(0x38200120)))
-#define DMAC0C1DESTADDR     (*((void* volatile*)(0x38200124)))
-#define DMAC0C1NEXTLLI      (*((const struct dma_lli* volatile*)(0x38200128)))
-#define DMAC0C1CONTROL      (*((uint32_t volatile*)(0x3820012c)))
-#define DMAC0C1CONFIG       (*((uint32_t volatile*)(0x38200130)))
-#define DMAC0C2LLI          (*((struct dma_lli volatile*)(0x38200140)))
-#define DMAC0C2SRCADDR      (*((const void* volatile*)(0x38200140)))
-#define DMAC0C2DESTADDR     (*((void* volatile*)(0x38200144)))
-#define DMAC0C2NEXTLLI      (*((const struct dma_lli* volatile*)(0x38200148)))
-#define DMAC0C2CONTROL      (*((uint32_t volatile*)(0x3820014c)))
-#define DMAC0C2CONFIG       (*((uint32_t volatile*)(0x38200150)))
-#define DMAC0C3LLI          (*((struct dma_lli volatile*)(0x38200160)))
-#define DMAC0C3SRCADDR      (*((const void* volatile*)(0x38200160)))
-#define DMAC0C3DESTADDR     (*((void* volatile*)(0x38200164)))
-#define DMAC0C3NEXTLLI      (*((const struct dma_lli* volatile*)(0x38200168)))
-#define DMAC0C3CONTROL      (*((uint32_t volatile*)(0x3820016c)))
-#define DMAC0C3CONFIG       (*((uint32_t volatile*)(0x38200170)))
-#define DMAC0C4LLI          (*((struct dma_lli volatile*)(0x38200180)))
-#define DMAC0C4SRCADDR      (*((const void* volatile*)(0x38200180)))
-#define DMAC0C4DESTADDR     (*((void* volatile*)(0x38200184)))
-#define DMAC0C4NEXTLLI      (*((const struct dma_lli* volatile*)(0x38200188)))
-#define DMAC0C4CONTROL      (*((uint32_t volatile*)(0x3820018c)))
-#define DMAC0C4CONFIG       (*((uint32_t volatile*)(0x38200190)))
-#define DMAC0C5LLI          (*((struct dma_lli volatile*)(0x382001a0)))
-#define DMAC0C5SRCADDR      (*((const void* volatile*)(0x382001a0)))
-#define DMAC0C5DESTADDR     (*((void* volatile*)(0x382001a4)))
-#define DMAC0C5NEXTLLI      (*((const struct dma_lli* volatile*)(0x382001a8)))
-#define DMAC0C5CONTROL      (*((uint32_t volatile*)(0x382001ac)))
-#define DMAC0C5CONFIG       (*((uint32_t volatile*)(0x382001b0)))
-#define DMAC0C6LLI          (*((struct dma_lli volatile*)(0x382001c0)))
-#define DMAC0C6SRCADDR      (*((const void* volatile*)(0x382001c0)))
-#define DMAC0C6DESTADDR     (*((void* volatile*)(0x382001c4)))
-#define DMAC0C6NEXTLLI      (*((const struct dma_lli* volatile*)(0x382001c8)))
-#define DMAC0C6CONTROL      (*((uint32_t volatile*)(0x382001cc)))
-#define DMAC0C6CONFIG       (*((uint32_t volatile*)(0x382001d0)))
-#define DMAC0C7LLI          (*((struct dma_lli volatile*)(0x382001e0)))
-#define DMAC0C7SRCADDR      (*((const void* volatile*)(0x382001e0)))
-#define DMAC0C7DESTADDR     (*((void* volatile*)(0x382001e4)))
-#define DMAC0C7NEXTLLI      (*((const struct dma_lli* volatile*)(0x382001e8)))
-#define DMAC0C7CONTROL      (*((uint32_t volatile*)(0x382001ec)))
-#define DMAC0C7CONFIG       (*((uint32_t volatile*)(0x382001f0)))
-#define DMAC1INTSTS         (*((uint32_t volatile*)(0x39900000)))
-#define DMAC1INTTCSTS       (*((uint32_t volatile*)(0x39900004)))
-#define DMAC1INTTCCLR       (*((uint32_t volatile*)(0x39900008)))
-#define DMAC1INTERRSTS      (*((uint32_t volatile*)(0x3990000c)))
-#define DMAC1INTERRCLR      (*((uint32_t volatile*)(0x39900010)))
-#define DMAC1RAWINTTCSTS    (*((uint32_t volatile*)(0x39900014)))
-#define DMAC1RAWINTERRSTS   (*((uint32_t volatile*)(0x39900018)))
-#define DMAC1ENABLEDCHANS   (*((uint32_t volatile*)(0x3990001c)))
-#define DMAC1SOFTBREQ       (*((uint32_t volatile*)(0x39900020)))
-#define DMAC1SOFTSREQ       (*((uint32_t volatile*)(0x39900024)))
-#define DMAC1SOFTLBREQ      (*((uint32_t volatile*)(0x39900028)))
-#define DMAC1SOFTLSREQ      (*((uint32_t volatile*)(0x3990002c)))
-#define DMAC1CONFIG         (*((uint32_t volatile*)(0x39900030)))
-#define DMAC1SYNC           (*((uint32_t volatile*)(0x39900034)))
-#define DMAC1CLLI(c)        (*((struct dma_lli volatile*)(0x39900100 + 0x20 * (c))))
-#define DMAC1CSRCADDR(c)    (*((const void* volatile*)(0x39900100 + 0x20 * (c))))
-#define DMAC1CDESTADDR(c)   (*((void* volatile*)(0x39900104 + 0x20 * (c))))
-#define DMAC1CNEXTLLI(c)    (*((const void* volatile*)(0x39900108 + 0x20 * (c))))
-#define DMAC1CCONTROL(c)    (*((uint32_t volatile*)(0x3990010c + 0x20 * (c))))
-#define DMAC1CCONFIG(c)     (*((uint32_t volatile*)(0x39900110 + 0x20 * (c))))
-#define DMAC1C0LLI          (*((struct dma_lli volatile*)(0x39900100)))
-#define DMAC1C0SRCADDR      (*((const void* volatile*)(0x39900100)))
-#define DMAC1C0DESTADDR     (*((void* volatile*)(0x39900104)))
-#define DMAC1C0NEXTLLI      (*((const struct dma_lli* volatile*)(0x39900108)))
-#define DMAC1C0CONTROL      (*((uint32_t volatile*)(0x3990010c)))
-#define DMAC1C0CONFIG       (*((uint32_t volatile*)(0x39900110)))
-#define DMAC1C1LLI          (*((struct dma_lli volatile*)(0x39900120)))
-#define DMAC1C1SRCADDR      (*((const void* volatile*)(0x39900120)))
-#define DMAC1C1DESTADDR     (*((void* volatile*)(0x39900124)))
-#define DMAC1C1NEXTLLI      (*((const struct dma_lli* volatile*)(0x39900128)))
-#define DMAC1C1CONTROL      (*((uint32_t volatile*)(0x3990012c)))
-#define DMAC1C1CONFIG       (*((uint32_t volatile*)(0x39900130)))
-#define DMAC1C2LLI          (*((struct dma_lli volatile*)(0x39900140)))
-#define DMAC1C2SRCADDR      (*((const void* volatile*)(0x39900140)))
-#define DMAC1C2DESTADDR     (*((void* volatile*)(0x39900144)))
-#define DMAC1C2NEXTLLI      (*((const struct dma_lli* volatile*)(0x39900148)))
-#define DMAC1C2CONTROL      (*((uint32_t volatile*)(0x3990014c)))
-#define DMAC1C2CONFIG       (*((uint32_t volatile*)(0x39900150)))
-#define DMAC1C3LLI          (*((struct dma_lli volatile*)(0x39900160)))
-#define DMAC1C3SRCADDR      (*((const void* volatile*)(0x39900160)))
-#define DMAC1C3DESTADDR     (*((void* volatile*)(0x39900164)))
-#define DMAC1C3NEXTLLI      (*((volatile void**)(0x39900168)))
-#define DMAC1C3CONTROL      (*((uint32_t volatile*)(0x3990016c)))
-#define DMAC1C3CONFIG       (*((uint32_t volatile*)(0x39900170)))
-#define DMAC1C4LLI          (*((struct dma_lli volatile*)(0x39900180)))
-#define DMAC1C4SRCADDR      (*((const void* volatile*)(0x39900180)))
-#define DMAC1C4DESTADDR     (*((void* volatile*)(0x39900184)))
-#define DMAC1C4NEXTLLI      (*((const struct dma_lli* volatile*)(0x39900188)))
-#define DMAC1C4CONTROL      (*((uint32_t volatile*)(0x3990018c)))
-#define DMAC1C4CONFIG       (*((uint32_t volatile*)(0x39900190)))
-#define DMAC1C5LLI          (*((struct dma_lli volatile*)(0x399001a0)))
-#define DMAC1C5SRCADDR      (*((const void* volatile*)(0x399001a0)))
-#define DMAC1C5DESTADDR     (*((void* volatile*)(0x399001a4)))
-#define DMAC1C5NEXTLLI      (*((const struct dma_lli* volatile*)(0x399001a8)))
-#define DMAC1C5CONTROL      (*((uint32_t volatile*)(0x399001ac)))
-#define DMAC1C5CONFIG       (*((uint32_t volatile*)(0x399001b0)))
-#define DMAC1C6LLI          (*((struct dma_lli volatile*)(0x399001c0)))
-#define DMAC1C6SRCADDR      (*((const void* volatile*)(0x399001c0)))
-#define DMAC1C6DESTADDR     (*((void* volatile*)(0x399001c4)))
-#define DMAC1C6NEXTLLI      (*((const struct dma_lli* volatile*)(0x399001c8)))
-#define DMAC1C6CONTROL      (*((uint32_t volatile*)(0x399001cc)))
-#define DMAC1C6CONFIG       (*((uint32_t volatile*)(0x399001d0)))
-#define DMAC1C7LLI          (*((struct dma_lli volatile*)(0x399001e0)))
-#define DMAC1C7SRCADDR      (*((const void* volatile*)(0x399001e0)))
-#define DMAC1C7DESTADDR     (*((void* volatile*)(0x399001e4)))
-#define DMAC1C7NEXTLLI      (*((const struct dma_lli* volatile*)(0x399001e8)))
-#define DMAC1C7CONTROL      (*((uint32_t volatile*)(0x399001ec)))
-#define DMAC1C7CONFIG       (*((uint32_t volatile*)(0x399001f0)))
-
-
 /////LCD/////
 #define LCD_BASE   (0x38300000)
 #define LCD_CONFIG (*((uint32_t volatile*)(0x38300000)))
 #define LCD_WCMD   (*((uint32_t volatile*)(0x38300004)))
 #define LCD_STATUS (*((uint32_t volatile*)(0x3830001c)))
+#define LCD_PHTIME (*((uint32_t volatile*)(0x38300020)))
 #define LCD_WDATA  (*((uint32_t volatile*)(0x38300040)))
 
 
@@ -826,6 +723,10 @@ struct dma_lli
 
 
 /////I2S/////
+#define I2SCLKGATE(i)   ((i) == 2 ? CLOCKGATE_I2S2 : \
+                         (i) == 1 ? CLOCKGATE_I2S1 : \
+                                    CLOCKGATE_I2S0)
+
 #define I2SCLKCON           (*((volatile uint32_t*)(0x3CA00000)))
 #define I2STXCON            (*((volatile uint32_t*)(0x3CA00004)))
 #define I2STXCOM            (*((volatile uint32_t*)(0x3CA00008)))
@@ -837,22 +738,77 @@ struct dma_lli
 #define I2SCLKDIV           (*((volatile uint32_t*)(0x3CA00040)))
 
 
+/////UART/////
+/* s5l8702 UC870X HW: 1 UARTC, 4 ports */
+#define UARTC_BASE_ADDR     0x3CC00000
+#define UARTC_N_PORTS       4
+#define UARTC_PORT_OFFSET   0x4000
+
+
 /////CLOCK GATES/////
-#define CLOCKGATE_USB_1 2
-#define CLOCKGATE_USB_2 35
+#define CLOCKGATE_SHA       0
+#define CLOCKGATE_LCD       1
+#define CLOCKGATE_USBOTG    2
+#define CLOCKGATE_SMx       3
+#define CLOCKGATE_SM1       4
+#define CLOCKGATE_ATA       5
+#define CLOCKGATE_SDCI      9
+#define CLOCKGATE_AES       10
+#define CLOCKGATE_DMAC0     25
+#define CLOCKGATE_DMAC1     26
+#define CLOCKGATE_ROM       30
+
+#define CLOCKGATE_RTC       32
+#define CLOCKGATE_CWHEEL    33
+#define CLOCKGATE_SPI0      34
+#define CLOCKGATE_USBPHY    35
+#define CLOCKGATE_I2C0      36
+#define CLOCKGATE_TIMER     37
+#define CLOCKGATE_I2C1      38
+#define CLOCKGATE_I2S0      39
+#define CLOCKGATE_UARTC     41
+#define CLOCKGATE_I2S1      42
+#define CLOCKGATE_SPI1      43
+#define CLOCKGATE_GPIO      44
+#define CLOCKGATE_CHIPID    46
+#define CLOCKGATE_I2S2      47
+#define CLOCKGATE_SPI2      48
 
 
 /////INTERRUPTS/////
-#define IRQ_TIMER32 7
-#define IRQ_TIMER 8
-#define IRQ_USB_FUNC 19
-#define IRQ_DMAC(d) 16 + d
-#define IRQ_DMAC0 16
-#define IRQ_DMAC1 17
-#define IRQ_WHEEL 23
-#define IRQ_ATA 29
-#define IRQ_MMC 44
+#define IRQ_TIMER32     7
+#define IRQ_TIMER       8
+#define IRQ_SPI(i)      (9+(i)) /* TBC */
+#define IRQ_SPI0        9
+#define IRQ_SPI1        10
+#define IRQ_SPI2        11
+#define IRQ_LCD         14
+#define IRQ_DMAC(d)     (16+(d))
+#define IRQ_DMAC0       16
+#define IRQ_DMAC1       17
+#define IRQ_USB_FUNC    19
+#define IRQ_I2C(i)      (21+(i))
+#define IRQ_I2C0        21
+#define IRQ_I2C1        22
+#define IRQ_WHEEL       23
+#define IRQ_UART(i)     (24+(i))
+#define IRQ_UART0       24
+#define IRQ_UART1       25
+#define IRQ_UART2       26
+#define IRQ_UART3       27
+#define IRQ_UART4       28    /* obsolete/not implemented on s5l8702 ??? */
+#define IRQ_ATA         29
+#define IRQ_SBOOT       36
+#define IRQ_AES         39
+#define IRQ_SHA         40
+#define IRQ_MMC         44
 
+#define IRQ_EXT0        0
+#define IRQ_EXT1        1
+#define IRQ_EXT2        2
+#define IRQ_EXT3        3
+#define IRQ_EXT4        31
+#define IRQ_EXT5        32
+#define IRQ_EXT6        33
 
 #endif
-

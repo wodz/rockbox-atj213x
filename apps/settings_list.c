@@ -62,6 +62,11 @@
 #include "onplay.h"
 #endif
 
+#if defined(DX50) || defined(DX90)
+#include "governor-ibasso.h"
+#include "usb-ibasso.h"
+#endif
+
 #define NVRAM(bytes) (bytes<<F_NVRAM_MASK_SHIFT)
 /** NOTE: NVRAM_CONFIG_VERSION is in settings_list.h
      and you may need to update it if you edit this file */
@@ -154,7 +159,7 @@
 /*  for settings which use the set_int() setting screen.
     unit is the UNIT_ define to display/talk.
     the first one saves a string to the config file,
-    the second one saves the variable value to the config file */    
+    the second one saves the variable value to the config file */
 #define INT_SETTING_W_CFGVALS(flags, var, lang_id, default, name, cfg_vals, \
                     unit, min, max, step, formatter, get_talk_id, cb)       \
             {flags|F_INT_SETTING|F_T_INT, &global_settings.var,             \
@@ -444,6 +449,12 @@ static void crossfeed_cross_set(int val)
    dsp_set_crossfeed_cross_params(global_settings.crossfeed_cross_gain,
                                   global_settings.crossfeed_hf_attenuation,
                                   global_settings.crossfeed_hf_cutoff);
+}
+
+static void surround_set_factor(int val)
+{
+    (void)val;
+    dsp_surround_set_cutoff(global_settings.surround_fx1, global_settings.surround_fx2);
 }
 
 static void compressor_set(int val)
@@ -853,7 +864,7 @@ const struct settings_list settings[] = {
                   MAX_CONTRAST_SETTING, 1, NULL, NULL }}}},
 #endif
 #ifdef HAVE_BACKLIGHT
-    TABLE_SETTING(F_ALLOW_ARBITRARY_VALS, backlight_timeout, LANG_BACKLIGHT, 
+    TABLE_SETTING(F_ALLOW_ARBITRARY_VALS, backlight_timeout, LANG_BACKLIGHT,
                     DEFAULT_BACKLIGHT_TIMEOUT,
                   "backlight timeout", off_on, UNIT_SEC, backlight_formatter,
                   backlight_getlang, backlight_set_timeout, 20,
@@ -946,7 +957,7 @@ const struct settings_list settings[] = {
                   0,1,2,3,4,5,6,7,8,9,10,15,30,45,60),
     SYSTEM_SETTING(NVRAM(4), runtime, 0),
     SYSTEM_SETTING(NVRAM(4), topruntime, 0),
-    INT_SETTING(F_BANFROMQS, max_files_in_playlist, 
+    INT_SETTING(F_BANFROMQS, max_files_in_playlist,
                 LANG_MAX_FILES_IN_PLAYLIST,
 #if MEMORYSIZE > 1
                   10000,
@@ -1060,9 +1071,26 @@ const struct settings_list settings[] = {
 
 /** End of old RTC config block **/
 
+#ifndef HAS_BUTTON_HOLD
+    OFFON_SETTING(0, bt_selective_softlock_actions,
+                  LANG_ACTION_ENABLED, false,
+                  "No Screen Lock For Selected Actions", NULL),
+    INT_SETTING(0, bt_selective_softlock_actions_mask, LANG_SOFTLOCK_SELECTIVE,
+                0, "Selective Screen Lock Actions", UNIT_INT,
+                0, 2048,2, NULL, NULL, NULL),
+#endif /* !HAS_BUTTON_HOLD */
+
 #ifdef HAVE_BACKLIGHT
     OFFON_SETTING(0, caption_backlight, LANG_CAPTION_BACKLIGHT,
                   false, "caption backlight", NULL),
+
+    OFFON_SETTING(0, bl_selective_actions,
+                  LANG_ACTION_ENABLED, false,
+                  "No Backlight On Selected Actions", NULL),
+
+    INT_SETTING(0, bl_selective_actions_mask, LANG_BACKLIGHT_SELECTIVE,
+                0, "Selective Backlight Actions", UNIT_INT,
+                0, 2048,2, NULL, NULL, NULL),
 #ifdef HAVE_REMOTE_LCD
     OFFON_SETTING(0, remote_caption_backlight, LANG_CAPTION_BACKLIGHT,
                   false, "remote caption backlight", NULL),
@@ -1340,7 +1368,7 @@ const struct settings_list settings[] = {
                    ID2P(LANG_TIME), ID2P(LANG_FILESIZE)),
     {F_T_INT|F_RECSETTING, &global_settings.rec_source, LANG_RECORDING_SOURCE,
         INT(0), "rec source",
-        &HAVE_MIC_REC_(",mic") 
+        &HAVE_MIC_REC_(",mic")
         HAVE_LINE_REC_(",line")
         HAVE_SPDIF_REC_(",spdif")
         HAVE_FMRADIO_REC_(",fmradio")[1],
@@ -1416,17 +1444,17 @@ const struct settings_list settings[] = {
     INT_SETTING(F_RECSETTING, rec_stop_thres_linear, LANG_RECORD_STOP_THRESHOLD, 10,
         "trigger stop threshold linear", UNIT_PERCENT, 0, 100, 1, NULL, NULL, NULL),
     TABLE_SETTING(F_RECSETTING, rec_start_duration, LANG_MIN_DURATION, 0,
-        "trigger start duration", 
+        "trigger start duration",
         "0s,1s,2s,5s,10s,15s,20s,25s,30s,1min,2min,5min,10min",
         UNIT_SEC, NULL, NULL, NULL, 13,
         0,1,2,5,10,15,20,25,30,60,120,300,600),
     TABLE_SETTING(F_RECSETTING, rec_stop_postrec, LANG_MIN_DURATION, 0,
-        "trigger stop duration", 
+        "trigger stop duration",
         "0s,1s,2s,5s,10s,15s,20s,25s,30s,1min,2min,5min,10min",
         UNIT_SEC, NULL, NULL, NULL, 13,
         0,1,2,5,10,15,20,25,30,60,120,300,600),
     TABLE_SETTING(F_RECSETTING, rec_stop_gap, LANG_RECORD_STOP_GAP, 1,
-        "trigger min gap", 
+        "trigger min gap",
         "0s,1s,2s,5s,10s,15s,20s,25s,30s,1min,2min,5min,10min",
         UNIT_SEC, NULL, NULL, NULL, 13,
         0,1,2,5,10,15,20,25,30,60,120,300,600),
@@ -1458,7 +1486,7 @@ const struct settings_list settings[] = {
                  LANG_SET_BOOL_YES, LANG_SET_BOOL_NO, NULL),
 
 #ifdef HAVE_TAGCACHE
-#if CONFIG_CODEC == SWCODEC 
+#if CONFIG_CODEC == SWCODEC
     BOOL_SETTING(0, autoresume_enable, LANG_AUTORESUME, false,
                  "autoresume enable", off_on,
                  LANG_SET_BOOL_YES, LANG_SET_BOOL_NO, NULL),
@@ -1471,7 +1499,7 @@ const struct settings_list settings[] = {
                    ID2P(LANG_AUTORESUME_CUSTOM)),
     TEXT_SETTING(0, autoresume_paths, "autoresume next track paths",
                  "/podcast:/podcasts", NULL, NULL),
-#endif                  
+#endif
 
     OFFON_SETTING(0, runtimedb, LANG_RUNTIMEDB_ACTIVE, false,
                   "gather runtime data", NULL),
@@ -1667,7 +1695,44 @@ const struct settings_list settings[] = {
     /* dithering */
     OFFON_SETTING(F_SOUNDSETTING, dithering_enabled, LANG_DITHERING, false,
                   "dithering enabled", dsp_dither_enable),
-
+    /* surround */
+    TABLE_SETTING(F_SOUNDSETTING, surround_enabled,
+                  LANG_SURROUND, 0, "surround enabled", "off",
+                  UNIT_MS, formatter_unit_0_is_off, getlang_unit_0_is_off,
+                  dsp_surround_enable, 6,
+                  0,5,8,10,15,30),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, surround_balance,
+                       LANG_BALANCE, 35,
+                       "surround balance", UNIT_PERCENT, 0, 99,
+                       1, NULL, NULL, dsp_surround_set_balance),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, surround_fx1,
+                       LANG_SURROUND_FX1, 3400,
+                       "surround_fx1", UNIT_HERTZ, 600, 8000,
+                       200, NULL, NULL, surround_set_factor),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, surround_fx2,
+                       LANG_SURROUND_FX2, 320,
+                       "surround_fx2", UNIT_HERTZ, 40, 400,
+                       40, NULL, NULL, surround_set_factor),
+    OFFON_SETTING(F_SOUNDSETTING, surround_method2, LANG_SURROUND_METHOD2, false,
+                  "side only", dsp_surround_side_only),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, surround_mix,
+                       LANG_SURROUND_MIX, 50,
+                       "surround mix", UNIT_PERCENT, 0, 100,
+                       5, NULL, NULL, dsp_surround_mix),
+    /* auditory fatigue reduction */
+    CHOICE_SETTING(F_SOUNDSETTING|F_NO_WRAP, afr_enabled,
+                       LANG_AFR, 0,"afr enabled",
+                       "off,weak,moderate,strong", dsp_afr_enable, 4,
+                       ID2P(LANG_OFF), ID2P(LANG_WEAK),ID2P(LANG_MODERATE),ID2P(LANG_STRONG)),
+    /* PBE */
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, pbe,
+                       LANG_PBE, 0,
+                       "pbe", UNIT_PERCENT, 0, 100,
+                       25, NULL, NULL, dsp_pbe_enable),
+    INT_SETTING_NOWRAP(F_SOUNDSETTING, pbe_precut,
+                       LANG_EQUALIZER_PRECUT, -25,
+                       "pbe precut", UNIT_DB, -45, 0,
+                       1, db_format, NULL, dsp_pbe_precut),
 #ifdef HAVE_PITCHCONTROL
     /* timestretch */
     OFFON_SETTING(F_SOUNDSETTING, timestretch_enabled, LANG_TIMESTRETCH, false,
@@ -1693,11 +1758,11 @@ const struct settings_list settings[] = {
     CHOICE_SETTING(F_SOUNDSETTING|F_NO_WRAP, compressor_settings.knee,
                    LANG_COMPRESSOR_KNEE, 1, "compressor knee",
                    "hard knee,soft knee", compressor_set, 2,
-                   ID2P(LANG_COMPRESSOR_HARD_KNEE), ID2P(LANG_COMPRESSOR_SOFT_KNEE)), 
+                   ID2P(LANG_COMPRESSOR_HARD_KNEE), ID2P(LANG_COMPRESSOR_SOFT_KNEE)),
     INT_SETTING_NOWRAP(F_SOUNDSETTING, compressor_settings.attack_time,
                        LANG_COMPRESSOR_ATTACK, 5,
                        "compressor attack time", UNIT_MS, 0, 30,
-                       5, NULL, NULL, compressor_set),                  
+                       5, NULL, NULL, compressor_set),
     INT_SETTING_NOWRAP(F_SOUNDSETTING, compressor_settings.release_time,
                        LANG_COMPRESSOR_RELEASE, 500,
                        "compressor release time", UNIT_MS, 100, 1000,
@@ -1885,38 +1950,38 @@ const struct settings_list settings[] = {
                   UNIT_SEC, formatter_unit_0_is_skip_track,
                   getlang_unit_0_is_skip_track, NULL,
                   19, -1,0,1,2,3,5,7,10,15,20,30,45,60,90,120,180,300,600,900),
-    CHOICE_SETTING(0, start_in_screen, LANG_START_SCREEN, 1, 
+    CHOICE_SETTING(0, start_in_screen, LANG_START_SCREEN, 1,
                    "start in screen", "previous,root,files,"
-#ifdef HAVE_TAGCACHE 
+#ifdef HAVE_TAGCACHE
 #define START_DB_COUNT 1
                    "db,"
-#else 
+#else
 #define START_DB_COUNT 0
 #endif
                    "wps,menu,"
 #ifdef HAVE_RECORDING
 #define START_REC_COUNT 1
                    "recording,"
-#else 
+#else
 #define START_REC_COUNT 0
 #endif
 #if CONFIG_TUNER
 #define START_TUNER_COUNT 1
                    "radio,"
-#else 
+#else
 #define START_TUNER_COUNT 0
 #endif
                    "bookmarks"
 #ifdef HAVE_PICTUREFLOW_INTEGRATION
 #define START_PF_COUNT 1
                    ",pictureflow"
-#else 
+#else
 #define START_PF_COUNT 0
 #endif
                    , NULL,
     (6 + START_DB_COUNT + START_REC_COUNT + START_TUNER_COUNT + START_PF_COUNT),
                    ID2P(LANG_PREVIOUS_SCREEN), ID2P(LANG_MAIN_MENU),
-                   ID2P(LANG_DIR_BROWSER), 
+                   ID2P(LANG_DIR_BROWSER),
 #ifdef HAVE_TAGCACHE
                    ID2P(LANG_TAGCACHE),
 #endif
@@ -1977,7 +2042,7 @@ const struct settings_list settings[] = {
                 2, "list_accel_start_delay", UNIT_SEC, 0, 10, 1,
                 formatter_unit_0_is_off, getlang_unit_0_is_off, NULL),
     INT_SETTING(0, list_accel_wait, LANG_LISTACCEL_ACCEL_SPEED,
-                3, "list_accel_wait", UNIT_SEC, 1, 10, 1, 
+                3, "list_accel_wait", UNIT_SEC, 1, 10, 1,
                 scanaccel_formatter, getlang_unit_0_is_off, NULL),
 #endif /* HAVE_WHEEL_ACCELERATION */
 #if CONFIG_CODEC == SWCODEC
@@ -2053,14 +2118,18 @@ const struct settings_list settings[] = {
                   false, "shortcuts instead of quickscreen", NULL),
 #endif
 #ifdef HAVE_SPEAKER
-    OFFON_SETTING(0, speaker_enabled, LANG_ENABLE_SPEAKER, false, "speaker",
-                  audiohw_enable_speaker),
-#endif
+    CHOICE_SETTING(0, speaker_mode, LANG_ENABLE_SPEAKER, 0, "speaker mode",
+# ifdef HAVE_HEADPHONE_DETECTION
+                   "on,off,auto", audio_enable_speaker, 3, ID2P(LANG_OFF), ID2P(LANG_ON), ID2P(LANG_AUTO)),
+#else /* HAVE_HEADPHONE_DETECTION */
+                   "on,off", audio_enable_speaker, 2, ID2P(LANG_OFF), ID2P(LANG_ON)),
+#endif /* HAVE_HEADPHONE_DETECTION */
+#endif /* HAVE_SPEAKER */
 #ifdef HAVE_TOUCHSCREEN
     CHOICE_SETTING(0, touch_mode, LANG_TOUCHSCREEN_MODE, DEFAULT_TOUCHSCREEN_MODE,
                    "touchscreen mode", "point,grid", NULL, 2,
                    ID2P(LANG_TOUCHSCREEN_POINT), ID2P(LANG_TOUCHSCREEN_GRID)),
-    CUSTOM_SETTING(0, ts_calibration_data, -1, 
+    CUSTOM_SETTING(0, ts_calibration_data, -1,
                     &default_calibration_parameters, "touchscreen calibration",
                     tsc_load_from_cfg, tsc_write_to_cfg,
                     tsc_is_changed, tsc_set_default),
@@ -2117,21 +2186,21 @@ const struct settings_list settings[] = {
     TABLE_SETTING(F_ALLOW_ARBITRARY_VALS, hotkey_wps,
         LANG_HOTKEY_WPS, HOTKEY_VIEW_PLAYLIST, "hotkey wps",
         "off,view playlist,show track info,pitchscreen,open with,delete"
-#ifdef HAVE_PICTUREFLOW_INTEGRATION        
+#ifdef HAVE_PICTUREFLOW_INTEGRATION
         ",pictureflow"
 #endif
-        ,UNIT_INT, hotkey_formatter, hotkey_getlang, NULL, 
-#ifdef HAVE_PICTUREFLOW_INTEGRATION        
-        7, 
+        ,UNIT_INT, hotkey_formatter, hotkey_getlang, NULL,
+#ifdef HAVE_PICTUREFLOW_INTEGRATION
+        7,
 #else
         6,
 #endif
         HOTKEY_OFF,
         HOTKEY_VIEW_PLAYLIST, HOTKEY_SHOW_TRACK_INFO, HOTKEY_PITCHSCREEN,
         HOTKEY_OPEN_WITH, HOTKEY_DELETE
-#ifdef HAVE_PICTUREFLOW_INTEGRATION        
+#ifdef HAVE_PICTUREFLOW_INTEGRATION
         , HOTKEY_PICTUREFLOW
-#endif        
+#endif
         ),
     TABLE_SETTING(F_ALLOW_ARBITRARY_VALS, hotkey_tree,
         LANG_HOTKEY_FILE_BROWSER, HOTKEY_OFF, "hotkey tree",
@@ -2150,6 +2219,33 @@ const struct settings_list settings[] = {
                   NULL, "root menu order",
                   root_menu_load_from_cfg, root_menu_write_to_cfg,
                   root_menu_is_changed, root_menu_set_default),
+
+#if defined(DX50) || defined(DX90)
+    CHOICE_SETTING(0,
+                   governor,
+                   LANG_IBASSO_FREQ_SCALING_GOVERNOR,
+                   GOVERNOR_POWERSAVE,
+                   "freq scaling governor",
+                   "conservative,ondemand,interactive,powersave,performance",
+                   ibasso_set_governor,
+                   5,
+                   "Conservative",
+                   "Ondemand",
+                   "Interactive",
+                   "Powersave",
+                   "Performance"),
+    CHOICE_SETTING(0,
+                   usb_mode,
+                   LANG_IBASSO_USB_MODE,
+                   USB_MODE_MASS_STORAGE,
+                   "usb mode",
+                   "mass storage,charge,adb",
+                   ibasso_set_usb_mode,
+                   3,
+                   ID2P(LANG_IBASSO_USB_MODE_MASS_STORAGE),
+                   ID2P(LANG_IBASSO_USB_MODE_CHARGE),
+                   ID2P(LANG_IBASSO_USB_MODE_ADB)),
+#endif
 };
 
 const int nb_settings = sizeof(settings)/sizeof(*settings);

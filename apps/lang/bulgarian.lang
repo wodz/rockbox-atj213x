@@ -252,19 +252,21 @@
     *: "PLAY = Yes"
     cowond2*: "MENU, or top-right = Yes"
     iriverh100,iriverh120,iriverh300: "NAVI = Yes"
-    samsungyh*,ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Yes"
+    ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Yes"
     mrobe500: "PLAY, POWER, or top-right = Yes"
     archosplayer: "(PLAY/STOP)"
     vibe500: "OK = Yes"
+    creativezen*: "Select = Yes"
   </source>
   <dest>
     *: "PLAY = Да"
     cowond2*: "MENU или горе ляво = Да"
     iriverh100,iriverh120,iriverh300: "NAVI = Да"
-    samsungyh*,ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Да"
+    ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Да"
     mrobe500: "PLAY, POWER или горе дясно = Да"
     archosplayer: "(PLAY/STOP)"
     vibe500: "OK = Да"
+    creativezen*: "Select = Да"
   </dest>
   <voice>
     *: ""
@@ -2235,7 +2237,7 @@
     *: "Building database... %d found (OFF to return)"
     iriverh100,iriverh120,iriverh300: "Building database... %d found (STOP to return)"
     ipod*: "Building database... %d found (PREV to return)"
-    iaudiox5,iaudiom5,gigabeat*,mrobe100: "Building database... %d found (LEFT to return)"
+    iaudiox5,iaudiom5,gigabeat*,mrobe100,samsungyh*: "Building database... %d found (LEFT to return)"
     iriverh10,iriverh10_5gb,sansae200*,sansac200*,sansafuze*,vibe500: "Building database... %d found (PREV to return)"
     gogearsa9200: "Building database... %d found (REW to return)"
     archosplayer: "Building DB %d found"
@@ -2244,7 +2246,7 @@
     *: "Изграждане на базата данни...  намерени %d (OFF за връщане)"
     iriverh100,iriverh120,iriverh300: "Изграждане на базата данни...  намерени %d (STOP за връщане)"
     ipod*: "Изграждане на базата данни...  намерени %d (PREV за връщане)"
-    iaudiox5,iaudiom5,gigabeat*,mrobe100: "Изграждане на базата данни...  намерени %d (LEFT за връщане)"
+    iaudiox5,iaudiom5,gigabeat*,mrobe100,samsungyh*: "Изграждане на базата данни...  намерени %d (LEFT за връщане)"
     iriverh10,iriverh10_5gb,sansae200*,sansac200*,sansafuze*,vibe500: "Изграждане на базата данни...  намерени %d (PREV за връщане)"
     gogearsa9200: "Изграждане на базата данни...  намерени %d (REW за връщане)"
     archosplayer: "Изгр. на БД %d файла"
@@ -3951,7 +3953,7 @@
     mrobe500: "HEART = Set"
     iriverh100,iriverh120,iriverh300: "NAVI = Set"
     ipod*,iaudiox5,iaudiom5,iriverh10,iriverh10_5gb,sansae200*,sansac200*,gigabeat*,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Set"
-    gogearsa9200: "PLAY = Set"
+    gogearsa9200,samsungyh*: "PLAY = Set"
     vibe500: "OK = Set"
     mpiohd300: "ENTER = Set"
   </source>
@@ -3961,13 +3963,13 @@
     mrobe500: "HEART = Запази"
     iriverh100,iriverh120,iriverh300: "NAVI = Запази"
     ipod*,iaudiox5,iaudiom5,iriverh10,iriverh10_5gb,sansae200*,sansac200*,gigabeat*,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Запази"
-    gogearsa9200: "PLAY = Запази"
+    gogearsa9200,samsungyh*: "PLAY = Запази"
     vibe500: "OK = Запази"
     mpiohd300: "ENTER = Запази"
   </dest>
   <voice>
     *: none
-    rtc,iriverh100,iriverh120,iriverh300,iriverh10,iriverh10_5gb,iaudiox5,iaudiom5,ipod*,sansae200*,sansac200*,gigabeat*,mrobe100,gogearsa9200: ""
+    rtc,iriverh100,iriverh120,iriverh300,iriverh10,iriverh10_5gb,iaudiox5,iaudiom5,ipod*,sansae200*,sansac200*,gigabeat*,mrobe100,gogearsa9200,samsungyh*: ""
   </voice>
 </phrase>
 <phrase>
@@ -3988,6 +3990,7 @@
     gigabeats: "BACK = Revert"
     gogearsa9200: "LEFT = Revert"
     vibe500: "CANCEL = Revert"
+    samsungyh*: "REW = Revert"
   </source>
   <dest>
     *: none
@@ -4003,6 +4006,7 @@
     gigabeats: "BACK = отказ"
     gogearsa9200: "LEFT = отказ"
     vibe500: "CANCEL = отказ"
+    samsungyh*: "REW = отказ"
   </dest>
   <voice>
     *: none
@@ -7912,8 +7916,6 @@
     *: "Време"
   </voice>
 </phrase>
-/* TODO: cleanup LANG_USB_CHARGING unless HAVE_USB_CHARGING_ENABLE defined,
- * the selector should probably be usb_charging_enable_enable as well. */
 <phrase>
   id: LANG_USB_CHARGING
   desc: in Battery menu
@@ -7986,6 +7988,7 @@
     iriverh100,iriverh120,iriverh300: "The disk is full. Press STOP to continue."
     iaudiom5,iaudiox5: "The disk is full. Press POWER to continue."
     sansae200*,sansac200*,vibe500: "The disk is full. Press PREV to continue."
+    samsungyh*: "Disk full. Press LEFT to continue."
   </source>
   <dest>
     *: none
@@ -7993,6 +7996,7 @@
     iriverh100,iriverh120,iriverh300: "Дискът е пълен. Натиснете stop за да продължите."
     iaudiom5,iaudiox5: "Дискът е пълен. Натиснете Power за да продължите."
     sansae200*,sansac200*,vibe500: "Дискът е пълен. Натиснете PREV за да продължите."
+    samsungyh*: "Дискът е пълен. Натиснете LEFT за да продължите."
   </dest>
   <voice>
     *: none
@@ -12271,15 +12275,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Tone Controls"
+    gigabeats,samsungypr1: "Tone Controls"
   </source>
   <dest>
     *: none
-    gigabeats: "Настройки на тона"
+    gigabeats,samsungypr1: "Управление на тоновете"
   </dest>
   <voice>
     *: none
-    gigabeats: "Настройки на тона"
+    gigabeats,samsungypr1: "Управление на тоновете"
   </voice>
 </phrase>
 <phrase>
@@ -12288,15 +12292,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Advanced Tone Control Settings"
+    gigabeats,samsungypr1: "Advanced Tone Control Settings"
   </source>
   <dest>
     *: none
-    gigabeats: "Разширени настройки на тоновете"
+    gigabeats,samsungypr1: "Разширени настройки за управление на тоновете"
   </dest>
   <voice>
     *: none
-    gigabeats: "Разширени настройки на тоновете"
+    gigabeats,samsungypr1: "Разширени настройки за управление на тоновете"
   </voice>
 </phrase>
 <phrase>
@@ -12305,15 +12309,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Band %d Gain"
+    gigabeats,samsungypr1: "Band %d Gain"
   </source>
   <dest>
     *: none
-    gigabeats: "Лента %d Усилване"
+    gigabeats,samsungypr1: "Усилване на лента %d"
   </dest>
   <voice>
     *: none
-    gigabeats: "Усилване на лентата"
+    gigabeats,samsungypr1: "Усилване на лента"
   </voice>
 </phrase>
 <phrase>
@@ -12322,15 +12326,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Band %d Frequency"
+    gigabeats,samsungypr1: "Band %d Frequency"
   </source>
   <dest>
     *: none
-    gigabeats: "Лента %d Честота"
+    gigabeats,samsungypr1: "Честота на лента %d"
   </dest>
   <voice>
     *: none
-    gigabeats: "Честота на лентата"
+    gigabeats,samsungypr1: "Честота на лента"
   </voice>
 </phrase>
 <phrase>
@@ -12339,15 +12343,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Band %d Width"
+    gigabeats,samsungypr1: "Band %d Width"
   </source>
   <dest>
     *: none
-    gigabeats: "Лента %d ширина"
+    gigabeats,samsungypr1: "Ширина на лента %d"
   </dest>
   <voice>
     *: none
-    gigabeats: "Ширина на лентата"
+    gigabeats,samsungypr1: "Ширина на лента"
   </voice>
 </phrase>
 <phrase>
@@ -12356,15 +12360,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Narrow"
+    gigabeats,samsungypr1: "Narrow"
   </source>
   <dest>
     *: none
-    gigabeats: "Стесняване"
+    gigabeats,samsungypr1: "Тясна"
   </dest>
   <voice>
     *: none
-    gigabeats: "Стесняване"
+    gigabeats,samsungypr1: "Тясна"
   </voice>
 </phrase>
 <phrase>
@@ -12373,15 +12377,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Wide"
+    gigabeats,samsungypr1: "Wide"
   </source>
   <dest>
     *: none
-    gigabeats: "Разширяване"
+    gigabeats,samsungypr1: "Широка"
   </dest>
   <voice>
     *: none
-    gigabeats: "Разширяване"
+    gigabeats,samsungypr1: "Широка"
   </voice>
 </phrase>
 <phrase>
@@ -12390,15 +12394,15 @@
   user: core
   <source>
     *: none
-    gigabeats,mpiohd200,mpiohd300,sansafuzeplus,creativezenxfi2,creativezenxfi3: "3-D Enhancement"
+    depth_3d: "3-D Enhancement"
   </source>
   <dest>
     *: none
-    gigabeats,mpiohd200,mpiohd300,sansafuzeplus,creativezenxfi2,creativezenxfi3: "3-D подобрение"
+    depth_3d: "3-D подобрение"
   </dest>
   <voice>
     *: none
-    gigabeats,mpiohd200,mpiohd300,sansafuzeplus,creativezenxfi2,creativezenxfi3: "3-D подобрение"
+    depth_3d: "3-D подобрение"
   </voice>
 </phrase>
 <phrase>
@@ -13037,5 +13041,359 @@
   </dest>
   <voice>
     *: "Изберете папки за сканиране"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_COMPRESSOR_ATTACK
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "Attack Time"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Време за нападение"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Време за нападение"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SYSFONT_EQUALIZER_BAND_Q
+  desc: in the equalizer settings menu
+  user: core
+  <source>
+    *: none
+    swcodec: "Q"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Q"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Q"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FILTER_SLOW
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Slow"
+  </source>
+  <dest>
+    *: "Бавно"
+  </dest>
+  <voice>
+    *: "Бавно"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_LIST_SEPARATOR_COLOR
+  desc: line between lines in lists
+  user: core
+  <source>
+    *: "Line Separator Colour"
+  </source>
+  <dest>
+    *: "Цвят за разделителната линия"
+  </dest>
+  <voice>
+    *: "Цвят за разделителната линия"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FILTER_SHARP
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Sharp"
+  </source>
+  <dest>
+    *: "Остро"
+  </dest>
+  <voice>
+    *: "Остро"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_LIST_SEPARATOR
+  desc: line between lines in lists
+  user: core
+  <source>
+    *: "Line Separator"
+  </source>
+  <dest>
+    *: "Разделителна линия"
+  </dest>
+  <voice>
+    *: "Разделителна линия"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FILTER_ROLL_OFF
+  desc: in sound settings
+  user: core
+  <source>
+    *: "DAC's filter roll-off"
+  </source>
+  <dest>
+    *: "Разтоварване на филтъра на ЦАП"
+  </dest>
+  <voice>
+    *: "Разтоварване на филтъра на ЦАП"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DEADZONE
+  desc: touchpad deadzone setting
+  user: core
+  <source>
+    *: none
+    sansafuzeplus: "Touchpad Dead Zone"
+  </source>
+  <dest>
+    *: none
+    sansafuzeplus: "Мъртва зона на тъчпада"
+  </dest>
+  <voice>
+    *: none
+    sansafuzeplus: "Мъртва зона на тъчпада"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_VOLUME_LIMIT
+  desc: in sound_settings
+  user: core
+  <source>
+    *: "Maximum Volume Limit"
+  </source>
+  <dest>
+    *: "Ограничение за максимална сила на звука"
+  </dest>
+  <voice>
+    *: "Ограничение за максимална сила на звука"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_IBASSO_USB_MODE_ADB
+  desc: in Settings -> General -> System -> USB Mode: Android Debug Bridge
+  user: core
+  <source>
+    *: none
+    ibassodx50: "Android Debug Bridge"
+    ibassodx90: "Android Debug Bridge"
+  </source>
+  <dest>
+    *: none
+    ibassodx50: "Android Debug Bridge"
+    ibassodx90: "Android Debug Bridge"
+  </dest>
+  <voice>
+    *: none
+    ibassodx50: "Android Debug Bridge"
+    ibassodx90: "Android Debug Bridge"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SURROUND_METHOD2
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "SIDE ONLY"
+  </source>
+  <dest>
+    *: none
+    swcodec: "САМО СТРАНИЧНО"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "САМО СТРАНИЧНО"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SURROUND_MIX
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "Dry / Wet Mix"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Сух / Мокър Mix"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Сух / Мокър Mix"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SURROUND_FX1
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "f(x1)"
+  </source>
+  <dest>
+    *: none
+    swcodec: "f(x1)"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "f(x1)"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_IBASSO_USB_MODE_CHARGE
+  desc: in Settings -> General -> System -> USB Mode: Charge Only
+  user: core
+  <source>
+    *: none
+    ibassodx50: "Charge Only"
+    ibassodx90: "Charge Only"
+  </source>
+  <dest>
+    *: none
+    ibassodx50: "Само зареждане"
+    ibassodx90: "Само зареждане"
+  </dest>
+  <voice>
+    *: none
+    ibassodx50: "Само зареждане"
+    ibassodx90: "Само зареждане"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SURROUND_FX2
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "f(x2)"
+  </source>
+  <dest>
+    *: none
+    swcodec: "f(x2)"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "f(x2)"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_PBE
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "Perceptual Bass Enhancement"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Осезаемо подобрение на баса"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Осезаемо подобрение на баса"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_IBASSO_USB_MODE
+  desc: in Settings -> General -> System -> USB Mode
+  user: core
+  <source>
+    *: none
+    ibassodx50: "USB Mode"
+    ibassodx90: "USB Mode"
+  </source>
+  <dest>
+    *: none
+    ibassodx50: "USB Режим"
+    ibassodx90: "USB Режим"
+  </dest>
+  <voice>
+    *: none
+    ibassodx50: "Ю Ес Би Режим"
+    ibassodx90: "Ю Ес Би Режим"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_IBASSO_FREQ_SCALING_GOVERNOR
+  desc: in Settings -> General -> System -> Freq Scaling Governor
+  user: core
+  <source>
+    *: none
+    ibassodx50: "Freq Scaling Governor"
+    ibassodx90: "Freq Scaling Governor"
+  </source>
+  <dest>
+    *: none
+    ibassodx50: "Управление на мащабирането на честотите"
+    ibassodx90: "Управление на мащабирането на честотите"
+  </dest>
+  <voice>
+    *: none
+    ibassodx50: "Управление на мащабирането на честотите"
+    ibassodx90: "Управление на мащабирането на честотите"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_IBASSO_USB_MODE_MASS_STORAGE
+  desc: in Settings -> General -> System -> USB Mode: Mass Storage
+  user: core
+  <source>
+    *: none
+    ibassodx50: "Mass Storage"
+    ibassodx90: "Mass Storage"
+  </source>
+  <dest>
+    *: none
+    ibassodx50: "Масова памет"
+    ibassodx90: "Масова памет"
+  </dest>
+  <voice>
+    *: none
+    ibassodx50: "Масова памет"
+    ibassodx90: "Масова памет"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_AFR
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "Auditory Fatigue Reduction"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Намаляване на слуховата умора"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Намаляване на слуховата умора"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SURROUND
+  desc: in the sound settings menu
+  user: core
+  <source>
+    *: none
+    swcodec: "Haas Surround"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Haas Surround"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Haas Surround"
   </voice>
 </phrase>

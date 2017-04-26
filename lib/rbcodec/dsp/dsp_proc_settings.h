@@ -28,6 +28,9 @@
 #include "dsp_misc.h"
 #include "eq.h"
 #include "pga.h"
+#include "surround.h"
+#include "afr.h"
+#include "pbe.h"
 #ifdef HAVE_PITCHCONTROL
 #include "tdspeed.h"
 #endif

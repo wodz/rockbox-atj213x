@@ -43,7 +43,7 @@ void DocumentTab::OnModified(bool modified)
         m_tab->SetTabModified(this, modified);
 }
 
-void DocumentTab::SetTabWidget(MyTabWidget *tab)
+void DocumentTab::SetTabWidget(DocumentTabWidget *tab)
 {
     m_tab = tab;
     SetTabName(m_tabname);
@@ -57,17 +57,17 @@ void DocumentTab::SetTabName(const QString& name)
 }
 
 /**
- * MyTabWidget
+ * DocumentTabWidget
  */
 
-MyTabWidget::MyTabWidget()
+DocumentTabWidget::DocumentTabWidget()
 {
     setMovable(true);
     setTabsClosable(true);
     connect(this, SIGNAL(tabCloseRequested(int)), this, SLOT(OnCloseTab(int)));
 }
 
-void MyTabWidget::SetTabModified(DocumentTab *doc, bool modified)
+void DocumentTabWidget::SetTabModified(DocumentTab *doc, bool modified)
 {
     int index = indexOf(doc->GetWidget());
     if(modified)
@@ -76,12 +76,12 @@ void MyTabWidget::SetTabModified(DocumentTab *doc, bool modified)
         setTabIcon(index, QIcon());
 }
 
-void MyTabWidget::SetTabName(DocumentTab *doc, const QString& name)
+void DocumentTabWidget::SetTabName(DocumentTab *doc, const QString& name)
 {
     setTabText(indexOf(doc->GetWidget()), name);
 }
 
-bool MyTabWidget::CloseTab(int index)
+bool DocumentTabWidget::CloseTab(int index)
 {
     QWidget *w = this->widget(index);
     DocumentTab *doc = dynamic_cast< DocumentTab* >(w);
@@ -95,7 +95,7 @@ bool MyTabWidget::CloseTab(int index)
         return false;
 }
 
-void MyTabWidget::OnCloseTab(int index)
+void DocumentTabWidget::OnCloseTab(int index)
 {
     CloseTab(index);
 }
@@ -107,12 +107,18 @@ void MyTabWidget::OnCloseTab(int index)
 MainWindow::MainWindow(Backend *backend)
     :m_backend(backend)
 {
-    QAction *new_regtab_act = new QAction(QIcon::fromTheme("document-new"), tr("Register &Tab"), this);
-    QAction *new_regedit_act = new QAction(QIcon::fromTheme("document-edit"), tr("Register &Editor"), this);
-    QAction *load_desc_act = new QAction(QIcon::fromTheme("document-open"), tr("&Soc Description"), this);
-    QAction *quit_act = new QAction(QIcon::fromTheme("application-exit"), tr("&Quit"), this);
-    QAction *about_act = new QAction(QIcon::fromTheme("help-about"), tr("&About"), this);
-    QAction *about_qt_act = new QAction(QIcon::fromTheme("help-about"), tr("About &Qt"), this);
+    QAction *new_regtab_act = new QAction(YIconManager::Get()->GetIcon(YIconManager::DocumentNew),
+        tr("Register &Tab"), this);
+    QAction *new_regedit_act = new QAction(YIconManager::Get()->GetIcon(YIconManager::DocumentEdit),
+        tr("Register &Editor"), this);
+    QAction *load_desc_act = new QAction(YIconManager::Get()->GetIcon(YIconManager::DocumentOpen),
+        tr("&Soc Description"), this);
+    QAction *quit_act = new QAction(YIconManager::Get()->GetIcon(YIconManager::ApplicationExit),
+        tr("&Quit"), this);
+    QAction *about_act = new QAction(YIconManager::Get()->GetIcon(YIconManager::HelpAbout),
+        tr("&About"), this);
+    QAction *about_qt_act = new QAction(YIconManager::Get()->GetIcon(YIconManager::HelpAbout),
+        tr("About &Qt"), this);
 
     connect(new_regtab_act, SIGNAL(triggered()), this, SLOT(OnNewRegTab()));
     connect(new_regedit_act, SIGNAL(triggered()), this, SLOT(OnNewRegEdit()));
@@ -121,9 +127,10 @@ MainWindow::MainWindow(Backend *backend)
     connect(about_act, SIGNAL(triggered()), this, SLOT(OnAbout()));
     connect(about_qt_act, SIGNAL(triggered()), this, SLOT(OnAboutQt()));
 
-    QMenu *file_menu = menuBar()->addMenu(tr("&File"));
-    QMenu *new_submenu = file_menu->addMenu(QIcon::fromTheme("document-new"), "&New");
-    QMenu *load_submenu = file_menu->addMenu(QIcon::fromTheme("document-open"), "&Load");
+    QMenu *app_menu = new QMenu;
+    QMenu *file_menu = app_menu->addMenu(tr("&File"));
+    QMenu *new_submenu = file_menu->addMenu(YIconManager::Get()->GetIcon(YIconManager::DocumentNew), "&New");
+    QMenu *load_submenu = file_menu->addMenu(YIconManager::Get()->GetIcon(YIconManager::DocumentOpen), "&Load");
     file_menu->addAction(quit_act);
 
     new_submenu->addAction(new_regtab_act);
@@ -131,15 +138,24 @@ MainWindow::MainWindow(Backend *backend)
 
     load_submenu->addAction(load_desc_act);
 
-    QMenu *about_menu = menuBar()->addMenu(tr("&About"));
+    QMenu *about_menu = app_menu->addMenu(tr("&About"));
     about_menu->addAction(about_act);
     about_menu->addAction(about_qt_act);
 
-    m_tab = new MyTabWidget();
+    m_tab = new DocumentTabWidget();
+    m_tab->setTabOpenable(true);
+    m_tab->setTabOpenMenu(new_submenu);
+    m_tab->setOtherMenu(app_menu);
 
     setCentralWidget(m_tab);
 
     ReadSettings();
+#ifdef HAVE_HWSTUB
+    /* acquire hwstub manager */
+    HWStubManager::Get()->setParent(this);
+#endif
+    /* acquire icon manager */
+    YIconManager::Get()->setParent(this);
 
     OnNewRegTab();
 }
@@ -161,14 +177,16 @@ void MainWindow::OnQuit()
 
 void MainWindow::OnAbout()
 {
+    QString soc_desc_ver = QString("%1.%2.%3").arg(soc_desc::MAJOR_VERSION)
+        .arg(soc_desc::MINOR_VERSION).arg(soc_desc::REVISION_VERSION);
     QMessageBox::about(this, "About", 
         "<h1>QEditor</h1>"
-        "<h2>Version "APP_VERSION"</h2>"
+        "<h2>Version " APP_VERSION "</h2>"
         "<p>Written by Amaury Pouly</p>"
         "<p>Libraries:</p>"
-        "<ul><li>soc_desc: "SOCDESC_VERSION"</li>"
+        "<ul><li>soc_desc: " + soc_desc_ver + "</li>"
 #ifdef HAVE_HWSTUB
-        "<li>hwstub: "HWSTUB_VERSION"</li>"
+        "<li>hwstub: " HWSTUB_VERSION "</li>"
 #else
         "<li>hwstub: not compiled in</li>"
 #endif
@@ -191,7 +209,10 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::OnLoadDesc()
 {
     QFileDialog *fd = new QFileDialog(this);
-    fd->setFilter("XML files (*.xml);;All files (*)");
+    QStringList filters;
+    filters << "XML files (*.xml)";
+    filters << "All files (*)";
+    fd->setNameFilters(filters);
     fd->setFileMode(QFileDialog::ExistingFiles);
     fd->setDirectory(Settings::Get()->value("loaddescdir", QDir::currentPath()).toString());
     if(fd->exec())

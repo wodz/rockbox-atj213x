@@ -39,9 +39,18 @@ void remote_int(void);
 #define BUTTON_PLAY         0x00000010
 #define BUTTON_REW          0x00000020
 #define BUTTON_FFWD         0x00000040
+#if defined(SAMSUNG_YH820) /* YH820 has record button */
 #define BUTTON_REC          0x00000080
+#else /* virtual buttons for record switch state change on YH92x */
+#define BUTTON_REC_SW_ON    0x00000080
+#define BUTTON_REC_SW_OFF   0x00000100
+#endif
 
+#if defined(SAMSUNG_YH820)
 #define BUTTON_MAIN         0x000000ff
+#else
+#define BUTTON_MAIN         0x000001ff
+#endif
 
 #define BUTTON_RC_PLUS      BUTTON_UP
 #define BUTTON_RC_MINUS     BUTTON_DOWN

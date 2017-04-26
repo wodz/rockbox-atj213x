@@ -250,7 +250,7 @@
     *: "PLAY = Yes"
     cowond2*: "MENU, or top-right = Yes"
     iriverh100,iriverh120,iriverh300: "NAVI = Yes"
-    samsungyh*,ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Yes"
+    ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Yes"
     mrobe500: "PLAY, POWER, or top-right = Yes"
     archosplayer: "(PLAY/STOP)"
     vibe500: "OK = Yes"
@@ -259,7 +259,7 @@
     *: "PLAY = Sí"
     cowond2*: "MENU, o  a dalt a la dreta = Sí"
     iriverh100,iriverh120,iriverh300: "NAVI = Sí"
-    samsungyh*,ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Sí"
+    ipod*,iaudiox5,iaudiom5,gigabeat*,sansae200*,sansac200*,iriverh10,iriverh10_5gb,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Sí"
     mrobe500: "PLAY, POWER, o a dalt a la dreta = Sí"
     archosplayer: "(PLAY/STOP)"
     vibe500: "OK = Sí"
@@ -2230,7 +2230,7 @@
     *: "Building database... %d found (OFF to return)"
     iriverh100,iriverh120,iriverh300: "Building database... %d found (STOP to return)"
     ipod*: "Building database... %d found (PREV to return)"
-    iaudiox5,iaudiom5,gigabeat*,mrobe100: "Building database... %d found (LEFT to return)"
+    iaudiox5,iaudiom5,gigabeat*,mrobe100,samsungyh*: "Building database... %d found (LEFT to return)"
     iriverh10,iriverh10_5gb,sansae200*,sansac200*,sansafuze*,vibe500: "Building database... %d found (PREV to return)"
     gogearsa9200: "Building database... %d found (REW to return)"
     archosplayer: "Building DB %d found"
@@ -2239,7 +2239,7 @@
     *: "Construint la base de dades... %d trobats (OFF per tornar)"
     iriverh100,iriverh120,iriverh300: "Construint la base de dades.... %d trobats (STOP per tornar)"
     ipod*: "Construint la base de dades...Construint base de dades... %d trobats (PREV per tornar)"
-    iaudiox5,iaudiom5,gigabeat*,mrobe100: "Construint la base de dades... %d trobats (LEFT per tornar)"
+    iaudiox5,iaudiom5,gigabeat*,mrobe100,samsungyh*: "Construint la base de dades... %d trobats (LEFT per tornar)"
     iriverh10,iriverh10_5gb,sansae200*,sansac200*,sansafuze*,vibe500: "Construint la base de dades... %d trobats (PREV per tornar)"
     gogearsa9200: "Construint la base de dades... %d trobats (REW per tornar)"
     archosplayer: "Construint la base de dades... %d trobats"
@@ -3944,7 +3944,7 @@
     mrobe500: "HEART = Set"
     iriverh100,iriverh120,iriverh300: "NAVI = Set"
     ipod*,iaudiox5,iaudiom5,iriverh10,iriverh10_5gb,sansae200*,sansac200*,gigabeat*,mrobe100,sansaclip*,sansafuze*,sansaconnect: "SELECT = Set"
-    gogearsa9200: "PLAY = Set"
+    gogearsa9200,samsungyh*: "PLAY = Set"
     vibe500: "OK = Set"
     mpiohd300: "ENTER = Set"
   </source>
@@ -3954,7 +3954,7 @@
     mrobe500: "HEART = Desa"
     iriverh100,iriverh120,iriverh300: "NAVI = Desa"
     ipod*,iaudiox5,iaudiom5,iriverh10,iriverh10_5gb,sansae200*,sansac200*,gigabeat*,mrobe100,sansaclip*,sansafuze*: " SELECT = Desa"
-    gogearsa9200: "PLAY = Desa"
+    gogearsa9200,samsungyh*: "PLAY = Desa"
     vibe500: "OK = Desa"
     mpiohd300: "ENTER = Desa"
   </dest>
@@ -3980,6 +3980,7 @@
     gigabeats: "BACK = Revert"
     gogearsa9200: "LEFT = Revert"
     vibe500: "CANCEL = Revert"
+    samsungyh*: "REW = Revert"
   </source>
   <dest>
     *: none
@@ -3995,6 +3996,7 @@
     gigabeats: "BACK = Cancel·la"
     gogearsa9200: "LEFT = Cancel·la"
     vibe500: "CANCEL = Cancel·la"
+    samsungyh*: "REW = Cancel·la"
   </dest>
   <voice>
     *: none
@@ -7973,6 +7975,7 @@
     iriverh100,iriverh120,iriverh300: "The disk is full. Press STOP to continue."
     iaudiom5,iaudiox5: "The disk is full. Press POWER to continue."
     sansae200*,sansac200*,vibe500: "The disk is full. Press PREV to continue."
+    samsungyh*: "Disk full. Press LEFT to continue."
   </source>
   <dest>
     *: none
@@ -7980,6 +7983,7 @@
     iriverh100,iriverh120,iriverh300: "Disc ple. Prem STOP per continuar"
     iaudiom5,iaudiox5: "Disc ple. Prem POWER per continuar"
     sansae200*,sansac200*,vibe500: "Disc ple. Prem PREV per continuar"
+    samsungyh*: "Disc ple. Prem LEFT per continuar"
   </dest>
   <voice>
     *: none
@@ -12258,15 +12262,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Tone Controls"
+    gigabeats,samsungypr1: "Tone Controls"
   </source>
   <dest>
     *: none
-    gigabeats: "Controls de to"
+    gigabeats,samsungypr1: "Controls de to"
   </dest>
   <voice>
     *: none
-    gigabeats: "Controls de to"
+    gigabeats,samsungypr1: "Controls de to"
   </voice>
 </phrase>
 <phrase>
@@ -12275,15 +12279,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Advanced Tone Control Settings"
+    gigabeats,samsungypr1: "Advanced Tone Control Settings"
   </source>
   <dest>
     *: none
-    gigabeats: "Opcions avançades de control del to"
+    gigabeats,samsungypr1: "Ajustaments avançats del control de to"
   </dest>
   <voice>
     *: none
-    gigabeats: "Opcions avançades de control del to"
+    gigabeats,samsungypr1: "Ajustaments avançats del control de to"
   </voice>
 </phrase>
 <phrase>
@@ -12292,15 +12296,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Band %d Gain"
+    gigabeats,samsungypr1: "Band %d Gain"
   </source>
   <dest>
     *: none
-    gigabeats: "Guany de banda %d"
+    gigabeats,samsungypr1: "Guany de la banda %d"
   </dest>
   <voice>
     *: none
-    gigabeats: "Guany de banda"
+    gigabeats,samsungypr1: "Guany de banda"
   </voice>
 </phrase>
 <phrase>
@@ -12309,15 +12313,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Band %d Frequency"
+    gigabeats,samsungypr1: "Band %d Frequency"
   </source>
   <dest>
     *: none
-    gigabeats: "Freqüència de banda %d"
+    gigabeats,samsungypr1: "Freqüència de la banda %d"
   </dest>
   <voice>
     *: none
-    gigabeats: "Freqüència de banda"
+    gigabeats,samsungypr1: "Freqüència de banda"
   </voice>
 </phrase>
 <phrase>
@@ -12326,15 +12330,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Band %d Width"
+    gigabeats,samsungypr1: "Band %d Width"
   </source>
   <dest>
     *: none
-    gigabeats: "Amplada de banda %d"
+    gigabeats,samsungypr1: "Ample de la banda %d"
   </dest>
   <voice>
     *: none
-    gigabeats: "Amplada de banda"
+    gigabeats,samsungypr1: "Ample de banda"
   </voice>
 </phrase>
 <phrase>
@@ -12343,15 +12347,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Narrow"
+    gigabeats,samsungypr1: "Narrow"
   </source>
   <dest>
     *: none
-    gigabeats: "Estret"
+    gigabeats,samsungypr1: "Estret"
   </dest>
   <voice>
     *: none
-    gigabeats: "Estret"
+    gigabeats,samsungypr1: "Estret"
   </voice>
 </phrase>
 <phrase>
@@ -12360,15 +12364,15 @@
   user: core
   <source>
     *: none
-    gigabeats: "Wide"
+    gigabeats,samsungypr1: "Wide"
   </source>
   <dest>
     *: none
-    gigabeats: "Amplada"
+    gigabeats,samsungypr1: "Ample"
   </dest>
   <voice>
     *: none
-    gigabeats: "Amplada"
+    gigabeats,samsungypr1: "Ample"
   </voice>
 </phrase>
 <phrase>
@@ -12377,15 +12381,15 @@
   user: core
   <source>
     *: none
-    gigabeats,mpiohd200,mpiohd300,sansafuzeplus,creativezenxfi2,creativezenxfi3: "3-D Enhancement"
+    depth_3d: "3-D Enhancement"
   </source>
   <dest>
     *: none
-    gigabeats,mpiohd200,mpiohd300,sansafuzeplus,creativezenxfi2,creativezenxfi3: "Millora 3-D"
+    depth_3d: "Realçament 3-D"
   </dest>
   <voice>
     *: none
-    gigabeats,mpiohd200,mpiohd300,sansafuzeplus,creativezenxfi2,creativezenxfi3: "Millora 3-D"
+    depth_3d: "Realçament 3-D"
   </voice>
 </phrase>
 <phrase>
@@ -13024,5 +13028,140 @@
   </dest>
   <voice>
     *: "Seleccionar directoris a escanejar"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FILTER_ROLL_OFF
+  desc: in sound settings
+  user: core
+  <source>
+    *: "DAC's filter roll-off"
+  </source>
+  <dest>
+    *: "Sortida del filtre DAC"
+  </dest>
+  <voice>
+    *: "Sortida del filtre DAC"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_COMPRESSOR_ATTACK
+  desc: in sound settings
+  user: core
+  <source>
+    *: none
+    swcodec: "Attack Time"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Interval d'atac"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Interval d'atac"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_SYSFONT_EQUALIZER_BAND_Q
+  desc: in the equalizer settings menu
+  user: core
+  <source>
+    *: none
+    swcodec: "Q"
+  </source>
+  <dest>
+    *: none
+    swcodec: "Q"
+  </dest>
+  <voice>
+    *: none
+    swcodec: "Q"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_LIST_SEPARATOR
+  desc: line between lines in lists
+  user: core
+  <source>
+    *: "Line Separator"
+  </source>
+  <dest>
+    *: "Separador de línies"
+  </dest>
+  <voice>
+    *: "Separador de línies"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FILTER_SHARP
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Sharp"
+  </source>
+  <dest>
+    *: "Agut"
+  </dest>
+  <voice>
+    *: "Agut"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_FILTER_SLOW
+  desc: in sound settings
+  user: core
+  <source>
+    *: "Slow"
+  </source>
+  <dest>
+    *: "Lent"
+  </dest>
+  <voice>
+    *: "Lent"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_DEADZONE
+  desc: touchpad deadzone setting
+  user: core
+  <source>
+    *: none
+    sansafuzeplus: "Touchpad Dead Zone"
+  </source>
+  <dest>
+    *: none
+    sansafuzeplus: "Zona morta del Touchpad"
+  </dest>
+  <voice>
+    *: none
+    sansafuzeplus: "Zona morta del Touchpad"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_VOLUME_LIMIT
+  desc: in sound_settings
+  user: core
+  <source>
+    *: "Maximum Volume Limit"
+  </source>
+  <dest>
+    *: "Límit màxim de volum"
+  </dest>
+  <voice>
+    *: "Límit màxim de volum"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_LIST_SEPARATOR_COLOR
+  desc: line between lines in lists
+  user: core
+  <source>
+    *: "Line Separator Colour"
+  </source>
+  <dest>
+    *: "Color del separador de línies"
+  </dest>
+  <voice>
+    *: "Color del separador de línies"
   </voice>
 </phrase>

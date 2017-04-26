@@ -34,6 +34,9 @@
 #if CONFIG_TUNER
 #include "radio.h"
 #endif
+#if defined(IPOD_ACCESSORY_PROTOCOL) && defined(HAVE_LINE_REC)
+#include "iap.h"
+#endif
 
 /* Some audio sources may require a boosted CPU */
 #ifdef HAVE_ADJUSTABLE_CPU_FREQ
@@ -95,6 +98,13 @@ void audio_set_input_source(int source, unsigned flags)
         radio_start();
 #endif
 
+#if defined(IPOD_ACCESSORY_PROTOCOL) && defined(HAVE_LINE_REC)
+    static bool last_rec_onoff = false;
+    bool onoff = (source == AUDIO_SRC_LINEIN) ? true : false;
+    if (last_rec_onoff != onoff)
+        last_rec_onoff = iap_record(onoff);
+#endif
+
     /* set hardware inputs */
     audio_input_mux(source, flags);
 } /* audio_set_source */
@@ -154,3 +164,16 @@ int audio_get_spdif_sample_rate(void)
 #endif /* HAVE_SPDIF_IN */
 
 #endif /* PLATFORM_NATIVE */
+
+#ifdef HAVE_SPEAKER
+void audio_enable_speaker(int mode)
+{
+#ifdef HAVE_HEADPHONE_DETECTION
+    /* if needed, query jack state */
+    if(mode == 2)
+        mode = !headphones_inserted();
+#endif
+    /* treat any nonzero value as enable */
+    audiohw_enable_speaker(mode);
+}
+#endif

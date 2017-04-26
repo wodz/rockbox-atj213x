@@ -186,7 +186,8 @@ QString System::osVersionString(void)
     ret = uname(&u);
 
 #if defined(Q_OS_MACX)
-    ItemCount cores = MPProcessors();
+    SInt32 cores;
+    Gestalt(gestaltCountOfCPUs, &cores);
 #else
     long cores = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
@@ -202,28 +203,27 @@ QString System::osVersionString(void)
     SInt32 major;
     SInt32 minor;
     SInt32 bugfix;
-    OSErr error;
-    error = Gestalt(gestaltSystemVersionMajor, &major);
-    error = Gestalt(gestaltSystemVersionMinor, &minor);
-    error = Gestalt(gestaltSystemVersionBugFix, &bugfix);
+    Gestalt(gestaltSystemVersionMajor, &major);
+    Gestalt(gestaltSystemVersionMinor, &minor);
+    Gestalt(gestaltSystemVersionBugFix, &bugfix);
 
     result += QString("<br/>OS X %1.%2.%3 ").arg(major).arg(minor).arg(bugfix);
     // 1: 86k, 2: ppc, 10: i386
     SInt32 arch;
-    error = Gestalt(gestaltSysArchitecture, &arch);
+    Gestalt(gestaltSysArchitecture, &arch);
     switch(arch) {
         case 1:
-        result.append("(86k)");
-        break;
-    case 2:
-        result.append("(ppc)");
-        break;
-    case 10:
-        result.append("(x86)");
-        break;
-    default:
-        result.append("(unknown)");
-        break;
+            result.append("(86k)");
+            break;
+        case 2:
+            result.append("(ppc)");
+            break;
+        case 10:
+            result.append("(x86)");
+            break;
+        default:
+            result.append("(unknown)");
+            break;
     }
 #endif
 #endif
@@ -432,7 +432,7 @@ QMap<uint32_t, QString> System::listUsbDevices(void)
         DWORD buffersize = 0;
         QString description;
 
-        // get device desriptor first
+        // get device descriptor first
         // for some reason not doing so results in bad things (tm)
         while(!SetupDiGetDeviceRegistryProperty(deviceInfo, &infoData,
             SPDRP_DEVICEDESC, &data, (PBYTE)buffer, buffersize, &buffersize)) {
@@ -444,6 +444,11 @@ QMap<uint32_t, QString> System::listUsbDevices(void)
             else {
                 break;
             }
+        }
+        if(!buffer) {
+            LOG_WARNING() << "Got no device description"
+                          << "(SetupDiGetDeviceRegistryProperty), item" << i;
+            continue;
         }
         description = QString::fromWCharArray(buffer);
 
@@ -460,18 +465,20 @@ QMap<uint32_t, QString> System::listUsbDevices(void)
             }
         }
 
-        unsigned int vid, pid;
-        // convert buffer text to upper case to avoid depending on the case of
-        // the keys (W7 uses different casing than XP at least).
-        int len = _tcslen(buffer);
-        while(len--) buffer[len] = _totupper(buffer[len]);
-        if(_stscanf(buffer, _TEXT("USB\\VID_%x&PID_%x"), &vid, &pid) == 2) {
-            uint32_t id;
-            id = vid << 16 | pid;
-            usbids.insert(id, description);
-            LOG_INFO("USB VID: %04x, PID: %04x", vid, pid);
+        if(buffer) {
+            // convert buffer text to upper case to avoid depending on the case of
+            // the keys (W7 uses different casing than XP at least), in addition
+            // XP may use "Vid_" and "Pid_".
+            QString data = QString::fromWCharArray(buffer).toUpper();
+            QRegExp rex("USB\\\\VID_([0-9A-F]{4})&PID_([0-9A-F]{4}).*");
+            if(rex.indexIn(data) >= 0) {
+                uint32_t id;
+                id = rex.cap(1).toUInt(0, 16) << 16 | rex.cap(2).toUInt(0, 16);
+                usbids.insert(id, description);
+                LOG_INFO() << "USB:" << QString("0x%1").arg(id, 8, 16);
+            }
+            free(buffer);
         }
-        if(buffer) free(buffer);
     }
     SetupDiDestroyDeviceInfoList(deviceInfo);
 

@@ -395,8 +395,18 @@ void I_ShutdownGraphics(void)
 #elif CONFIG_KEYPAD == ONDAVX777_PAD
 #define DOOMBUTTON_ESC     BUTTON_POWER
 
-#elif (CONFIG_KEYPAD == SAMSUNG_YH820_PAD) || \
-      (CONFIG_KEYPAD == SAMSUNG_YH920_PAD)
+#elif CONFIG_KEYPAD == SAMSUNG_YH92X_PAD
+#define DOOMBUTTON_UP      BUTTON_UP
+#define DOOMBUTTON_DOWN    BUTTON_DOWN
+#define DOOMBUTTON_LEFT    BUTTON_LEFT
+#define DOOMBUTTON_RIGHT   BUTTON_RIGHT
+#define DOOMBUTTON_SHOOT   BUTTON_PLAY
+#define DOOMBUTTON_OPEN    BUTTON_REW
+#define DOOMBUTTON_ENTER   BUTTON_PLAY
+#define DOOMBUTTON_WEAPON  BUTTON_FFWD
+#define DOOMBUTTON_REC_SWITCH /* record switch toggles run mode; in game menu via hold switch */
+
+#elif CONFIG_KEYPAD == SAMSUNG_YH820_PAD
 #define DOOMBUTTON_UP      BUTTON_UP
 #define DOOMBUTTON_DOWN    BUTTON_DOWN
 #define DOOMBUTTON_LEFT    BUTTON_LEFT
@@ -404,7 +414,7 @@ void I_ShutdownGraphics(void)
 #define DOOMBUTTON_SHOOT   BUTTON_PLAY
 #define DOOMBUTTON_OPEN    BUTTON_REW
 #define DOOMBUTTON_ESC     BUTTON_REC
-#define DOOMBUTTON_ENTER   BUTTON_FFWD
+#define DOOMBUTTON_ENTER   BUTTON_PLAY
 #define DOOMBUTTON_WEAPON  BUTTON_FFWD
 
 #elif CONFIG_KEYPAD == PBELL_VIBE500_PAD
@@ -607,7 +617,7 @@ static inline void getkey()
          hswitch=0;
       }
 #if (CONFIG_KEYPAD == IPOD_4G_PAD) || (CONFIG_KEYPAD == IPOD_3G_PAD) || \
-    (CONFIG_KEYPAD == IPOD_1G2G_PAD)
+    (CONFIG_KEYPAD == IPOD_1G2G_PAD) || (CONFIG_KEYPAD == SAMSUNG_YH92X_PAD)
       /* Bring up the menu */
       event.data1=KEY_ESCAPE;
 #else
@@ -619,10 +629,12 @@ static inline void getkey()
    holdbutton=rb->button_hold();
 #endif
 
-#ifdef DOOMBUTTON_SCROLLWHEEL
+#if defined(DOOMBUTTON_SCROLLWHEEL) || defined(DOOMBUTTON_REC_SWITCH)
    /* use button_get(false) for clickwheel checks */
    int button; /* move me */
    button = rb->button_get(false);
+
+#ifdef DOOMBUTTON_SCROLLWHEEL
    switch(button){
    case DOOMBUTTON_SCROLLWHEEL_CC | BUTTON_REPEAT:
    case DOOMBUTTON_SCROLLWHEEL_CC:
@@ -638,6 +650,16 @@ static inline void getkey()
          D_PostEvent(&event);
          break;
    }
+#endif
+#ifdef DOOMBUTTON_REC_SWITCH
+   if (button==BUTTON_REC_SW_ON || button==BUTTON_REC_SW_OFF) {
+       event.type = ev_keydown;
+       event.data1=KEY_CAPSLOCK; /* Enable run */
+       D_PostEvent(&event);
+       event.type = ev_keyup;
+       D_PostEvent(&event);
+   }
+#endif
 #endif   
    newbuttonstate = rb->button_status();
 #ifdef DOOMBUTTON_SCROLLWHEEL

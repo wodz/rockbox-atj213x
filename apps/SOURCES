@@ -64,6 +64,9 @@ scrobbler.c
 #ifdef IPOD_ACCESSORY_PROTOCOL
 iap/iap-core.c
 iap/iap-lingo0.c
+#ifdef HAVE_LINE_REC
+iap/iap-lingo1.c
+#endif
 iap/iap-lingo2.c
 iap/iap-lingo3.c
 iap/iap-lingo4.c
@@ -92,6 +95,9 @@ gui/pitchscreen.c
 gui/quickscreen.c
 #endif
 gui/folder_select.c
+#if defined(HAVE_BACKLIGHT) || !defined(HAS_BUTTON_HOLD)
+gui/mask_select.c
+#endif
 
 gui/wps.c
 gui/scrollbar.c
@@ -100,7 +106,7 @@ gui/statusbar.c
 #ifdef HAVE_LCD_BITMAP
 gui/statusbar-skinned.c
 #endif
-#if (CONFIG_PLATFORM&PLATFORM_ANDROID) && !defined (DX50) && !defined(DX90)
+#if (CONFIG_PLATFORM&PLATFORM_ANDROID)
 hosted/android/yesno.c
 hosted/android/notification.c
 #else
@@ -129,7 +135,7 @@ player/keyboard.c
 #ifdef HAVE_LCD_BITMAP
 recorder/bmp.c
 recorder/icons.c
-#if (CONFIG_PLATFORM&PLATFORM_ANDROID) && !defined (DX50) && !defined(DX90)
+#if (CONFIG_PLATFORM&PLATFORM_ANDROID)
 hosted/android/keyboard.c
 #else
 recorder/keyboard.c
@@ -267,7 +273,7 @@ keymaps/keymap-ondavx777.c
 #elif CONFIG_KEYPAD == ONDAVX767_PAD
 keymaps/keymap-ondavx767.c
 #elif (CONFIG_KEYPAD == SAMSUNG_YH820_PAD) \
-    || (CONFIG_KEYPAD == SAMSUNG_YH920_PAD)
+    || (CONFIG_KEYPAD == SAMSUNG_YH92X_PAD)
 keymaps/keymap-yh8xx_yh9xx.c
 #elif CONFIG_KEYPAD == MINI2440_PAD
 keymaps/keymap-mini2440.c

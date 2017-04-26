@@ -63,7 +63,7 @@
 #include "usb.h"
 #include "rtc.h"
 #include "storage.h"
-#include "fat.h"
+#include "fs_defines.h"
 #include "eeprom_24cxx.h"
 #if (CONFIG_STORAGE & STORAGE_MMC) || (CONFIG_STORAGE & STORAGE_SD)
 #include "sdmmc.h"
@@ -111,7 +111,7 @@
 #endif
 #include "appevents.h"
 
-#if defined(HAVE_AS3514) && defined(CONFIG_CHARGING)
+#if defined(HAVE_AS3514) && CONFIG_CHARGING
 #include "ascodec.h"
 #endif
 
@@ -119,16 +119,12 @@
 #include "pmu-target.h"
 #endif
 
-#ifdef HAVE_USBSTACK     
-#include "usb_core.h"    
+#ifdef HAVE_USBSTACK
+#include "usb_core.h"
 #endif
 
 #if defined(IPOD_ACCESSORY_PROTOCOL)
 #include "iap.h"
-#endif
-
-#ifdef HAVE_RDS_CAP
-#include "rds.h"
 #endif
 
 #include "talk.h"
@@ -244,6 +240,23 @@ static const char* get_cpuinfo(int selected_item, void *data,
         {
             int cpu = (selected_item - 5) / (state_count + 1);
             int cpu_line = (selected_item - 5) % (state_count + 1);
+#if defined(DX50) || defined(DX90)
+            int min_freq = min_scaling_frequency(cpu);
+            int cur_freq = current_scaling_frequency(cpu);
+            int max_freq = max_scaling_frequency(cpu);
+            char governor[20];
+            bool have_governor = current_scaling_governor(cpu, governor, sizeof(governor));
+            if(cpu_line == 0)
+            {
+                sprintf(buffer,
+                        " CPU%d: %s: %d/%d/%d MHz",
+                        cpu,
+                        have_governor ? governor : "Min/Cur/Max freq",
+                        min_freq > 0 ? min_freq/1000 : -1,
+                        cur_freq > 0 ? cur_freq/1000 : -1,
+                        max_freq > 0 ? max_freq/1000 : -1);
+            }
+#else
             int freq1 = frequency_linux(cpu, false);
             int freq2 = frequency_linux(cpu, true);
             if (cpu_line == 0)
@@ -252,6 +265,7 @@ static const char* get_cpuinfo(int selected_item, void *data,
                                 freq1 > 0 ? freq1/1000 : -1,
                                 freq2 > 0 ? freq2/1000 : -1);
             }
+#endif
             else
             {
                 cpustatetimes_linux(cpu, states, ARRAYLEN(states));
@@ -356,7 +370,7 @@ static void dbg_audio_task(void)
 static bool dbg_buffering_thread(void)
 {
     int button;
-    int line;    
+    int line;
     bool done = false;
     size_t bufused;
     size_t bufsize = pcmbuf_get_bufsize();
@@ -371,10 +385,10 @@ static bool dbg_buffering_thread(void)
     ticks = freq_sum = 0;
 
     tick_add_task(dbg_audio_task);
-    
+
     FOR_NB_SCREENS(i)
         screens[i].setfont(FONT_SYSFIXED);
-        
+
     while(!done)
     {
         button = get_action(CONTEXT_STD,HZ/5);
@@ -394,7 +408,7 @@ static bool dbg_buffering_thread(void)
         buffering_get_debugdata(&d);
         bufused = bufsize - pcmbuf_free();
 
-        FOR_NB_SCREENS(i) 
+        FOR_NB_SCREENS(i)
         {
             line = 0;
             screens[i].clear_display();
@@ -471,7 +485,7 @@ static bool dbg_buffering_thread(void)
     }
 
     tick_remove_task(dbg_audio_task);
-    
+
     FOR_NB_SCREENS(i)
         screens[i].setfont(FONT_UI);
 
@@ -774,8 +788,15 @@ static bool dbg_cpufreq(void)
     {
         line = 0;
 
-        lcd_putsf(0, line++, "Frequency: %ld", FREQ);
+        int temp = FREQ/1000000;
+        lcd_putsf(0, line++, "Frequency: %ld.%ld MHz", temp, (FREQ-temp*1000000)/100000);
         lcd_putsf(0, line++, "boost_counter: %d", get_cpu_boost_counter());
+
+#ifdef HAVE_ADJUSTABLE_CPU_VOLTAGE
+        extern int get_cpu_voltage_setting(void);
+        temp = get_cpu_voltage_setting();
+        lcd_putsf(0, line++, "CPU voltage: %d.%03dV", temp / 1000, temp % 1000);
+#endif
 
         lcd_update();
         button = get_action(CONTEXT_STD,HZ/10);
@@ -898,7 +919,7 @@ static bool view_battery(void)
                 }
                 /* print header */
 #if (CONFIG_BATTERY_MEASURE & VOLTAGE_MEASURE)
-                /* adjust grid scale */ 
+                /* adjust grid scale */
                 if ((maxv - minv) > 50)
                     grid = 50;
                 else
@@ -910,7 +931,7 @@ static bool view_battery(void)
                           minv / 1000, minv % 1000, maxv / 1000, maxv % 1000,
                           grid);
 #elif (CONFIG_BATTERY_MEASURE & PERCENTAGE_MEASURE)
-                /* adjust grid scale */ 
+                /* adjust grid scale */
                 if ((maxv - minv) > 10)
                     grid = 10;
                 else
@@ -918,31 +939,31 @@ static bool view_battery(void)
                 lcd_putsf(0, 0, "battery %d%%", power_history[0]);
                 lcd_putsf(0, 1, "%d%%-%d%% (%d %%)", minv, maxv, grid);
 #endif
-                
+
                 i = 1;
                 while ((y = (minv - (minv % grid)+i*grid)) < maxv)
                 {
                     graph = ((y-minv)*BAT_YSPACE)/(maxv-minv);
                     graph = LCD_HEIGHT-1 - graph;
-             
-                    /* draw dotted horizontal grid line */      
+
+                    /* draw dotted horizontal grid line */
                     for (x=0; x<LCD_WIDTH;x=x+2)
                         lcd_drawpixel(x,graph);
 
                     i++;
                 }
-                
+
                 x = 0;
                 /* draw plot of power history
                  * skip empty entries
                  */
-                for (i = BAT_LAST_VAL - 1; i > 0; i--) 
+                for (i = BAT_LAST_VAL - 1; i > 0; i--)
                 {
                     if (power_history[i] && power_history[i-1])
                     {
-                        y1 = (power_history[i] - minv) * BAT_YSPACE / 
+                        y1 = (power_history[i] - minv) * BAT_YSPACE /
                             (maxv - minv);
-                        y1 = MIN(MAX(LCD_HEIGHT-1 - y1, BAT_TSPACE), 
+                        y1 = MIN(MAX(LCD_HEIGHT-1 - y1, BAT_TSPACE),
                                  LCD_HEIGHT-1);
                         y2 = (power_history[i-1] - minv) * BAT_YSPACE /
                             (maxv - minv);
@@ -952,13 +973,13 @@ static bool view_battery(void)
                         lcd_set_drawmode(DRMODE_SOLID);
 
                         /* make line thicker */
-                        lcd_drawline(((x*LCD_WIDTH)/(BAT_LAST_VAL)), 
-                                     y1, 
-                                     (((x+1)*LCD_WIDTH)/(BAT_LAST_VAL)), 
+                        lcd_drawline(((x*LCD_WIDTH)/(BAT_LAST_VAL)),
+                                     y1,
+                                     (((x+1)*LCD_WIDTH)/(BAT_LAST_VAL)),
                                      y2);
-                        lcd_drawline(((x*LCD_WIDTH)/(BAT_LAST_VAL))+1, 
-                                     y1+1, 
-                                     (((x+1)*LCD_WIDTH)/(BAT_LAST_VAL))+1, 
+                        lcd_drawline(((x*LCD_WIDTH)/(BAT_LAST_VAL))+1,
+                                     y1+1,
+                                     (((x+1)*LCD_WIDTH)/(BAT_LAST_VAL))+1,
                                      y2+1);
                         x++;
                     }
@@ -969,7 +990,7 @@ static bool view_battery(void)
 #if CONFIG_CHARGING >= CHARGING_MONITOR
                 lcd_putsf(0, 0, "Pwr status: %s",
                          charging_state() ? "charging" : "discharging");
-#else 
+#else
                 lcd_puts(0, 0, "Power status: unknown");
 #endif
                 battery_read_info(&y, &z);
@@ -1088,8 +1109,7 @@ static bool view_battery(void)
                     /* Conversion disabled */
                     lcd_puts(0, line++, "T Battery: ?");
                 }
-                    
-#elif defined(HAVE_AS3514) && defined(CONFIG_CHARGING)
+#elif defined(HAVE_AS3514) && CONFIG_CHARGING
                 static const char * const chrgstate_strings[] =
                 {
                     [CHARGE_STATE_DISABLED - CHARGE_STATE_DISABLED]= "Disabled",
@@ -1352,7 +1372,7 @@ static int disk_callback(int btn, struct gui_synclist *lists)
     }
     return btn;
 }
-#elif  (CONFIG_STORAGE & STORAGE_ATA) 
+#elif  (CONFIG_STORAGE & STORAGE_ATA)
 static int disk_callback(int btn, struct gui_synclist *lists)
 {
     (void)lists;
@@ -1489,6 +1509,217 @@ static int disk_callback(int btn, struct gui_synclist *lists)
 #endif /* HAVE_ATA_DMA */
     return btn;
 }
+
+#ifdef HAVE_ATA_SMART
+static struct ata_smart_values smart_data STORAGE_ALIGN_ATTR;
+
+static const char * ata_smart_get_attr_name(unsigned char id)
+{
+    if (id == 1)    return "Raw Read Error Rate";
+    if (id == 2)    return "Throughput Performance";
+    if (id == 3)    return "Spin-Up Time";
+    if (id == 4)    return "Start/Stop Count";
+    if (id == 5)    return "Reallocated Sector Count";
+    if (id == 7)    return "Seek Error Rate";
+    if (id == 8)    return "Seek Time Performance";
+    if (id == 9)    return "Power-On Hours Count";
+    if (id == 10)   return "Spin-Up Retry Count";
+    if (id == 12)   return "Power Cycle Count";
+    if (id == 191)  return "G-Sense Error Rate";
+    if (id == 192)  return "Power-Off Retract Count";
+    if (id == 193)  return "Load/Unload Cycle Count";
+    if (id == 194)  return "HDA Temperature";
+    if (id == 195)  return "Hardware ECC Recovered";
+    if (id == 196)  return "Reallocated Event Count";
+    if (id == 197)  return "Current Pending Sector Count";
+    if (id == 198)  return "Uncorrectable Sector Count";
+    if (id == 199)  return "UDMA CRC Error Count";
+    if (id == 200)  return "Write Error Rate";
+    if (id == 201)  return "TA Counter Detected";
+    if (id == 220)  return "Disk Shift";
+    if (id == 222)  return "Loaded Hours";
+    if (id == 223)  return "Load/Unload Retry Count";
+    if (id == 224)  return "Load Friction";
+    if (id == 225)  return "Load Cycle Count";
+    if (id == 226)  return "Load-In Time";
+    if (id == 240)  return "Transfer Error Rate";   /* Fujitsu */
+    return "Unknown Attribute";
+};
+
+static int ata_smart_get_attr_rawfmt(unsigned char id)
+{
+    if (id == 3)      /* Spin-up time */
+        return RAWFMT_RAW16_OPT_AVG16;
+
+    if (id == 5 ||    /* Reallocated sector count */
+        id == 196)    /* Reallocated event count */
+        return RAWFMT_RAW16_OPT_RAW16;
+
+    if (id == 190 ||  /* Airflow Temperature */
+        id == 194)    /* HDA Temperature */
+        return RAWFMT_TEMPMINMAX;
+
+    return RAWFMT_RAW48;
+};
+
+static int ata_smart_attr_to_string(
+                struct ata_smart_attribute *attr, char *str, int size)
+{
+    uint16_t w[3]; /* 3 words to store 6 bytes of raw data */
+    char buf[size]; /* temp string to store attribute data */
+    int len, slen;
+    int id = attr->id;
+
+    if (id == 0)
+        return 0; /* null attribute */
+
+    /* align and convert raw data */
+    memcpy(w, attr->raw, 6);
+    w[0] = letoh16(w[0]);
+    w[1] = letoh16(w[1]);
+    w[2] = letoh16(w[2]);
+
+    len = snprintf(buf, size, ": %u,%u ", attr->current, attr->worst);
+
+    switch (ata_smart_get_attr_rawfmt(id))
+    {
+        case RAWFMT_RAW16_OPT_RAW16:
+            len += snprintf(buf+len, size-len, "%u", w[0]);
+            if ((w[1] || w[2]) && (len < size))
+                len += snprintf(buf+len, size-len, " %u %u", w[1],w[2]);
+            break;
+
+        case RAWFMT_RAW16_OPT_AVG16:
+            len += snprintf(buf+len, size-len, "%u", w[0]);
+            if (w[1] && (len < size))
+                len += snprintf(buf+len, size-len, " Avg: %u", w[1]);
+            break;
+
+        case RAWFMT_TEMPMINMAX:
+            len += snprintf(buf+len, size-len, "%u -/+: %u/%u", w[0],w[1],w[2]);
+            break;
+
+        case RAWFMT_RAW48:
+        default:
+            /* shows first 4 bytes of raw data as uint32 LE,
+               and the ramaining 2 bytes as uint16 LE */
+            len += snprintf(buf+len, size-len, "%lu", letoh32(*((uint32_t*)w)));
+            if (w[2] && (len < size))
+                len += snprintf(buf+len, size-len, " %u", w[2]);
+            break;
+    }
+    /* ignore trailing \0 when truncated */
+    if (len >= size) len = size-1;
+
+    /* fill return string; when max. size is exceded: first truncate
+       attribute name, then attribute data and finally attribute id */
+    slen = snprintf(str, size, "%d ", id);
+    if (slen < size) {
+        /* maximum space disponible for attribute name,
+           including initial space separator */
+        int name_sz = size - (slen + len);
+        if (name_sz > 1) {
+            len = snprintf(str+slen, name_sz, " %s",
+                           ata_smart_get_attr_name(id));
+            if (len >= name_sz) len = name_sz-1;
+            slen += len;
+        }
+        snprintf(str+slen, size-slen, "%s", buf);
+    }
+
+    return 1; /* ok */
+}
+
+static bool ata_smart_dump(void)
+{
+    int fd;
+
+    fd = creat("/smart_data.bin", 0666);
+    if(fd >= 0)
+    {
+        write(fd, &smart_data, sizeof(struct ata_smart_values));
+        close(fd);
+    }
+
+    fd = creat("/smart_data.txt", 0666);
+    if(fd >= 0)
+    {
+        int i;
+        char buf[128];
+        for (i = 0; i < NUMBER_ATA_SMART_ATTRIBUTES; i++)
+        {
+            if (ata_smart_attr_to_string(
+                    &smart_data.vendor_attributes[i], buf, sizeof(buf)))
+            {
+                write(fd, buf, strlen(buf));
+                write(fd, "\n", 1);
+            }
+        }
+        close(fd);
+    }
+
+    return false;
+}
+
+static int ata_smart_callback(int btn, struct gui_synclist *lists)
+{
+    (void)lists;
+    static bool read_done = false;
+
+    if (btn == ACTION_STD_CANCEL)
+    {
+        read_done = false;
+        return btn;
+    }
+
+    /* read S.M.A.R.T. data only on first redraw */
+    if (!read_done)
+    {
+        int rc;
+        memset(&smart_data, 0, sizeof(struct ata_smart_values));
+        rc = ata_read_smart(&smart_data);
+        simplelist_set_line_count(0);
+        if (rc == 0)
+        {
+            int i;
+            char buf[SIMPLELIST_MAX_LINELENGTH];
+            simplelist_addline("Id  Name:  Current,Worst  Raw");
+            for (i = 0; i < NUMBER_ATA_SMART_ATTRIBUTES; i++)
+            {
+                if (ata_smart_attr_to_string(
+                        &smart_data.vendor_attributes[i], buf, sizeof(buf)))
+                {
+                    simplelist_addline(buf);
+                }
+            }
+        }
+        else
+        {
+            simplelist_addline("ATA SMART error: 0x%x", rc);
+        }
+        read_done = true;
+    }
+
+    if (btn == ACTION_STD_CONTEXT)
+    {
+        splash(0, "Dumping data...");
+        ata_smart_dump();
+        splash(HZ, "SMART data dumped");
+    }
+
+    return btn;
+}
+
+static bool dbg_ata_smart(void)
+{
+    struct simplelist_info info;
+    simplelist_info_init(&info, "S.M.A.R.T. Data [CONTEXT to dump]", 1, NULL);
+    info.action_callback = ata_smart_callback;
+    info.hide_selection = true;
+    info.scroll_all = true;
+    return simplelist_show_list(&info);
+}
+#endif /* HAVE_ATA_SMART */
 #else /* No SD, MMC or ATA */
 static int disk_callback(int btn, struct gui_synclist *lists)
 {
@@ -1510,7 +1741,7 @@ static int disk_callback(int btn, struct gui_synclist *lists)
 }
 #endif
 
-#if  (CONFIG_STORAGE & STORAGE_ATA) 
+#if  (CONFIG_STORAGE & STORAGE_ATA)
 static bool dbg_identify_info(void)
 {
     int fd = creat("/identify_info.bin", 0666);
@@ -1639,9 +1870,9 @@ static int database_callback(int btn, struct gui_synclist *lists)
     simplelist_addline("Commit delayed: %s",
              stat->commit_delayed ? "Yes" : "No");
 
-    simplelist_addline("Queue length: %d", 
+    simplelist_addline("Queue length: %d",
              stat->queue_length);
-    
+
     if (synced)
     {
         synced = false;
@@ -1666,7 +1897,7 @@ static bool dbg_tagcache_info(void)
     info.action_callback = database_callback;
     info.hide_selection = true;
     info.scroll_all = true;
-    
+
     /* Don't do nonblock here, must give enough processing time
        for tagcache thread. */
     /* info.timeout = TIMEOUT_NOBLOCK; */
@@ -1931,17 +2162,25 @@ static int radio_callback(int btn, struct gui_synclist *lists)
 #endif /* TEA5760 */
 
 #ifdef HAVE_RDS_CAP
-        simplelist_addline("PI:%04X PS:'%8s'",
-                           rds_get_pi(), rds_get_ps());
-        simplelist_addline("RT:%s",
-                           rds_get_rt());
-        time_t seconds = rds_get_ct();
+    {
+        char buf[65*4];
+        uint16_t pi;
+        time_t seconds;
+
+        tuner_get_rds_info(RADIO_RDS_NAME, buf, sizeof (buf));
+        tuner_get_rds_info(RADIO_RDS_PROGRAM_INFO, &pi, sizeof (pi));
+        simplelist_addline("PI:%04X PS:'%8s'", pi, buf);
+        tuner_get_rds_info(RADIO_RDS_TEXT, buf, sizeof (buf));
+        simplelist_addline("RT:%s", buf);
+        tuner_get_rds_info(RADIO_RDS_CURRENT_TIME, &seconds, sizeof (seconds));
+
         struct tm* time = gmtime(&seconds);
         simplelist_addline(
             "CT:%4d-%02d-%02d %02d:%02d",
             time->tm_year + 1900, time->tm_mon + 1, time->tm_mday,
             time->tm_hour, time->tm_min, time->tm_sec);
-#endif
+    }
+#endif /* HAVE_RDS_CAP */
     return ACTION_REDRAW;
 }
 static bool dbg_fm_radio(void)
@@ -1949,7 +2188,7 @@ static bool dbg_fm_radio(void)
     struct simplelist_info info;
 #ifdef CONFIG_TUNER_MULTI
     tuner_type = tuner_detect_type();
-#endif    
+#endif
     info.scroll_all = true;
     simplelist_info_init(&info, "FM Radio", 1, NULL);
     simplelist_set_line_count(0);
@@ -2216,7 +2455,7 @@ static bool dbg_isp1583(void)
     struct simplelist_info isp1583;
     isp1583.scroll_all = true;
     simplelist_info_init(&isp1583, "ISP1583", dbg_usb_num_items(), NULL);
-    isp1583.timeout = HZ/100; 
+    isp1583.timeout = HZ/100;
     isp1583.hide_selection = true;
     isp1583.get_name = dbg_usb_item;
     isp1583.action_callback = isp1583_action_callback;
@@ -2242,7 +2481,7 @@ static bool dbg_pic(void)
     struct simplelist_info pic;
     pic.scroll_all = true;
     simplelist_info_init(&pic, "PIC", pic_dbg_num_items(), NULL);
-    pic.timeout = HZ/100; 
+    pic.timeout = HZ/100;
     pic.hide_selection = true;
     pic.get_name = pic_dbg_item;
     pic.action_callback = pic_action_callback;
@@ -2365,6 +2604,9 @@ static const struct {
         { "View disk info", dbg_disk_info },
 #if (CONFIG_STORAGE & STORAGE_ATA)
         { "Dump ATA identify info", dbg_identify_info},
+#ifdef HAVE_ATA_SMART
+        { "View/Dump S.M.A.R.T. data", dbg_ata_smart},
+#endif
 #endif
 #endif
         { "Metadata log", dbg_metadatalog },

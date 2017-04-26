@@ -93,7 +93,7 @@
 #elif (CONFIG_KEYPAD == SANSA_E200_PAD) || (CONFIG_KEYPAD == SANSA_C200_PAD) ||\
       (CONFIG_KEYPAD == SANSA_FUZE_PAD) || (CONFIG_KEYPAD == SANSA_CLIP_PAD) ||\
       (CONFIG_KEYPAD == PHILIPS_HDD1630_PAD)||(CONFIG_KEYPAD == COWON_D2_PAD)||\
-      (CONFIG_KEYPAD == SAMSUNG_YH920_PAD)||(CONFIG_KEYPAD == MPIO_HD200_PAD)||\
+      (CONFIG_KEYPAD == SAMSUNG_YH92X_PAD)||(CONFIG_KEYPAD == MPIO_HD200_PAD)||\
       (CONFIG_KEYPAD == PHILIPS_HDD6330_PAD)
 #define FM_MENU
 #define FM_PRESET
@@ -696,10 +696,6 @@ void radio_screen(void)
 
             default:
                 default_event_handler(button);
-#ifdef HAVE_RDS_CAP
-                if (tuner_get(RADIO_EVENT))
-                    update_type = SKIN_REFRESH_ALL;
-#endif
                 if (!tuner_get(RADIO_PRESENT))
                 {
 #if CONFIG_CODEC != SWCODEC && !defined(SIMULATOR)

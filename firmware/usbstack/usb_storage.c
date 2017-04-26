@@ -27,7 +27,7 @@
 #include "logf.h"
 #include "storage.h"
 #include "disk.h"
-#include "fat.h"
+#include "fs_defines.h"
 /* Needed to get at the audio buffer */
 #include "audio.h"
 #include "usb_storage.h"
@@ -39,10 +39,6 @@
 
 #ifdef USB_USE_RAMDISK
 #define RAMDISK_SIZE 2048
-#endif
-
-#ifndef SECTOR_SIZE
-#define SECTOR_SIZE 512
 #endif
 
 /* These defaults allow the operation */
@@ -1161,7 +1157,6 @@ static void handle_scsi(struct command_block_wrapper* cbw)
 
         default:
             logf("scsi unknown cmd %x",cbw->command_block[0x0]);
-            usb_drv_stall(ep_in, true,true);
             send_csw(UMS_STATUS_FAIL);
             cur_sense_data.sense_key=SENSE_ILLEGAL_REQUEST;
             cur_sense_data.asc=ASC_INVALID_COMMAND;

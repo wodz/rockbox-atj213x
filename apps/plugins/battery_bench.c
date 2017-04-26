@@ -204,7 +204,7 @@
 #define BATTERY_OFF_TXT "POWER"
 
 #elif (CONFIG_KEYPAD == SAMSUNG_YH820_PAD) || \
-      (CONFIG_KEYPAD == SAMSUNG_YH920_PAD)
+      (CONFIG_KEYPAD == SAMSUNG_YH92X_PAD)
       
 #define BATTERY_ON      BUTTON_LEFT
 #define BATTERY_OFF     BUTTON_RIGHT
@@ -262,10 +262,10 @@
 #define BATTERY_OFF_TXT "Power"
 
 #elif CONFIG_KEYPAD == DX50_PAD
-#define BATTERY_ON BUTTON_PLAY
-#define BATTERY_OFF BUTTON_POWER
-#define BATTERY_OFF_TXT "POWER"
-#define BATTERY_ON_TXT  "PLAY - start"
+#define BATTERY_ON      BUTTON_PLAY
+#define BATTERY_OFF     BUTTON_POWER_LONG
+#define BATTERY_OFF_TXT "Power Long"
+#define BATTERY_ON_TXT  "Play - start"
 
 #else
 #error No keymap defined!

@@ -22,21 +22,22 @@
 #include <QTextStream>
 #include <QDebug>
 #include <QFileInfo>
+#include <QFont>
 #include "backend.h"
 
 /**
  * SocFile
  */
 SocFile::SocFile()
-    :m_valid(false)
+    :m_valid(true)
 {
 }
 
 SocFile::SocFile(const QString& filename)
     :m_filename(filename)
 {
-    m_valid = soc_desc_parse_xml(filename.toStdString(), m_soc);
-    soc_desc_normalize(m_soc);
+    soc_desc::error_context_t ctx;
+    m_valid = soc_desc::parse_xml(filename.toStdString(), m_soc, ctx);
 }
 
 bool SocFile::IsValid()
@@ -44,9 +45,12 @@ bool SocFile::IsValid()
     return m_valid;
 }
 
-SocRef SocFile::GetSocRef()
+soc_desc::soc_ref_t SocFile::GetSocRef()
 {
-    return SocRef(this);
+    if(m_valid)
+        return soc_desc::soc_ref_t(&m_soc);
+    else
+        return soc_desc::soc_ref_t();
 }
 
 QString SocFile::GetFilename()
@@ -67,15 +71,22 @@ QList< SocFileRef > Backend::GetSocFileList()
 {
     QList< SocFileRef > list;
     for(std::list< SocFile >::iterator it = m_socs.begin(); it != m_socs.end(); ++it)
-        list.append(SocFileRef(&(*it)));
+    {
+        if(it->IsValid())
+            list.append(SocFileRef(&(*it)));
+    }
     return list;
 }
 
-QList< SocRef > Backend::GetSocList()
+QList< soc_desc::soc_ref_t > Backend::GetSocList()
 {
-    QList< SocRef > list;
+    QList< soc_desc::soc_ref_t > list;
     for(std::list< SocFile >::iterator it = m_socs.begin(); it != m_socs.end(); ++it)
-        list.append(it->GetSocRef());
+    {
+        soc_desc::soc_ref_t r = it->GetSocRef();
+        if(r.valid())
+            list.append(r);
+    }
     return list;
 }
 
@@ -85,7 +96,7 @@ bool Backend::LoadSocDesc(const QString& filename)
     if(!f.IsValid())
         return false;
     m_socs.push_back(f);
-    emit OnSocListChanged();
+    emit OnSocAdded(SocFileRef(&m_socs.back()));
     return true;
 }
 
@@ -107,6 +118,63 @@ IoBackend *Backend::CreateHWStubIoBackend(HWStubDevice *dev)
 #endif
 
 /**
+ * DummyIoBackend
+ */
+
+DummyIoBackend::DummyIoBackend()
+{
+}
+
+bool DummyIoBackend::IsValid()
+{
+    return false;
+}
+
+QString DummyIoBackend::GetSocName()
+{
+    return "";
+}
+
+bool DummyIoBackend::ReadRegister(soc_addr_t addr, soc_word_t& value,
+    unsigned width)
+{
+    Q_UNUSED(addr);
+    Q_UNUSED(value);
+    Q_UNUSED(width);
+    return false;
+}
+
+bool DummyIoBackend::Reload()
+{
+    return false;
+}
+
+bool DummyIoBackend::IsReadOnly()
+{
+    return true;
+}
+
+bool DummyIoBackend::WriteRegister(soc_addr_t addr, soc_word_t value,
+    unsigned width, WriteMode mode)
+{
+    Q_UNUSED(addr);
+    Q_UNUSED(value);
+    Q_UNUSED(mode);
+    Q_UNUSED(width);
+    return false;
+}
+
+bool DummyIoBackend::IsDirty()
+{
+    return false;
+}
+
+bool DummyIoBackend::Commit()
+{
+    return false;
+}
+
+/**
  * RamIoBackend
  */
 RamIoBackend::RamIoBackend(const QString& soc_name)
@@ -114,9 +182,36 @@ RamIoBackend::RamIoBackend(const QString& soc_name)
     m_soc = soc_name;
 }
 
-bool RamIoBackend::ReadRegister(const QString& name, soc_word_t& value)
+bool RamIoBackend::IsValid()
 {
-    QMap<QString, soc_word_t>::const_iterator it = m_map.find(name);
+    return m_soc != "";
+}
+
+QString RamIoBackend::GetSocName()
+{
+    return m_soc;
+}
+
+void RamIoBackend::SetSocName(const QString& soc_name)
+{
+    m_soc = soc_name;
+}
+
+bool RamIoBackend::RamIoBackend::Reload()
+{
+    return false;
+}
+
+bool RamIoBackend::IsReadOnly()
+{
+    return false;
+}
+
+bool RamIoBackend::ReadRegister(soc_addr_t addr, soc_word_t& value,
+    unsigned width)
+{
+    Q_UNUSED(width);
+    QMap<soc_addr_t, soc_word_t>::const_iterator it = m_map.find(addr);
     if(it == m_map.end())
         return false;
     value = it.value();
@@ -128,19 +223,29 @@ void RamIoBackend::DeleteAll()
     m_map.clear();
 }
 
-bool RamIoBackend::WriteRegister(const QString& name, soc_word_t value, WriteMode mode)
+bool RamIoBackend::WriteRegister(soc_addr_t addr, soc_word_t value,
+    unsigned width, WriteMode mode)
 {
+    Q_UNUSED(width);
     switch(mode)
     {
-        case Write: m_map[name] = value; return true;
-        case Set: m_map[name] |= value; return true;
-        case Clear: m_map[name] &= ~value; return true;
-        case Toggle: m_map[name] ^= value; return true;
+        case Write: m_map[addr] = value; return true;
+        case Set: m_map[addr] |= value; return true;
+        case Clear: m_map[addr] &= ~value; return true;
+        case Toggle: m_map[addr] ^= value; return true;
         default: return false;
     }
 }
 
+bool RamIoBackend::IsDirty()
+{
+    return false;
+}
 
+bool RamIoBackend::Commit()
+{
+    return false;
+}
 
 /**
  * FileIoBackend
@@ -154,6 +259,10 @@ FileIoBackend::FileIoBackend(const QString& filename, const QString& soc_name)
     Reload();
 }
 
+bool FileIoBackend::IsValid()
+{
+    return m_valid;
+}
 
 bool FileIoBackend::Reload()
 {
@@ -170,25 +279,27 @@ bool FileIoBackend::Reload()
         int idx = line.indexOf('=');
         if(idx == -1)
             continue;
-        QString key = line.left(idx).trimmed();
-        bool ok;
-        soc_word_t val = line.mid(idx + 1).trimmed().toULong(&ok, 0);
-        if(key == "HW")
-            m_soc = line.mid(idx + 1).trimmed();
-        else if(ok)
-            RamIoBackend::WriteRegister(key, val, Write);
+        QString key_str = line.left(idx).trimmed();
+        QString val_str = line.mid(idx + 1).trimmed();
+        bool key_ok,val_ok;
+        soc_word_t val = val_str.toULong(&val_ok, 0);
+        soc_word_t key = key_str.toULong(&key_ok, 0);
+        if(key_str == "soc")
+            m_soc = val_str;
+        else if(key_ok && val_ok)
+            RamIoBackend::WriteRegister(key, val, 32, Write);
     }
-
     m_readonly = !QFileInfo(file).isWritable();
     m_dirty = false;
     m_valid = true;
     return true;
 }
 
-bool FileIoBackend::WriteRegister(const QString& name, soc_word_t value, WriteMode mode)
+bool FileIoBackend::WriteRegister(soc_addr_t addr, soc_word_t value,
+    unsigned width, WriteMode mode)
 {
     m_dirty = true;
-    return RamIoBackend::WriteRegister(name, value, mode);
+    return RamIoBackend::WriteRegister(addr, value, width, mode);
 }
 
 bool FileIoBackend::Commit()
@@ -199,123 +310,464 @@ bool FileIoBackend::Commit()
     if(!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
         return false;
     QTextStream out(&file);
-    out << "HW = " << m_soc << "\n";
-    QMapIterator< QString, soc_word_t > it(m_map);
+    out << "soc = " << m_soc << "\n";
+    QMapIterator< soc_addr_t, soc_word_t > it(m_map);
     while(it.hasNext())
     {
         it.next();
-        out << it.key() << " = " << hex << showbase << it.value() << "\n";
+        out << hex << showbase << it.key() << " = " << hex << showbase << it.value() << "\n";
     }
     out.flush();
     return file.flush();
 }
 
+bool FileIoBackend::IsReadOnly()
+{
+    return m_readonly;
+}
+
+bool FileIoBackend::IsDirty()
+{
+    return m_dirty;
+}
+
+QString FileIoBackend::GetFileName()
+{
+    return m_filename;
+}
+
 #ifdef HAVE_HWSTUB
+/**
+ * HWStubManager
+ */
+HWStubManager *HWStubManager::g_inst = nullptr;
+
+HWStubManager::HWStubManager()
+{
+    Add("Default", QString::fromStdString(hwstub::uri::default_uri().full_uri()));
+}
+
+HWStubManager::~HWStubManager()
+{
+}
+
+HWStubManager *HWStubManager::Get()
+{
+    if(g_inst == nullptr)
+        g_inst = new HWStubManager();
+    return g_inst;
+}
+
+bool HWStubManager::Add(const QString& name, const QString& uri)
+{
+    struct Context ctx;
+    ctx.name = name;
+    ctx.uri = uri;
+    ctx.context = hwstub::uri::create_context(uri.toStdString());
+    if(!ctx.context)
+        return false;
+    ctx.context->start_polling();
+    beginInsertRows(QModelIndex(), m_list.size(), m_list.size());
+    m_list.push_back(ctx);
+    endInsertRows();
+    return true;
+}
+
+void HWStubManager::Clear()
+{
+    m_list.clear();
+}
+
+int HWStubManager::rowCount(const QModelIndex& parent) const
+{
+    Q_UNUSED(parent);
+    return m_list.size();
+}
+
+int HWStubManager::columnCount(const QModelIndex& parent) const
+{
+    Q_UNUSED(parent);
+    return 2;
+}
+
+std::shared_ptr< hwstub::context > HWStubManager::GetContext(int row)
+{
+    if(row < 0 || (size_t)row >= m_list.size())
+        return std::shared_ptr< hwstub::context >();
+    else
+        return m_list[row].context;
+}
+
+QVariant HWStubManager::data(const QModelIndex& index, int role) const
+{
+    if(index.row() < 0 || (size_t)index.row() >= m_list.size())
+        return QVariant();
+    int section = index.column();
+    const Context& ctx = m_list[index.row()];
+    if(section == GetNameColumn())
+    {
+        if(role == Qt::DisplayRole || role == Qt::EditRole)
+            return QVariant(ctx.name);
+    }
+    else if(section == GetUriColumn())
+    {
+        if(role == Qt::DisplayRole)
+            return QVariant(ctx.uri);
+    }
+    return QVariant();
+}
+
+QVariant HWStubManager::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if(orientation == Qt::Vertical)
+        return QVariant();
+    if(role != Qt::DisplayRole)
+        return QVariant();
+    if(section == GetNameColumn())
+        return QVariant("Name");
+    else if(section == GetUriColumn())
+        return QVariant("URI");
+    return QVariant();
+}
+
+Qt::ItemFlags HWStubManager::flags(const QModelIndex& index) const
+{
+    Qt::ItemFlags flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+    int section = index.column();
+    if(section == GetNameColumn())
+        flags |= Qt::ItemIsEditable;
+    return flags;
+}
+
+bool HWStubManager::setData(const QModelIndex& index, const QVariant& value, int role)
+{
+    if(role != Qt::EditRole)
+        return false;
+    if(index.row() < 0 || (size_t)index.row() >= m_list.size())
+        return false;
+    if(index.column() != GetNameColumn())
+        return false;
+    m_list[index.row()].name = value.toString();
+    emit dataChanged(index, index);
+    return true;
+}
+
+int HWStubManager::GetNameColumn() const
+{
+    return 0;
+}
+
+int HWStubManager::GetUriColumn() const
+{
+    return 1;
+}
+
+QString HWStubManager::GetFriendlyName(std::shared_ptr< hwstub::device > device)
+{
+    /* try to open the device */
+    std::shared_ptr< hwstub::handle > handle;
+    hwstub::error err = device->open(handle);
+    if(err != hwstub::error::SUCCESS)
+        goto Lfallback;
+    /* get target descriptor */
+    struct hwstub_target_desc_t target_desc;
+    err = handle->get_target_desc(target_desc);
+    if(err != hwstub::error::SUCCESS)
+        goto Lfallback;
+    return QString::fromStdString(target_desc.bName);
+
+    /* fallback: don't open the device */
+Lfallback:
+    hwstub::usb::device *udev = dynamic_cast< hwstub::usb::device* >(device.get());
+    if(udev)
+    {
+        return QString("USB Bus %1 Device %2: ID %3:%4")
+            .arg(udev->get_bus_number()).arg(udev->get_address(), 3, 10, QChar('0'))
+            .arg(udev->get_vid(), 4, 16, QChar('0')).arg(udev->get_pid(), 4, 16, QChar('0'));
+    }
+    else
+        return QString("<Unknown device>");
+}
+
+/**
+ * HWStubContextModel
+ */
+HWStubContextModel::HWStubContextModel(QObject *parent)
+    :QAbstractTableModel(parent), m_has_dummy(false)
+{
+}
+
+HWStubContextModel::~HWStubContextModel()
+{
+    SetContext(std::shared_ptr< hwstub::context >());
+}
+
+void HWStubContextModel::SetContext(std::shared_ptr< hwstub::context > context)
+{
+    int first_row = m_has_dummy ? 1: 0;
+    /* clear previous model if any */
+    if(m_list.size() > 0)
+    {
+        beginRemoveRows(QModelIndex(), first_row, first_row + m_list.size() - 1);
+        m_list.clear();
+        endRemoveRows();
+    }
+    /* don't forget to unregister callback if context still exists */
+    std::shared_ptr< hwstub::context > ctx = m_context.lock();
+    if(ctx)
+        ctx->unregister_callback(m_callback_ref);
+    /* get new context */
+    m_context = context;
+    if(context)
+    {
+        /* register new callback */
+        m_callback_ref = context->register_callback(
+            std::bind(&HWStubContextModel::OnDevChangeLow, this, std::placeholders::_1,
+                std::placeholders::_2, std::placeholders::_3));
+        /* get dev list */
+        std::vector< std::shared_ptr< hwstub::device > > list;
+        hwstub::error err = context->get_device_list(list);
+        if(err == hwstub::error::SUCCESS)
+        {
+            beginInsertRows(QModelIndex(), first_row, first_row + list.size() - 1);
+            for(auto& d : list)
+            {
+                Device dev;
+                dev.name = GetFriendlyName(d);
+                dev.device = d;
+                m_list.push_back(dev);
+            }
+            endInsertRows();
+        }
+    }
+}
+
+void HWStubContextModel::EnableDummy(bool en, const QString& text)
+{
+    /* if needed, create/remove raw */
+    if(m_has_dummy && !en)
+    {
+        /* remove row */
+        beginRemoveRows(QModelIndex(), 0, 0);
+        m_has_dummy = false;
+        endRemoveRows();
+    }
+    else if(!m_has_dummy && en)
+    {
+        /* add row */
+        beginInsertRows(QModelIndex(), 0, 0);
+        m_has_dummy = true;
+        m_dummy_text = text;
+        endInsertRows();
+    }
+    else if(en)
+    {
+        /* text change only */
+        emit dataChanged(index(0, GetNameColumn()), index(0, GetNameColumn()));
+    }
+}
+
+int HWStubContextModel::rowCount(const QModelIndex& parent) const
+{
+    Q_UNUSED(parent);
+    return m_list.size() + (m_has_dummy ? 1 : 0);
+}
+
+int HWStubContextModel::columnCount(const QModelIndex& parent) const
+{
+    Q_UNUSED(parent);
+    return 1;
+}
+
+QVariant HWStubContextModel::data(const QModelIndex& index, int role) const
+{
+    int first_row = m_has_dummy ? 1: 0;
+    /* special case for dummy */
+    if(m_has_dummy && index.row() == 0)
+    {
+        int section = index.column();
+        if(section == GetNameColumn())
+        {
+            if(role == Qt::DisplayRole)
+                return QVariant(m_dummy_text);
+            else if(role == Qt::FontRole)
+            {
+                QFont font;
+                font.setItalic(true);
+                return QVariant(font);
+            }
+        }
+        return QVariant();
+    }
+
+    if(index.row() < first_row || (size_t)index.row() >= first_row + m_list.size())
+        return QVariant();
+    int section = index.column();
+    if(section == GetNameColumn())
+    {
+        if(role == Qt::DisplayRole)
+            return QVariant(m_list[index.row() - first_row].name);
+    }
+    return QVariant();
+}
+
+QVariant HWStubContextModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if(orientation == Qt::Vertical)
+        return QVariant();
+    if(role != Qt::DisplayRole)
+        return QVariant();
+    if(section == GetNameColumn())
+        return QVariant("Friendly name");
+    return QVariant();
+}
+
+Qt::ItemFlags HWStubContextModel::flags(const QModelIndex& index) const
+{
+    Q_UNUSED(index);
+    return Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+}
+
+int HWStubContextModel::GetNameColumn() const
+{
+    return 0;
+}
+
+std::shared_ptr< hwstub::device > HWStubContextModel::GetDevice(int row)
+{
+    int first_row = m_has_dummy ? 1: 0;
+    /* special case for dummy */
+    if(row < first_row || (size_t)row >= first_row + m_list.size())
+        return std::shared_ptr< hwstub::device >();
+    else
+        return m_list[row - first_row].device;
+}
+
+QString HWStubContextModel::GetFriendlyName(std::shared_ptr< hwstub::device > device)
+{
+    return HWStubManager::GetFriendlyName(device);
+}
+
+namespace
+{
+    struct dev_change_t
+    {
+        std::shared_ptr< hwstub::context > ctx;
+        bool arrived;
+        std::shared_ptr< hwstub::device > device;
+    };
+}
+
+void HWStubContextModel::OnDevChangeLow(std::shared_ptr< hwstub::context > ctx,
+    bool arrived, std::shared_ptr< hwstub::device > device)
+{
+    /* calling Qt function from non-Qt thread is unsafe. Since the polling thread
+     * is a pthread, the safest way to use Qt invoke mecanism to make it run
+     * on the event loop */
+    dev_change_t *evt = new dev_change_t;
+    evt->ctx = ctx;
+    evt->arrived = arrived;
+    evt->device = device;
+    QMetaObject::invokeMethod(this, "OnDevChangeUnsafe", Q_ARG(void *, (void *)evt));
+}
+
+void HWStubContextModel::OnDevChangeUnsafe(void *data)
+{
+    dev_change_t *evt = (dev_change_t *)data;
+    OnDevChange(evt->ctx, evt->arrived, evt->device);
+    delete evt;
+}
+
+void HWStubContextModel::OnDevChange(std::shared_ptr< hwstub::context > ctx, bool arrived,
+    std::shared_ptr< hwstub::device > device)
+{
+    int first_row = m_has_dummy ? 1: 0;
+    Q_UNUSED(ctx);
+    if(arrived)
+    {
+        Device dev;
+        dev.name = GetFriendlyName(device);
+        dev.device = device;
+        beginInsertRows(QModelIndex(), first_row + m_list.size(),
+            first_row + m_list.size());
+        m_list.push_back(dev);
+        endInsertRows();
+    }
+    else
+    {
+        /* find device in the list */
+        auto it = m_list.begin();
+        int idx = 0;
+        for(; it != m_list.end(); ++it, ++idx)
+            if(it->device == device)
+                break;
+        if(it == m_list.end())
+            return;
+        /* remove it */
+        beginRemoveRows(QModelIndex(), first_row + idx, first_row + idx);
+        m_list.erase(it);
+        endRemoveRows();
+    }
+}
+
 /**
  * HWStubDevice
  */
-HWStubDevice::HWStubDevice(struct libusb_device *dev)
+HWStubDevice::HWStubDevice(std::shared_ptr< hwstub::device > device)
 {
-    Init(dev);
-}
-
-HWStubDevice::HWStubDevice(const HWStubDevice *dev)
-{
-    Init(dev->m_dev);
-}
-
-void HWStubDevice::Init(struct libusb_device *dev)
-{
-    libusb_ref_device(dev);
-    m_dev = dev;
-    m_handle = 0;
-    m_hwdev = 0;
-    m_valid = Probe();
+    m_valid = Probe(device);
 }
 
 HWStubDevice::~HWStubDevice()
 {
-    Close();
-    libusb_unref_device(m_dev);
 }
 
-int HWStubDevice::GetBusNumber()
+bool HWStubDevice::Probe(std::shared_ptr<hwstub::device> device)
 {
-    return libusb_get_bus_number(m_dev);
-}
-
-int HWStubDevice::GetDevAddress()
-{
-    return libusb_get_device_address(m_dev);
-}
-
-bool HWStubDevice::Probe()
-{
-    if(!Open())
+    if(!device)
         return false;
-    // get target
-    int ret = hwstub_get_desc(m_hwdev, HWSTUB_DT_TARGET, &m_hwdev_target, sizeof(m_hwdev_target));
-    if(ret != sizeof(m_hwdev_target))
-        goto Lerr;
-    // get STMP information
+    hwstub::error err = device->open(m_handle);
+    if(err != hwstub::error::SUCCESS)
+        return false;
+    // get target information
+    err = m_handle->get_target_desc(m_hwdev_target);
+    if(err != hwstub::error::SUCCESS)
+        return false;
+    // get STMP/PP information
     if(m_hwdev_target.dID == HWSTUB_TARGET_STMP)
     {
-        ret = hwstub_get_desc(m_hwdev, HWSTUB_DT_STMP, &m_hwdev_stmp, sizeof(m_hwdev_stmp));
-        if(ret != sizeof(m_hwdev_stmp))
-            goto Lerr;
+        err = m_handle->get_stmp_desc(m_hwdev_stmp);
+        if(err != hwstub::error::SUCCESS)
+            return false;
     }
     else if(m_hwdev_target.dID == HWSTUB_TARGET_PP)
     {
-        ret = hwstub_get_desc(m_hwdev, HWSTUB_DT_PP, &m_hwdev_pp, sizeof(m_hwdev_pp));
-        if(ret != sizeof(m_hwdev_pp))
-            goto Lerr;
+        err = m_handle->get_pp_desc(m_hwdev_pp);
+        if(err != hwstub::error::SUCCESS)
+            return false;
     }
-    Close();
-    return true;
-
-    Lerr:
-    Close();
-    return false;
-}
-
-bool HWStubDevice::Open()
-{
-    if(libusb_open(m_dev, &m_handle))
-        return false;
-    m_hwdev = hwstub_open(m_handle);
-    if(m_hwdev == 0)
+    else if(m_hwdev_target.dID == HWSTUB_TARGET_JZ)
     {
-        libusb_close(m_handle);
-        m_handle = 0;
-        return false;
+        err = m_handle->get_jz_desc(m_hwdev_jz);
+        if(err != hwstub::error::SUCCESS)
+            return false;
     }
+    m_name = HWStubManager::GetFriendlyName(device);
     return true;
-}
-
-void HWStubDevice::Close()
-{
-    if(m_hwdev)
-        hwstub_release(m_hwdev);
-    m_hwdev = 0;
-    if(m_handle)
-        libusb_close(m_handle);
-    m_handle = 0;
 }
 
 bool HWStubDevice::ReadMem(soc_addr_t addr, size_t length, void *buffer)
 {
-    if(!m_hwdev)
-        return false;
-    int ret = hwstub_rw_mem_atomic(m_hwdev, 1, addr, buffer, length);
-    return ret >= 0 && (size_t)ret == length;
+    size_t len = length;
+    hwstub::error err = m_handle->read(addr, buffer, len, true);
+    return err == hwstub::error::SUCCESS && len == length;
 }
 
 bool HWStubDevice::WriteMem(soc_addr_t addr, size_t length, void *buffer)
 {
-    if(!m_hwdev)
-        return false;
-    int ret = hwstub_rw_mem_atomic(m_hwdev, 0, addr, buffer, length);
-    return ret >= 0 && (size_t)ret == length;
+    size_t len = length;
+    hwstub::error err = m_handle->write(addr, buffer, len, true);
+    return err == hwstub::error::SUCCESS && len == length;
 }
 
 bool HWStubDevice::IsValid()
@@ -323,6 +775,10 @@ bool HWStubDevice::IsValid()
     return m_valid;
 }
 
+QString HWStubDevice::GetFriendlyName()
+{
+    return m_name;
+}
 
 /**
  * HWStubIoBackend
@@ -331,7 +787,7 @@ bool HWStubDevice::IsValid()
 HWStubIoBackend::HWStubIoBackend(HWStubDevice *dev)
 {
     m_dev = dev;
-    m_dev->Open();
+
     struct hwstub_target_desc_t target = m_dev->GetTargetInfo();
     if(target.dID == HWSTUB_TARGET_STMP)
     {
@@ -345,6 +801,13 @@ HWStubIoBackend::HWStubIoBackend(HWStubDevice *dev)
         else
             m_soc = QString("stmp%1").arg(stmp.wChipID, 4, 16, QChar('0'));
     }
+    else if(target.dID == HWSTUB_TARGET_JZ)
+    {
+        struct hwstub_jz_desc_t jz = m_dev->GetJZInfo();
+        m_soc = QString("jz%1").arg(jz.wChipID, 4, 16, QChar('0'));
+        if(jz.bRevision != 0)
+            m_soc.append(QChar(jz.bRevision).toLower());
+    }
     else if(target.dID == HWSTUB_TARGET_RK27)
         m_soc = "rk27x";
     else if(target.dID == HWSTUB_TARGET_PP)
@@ -355,6 +818,8 @@ HWStubIoBackend::HWStubIoBackend(HWStubDevice *dev)
         else
             m_soc = QString("pp%1").arg(pp.wChipID, 4, 16, QChar('0'));
     }
+    else if(target.dID == HWSTUB_TARGET_ATJ)
+        m_soc = "atj213x";
     else
         m_soc = target.bName;
 }
@@ -369,13 +834,44 @@ HWStubIoBackend::~HWStubIoBackend()
     delete m_dev;
 }
 
-bool HWStubIoBackend::ReadRegister(soc_addr_t addr, soc_word_t& value)
+bool HWStubIoBackend::IsValid()
 {
-    return m_dev->ReadMem(addr, sizeof(value), &value);
+    return m_dev->IsValid();
 }
 
-bool HWStubIoBackend::WriteRegister(soc_addr_t addr, soc_word_t value, WriteMode mode)
+bool HWStubIoBackend::IsReadOnly()
 {
+    return false;
+}
+
+bool HWStubIoBackend::IsDirty()
+{
+    return false;
+}
+
+bool HWStubIoBackend::Commit()
+{
+    return true;
+}
+
+HWStubDevice *HWStubIoBackend::GetDevice()
+{
+    return m_dev;
+}
+
+bool HWStubIoBackend::ReadRegister(soc_addr_t addr, soc_word_t& value,
+    unsigned width)
+{
+    if(width != 8 && width != 16 && width != 32)
+        return false;
+    return m_dev->ReadMem(addr, width / 8, &value);
+}
+
+bool HWStubIoBackend::WriteRegister(soc_addr_t addr, soc_word_t value,
+    unsigned width, WriteMode mode)
+{
+    if(width != 8 && width != 16 && width != 32)
+        return false;
     switch(mode)
     {
         case Set: addr += 4; break;
@@ -383,101 +879,12 @@ bool HWStubIoBackend::WriteRegister(soc_addr_t addr, soc_word_t value, WriteMode
         case Toggle: addr += 12; break;
         default: break;
     }
-    return m_dev->WriteMem(addr, sizeof(value), &value);
+    return m_dev->WriteMem(addr, width / 8, &value);
 }
 
 bool HWStubIoBackend::Reload()
 {
     return true;
-}
-
-/**
- * HWStubBackendHelper
- */
-HWStubBackendHelper::HWStubBackendHelper()
-{
-#ifdef LIBUSB_NO_HOTPLUG
-    m_hotplug = false;
-#else
-    m_hotplug = libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG);
-    if(m_hotplug)
-    {
-        int evt = LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED |
-            LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT;
-        m_hotplug = LIBUSB_SUCCESS == libusb_hotplug_register_callback(
-            NULL, (libusb_hotplug_event)evt, LIBUSB_HOTPLUG_ENUMERATE,
-            LIBUSB_HOTPLUG_MATCH_ANY, LIBUSB_HOTPLUG_MATCH_ANY, LIBUSB_HOTPLUG_MATCH_ANY,
-            &HWStubBackendHelper::HotPlugCallback, reinterpret_cast< void* >(this),
-            &m_hotplug_handle);
-    }
-#endif /* LIBUSB_NO_HOTPLUG */
-}
-
-HWStubBackendHelper::~HWStubBackendHelper()
-{
-#ifndef LIBUSB_NO_HOTPLUG
-    if(m_hotplug)
-        libusb_hotplug_deregister_callback(NULL, m_hotplug_handle);
-#endif /* LIBUSB_NO_HOTPLUG */
-}
-
-QList< HWStubDevice* > HWStubBackendHelper::GetDevList()
-{
-    QList< HWStubDevice* > list;
-    libusb_device **dev_list;
-    ssize_t cnt = hwstub_get_device_list(NULL, &dev_list);
-    for(int i = 0; i < cnt; i++)
-    {
-        HWStubDevice *dev = new HWStubDevice(dev_list[i]);
-        /* filter out non-hwstub devices */
-        if(dev->IsValid())
-            list.push_back(dev);
-        else
-            delete dev;
-    }
-    libusb_free_device_list(dev_list, 1);
-    return list;
-}
-
-#ifndef LIBUSB_NO_HOTPLUG
-void HWStubBackendHelper::OnHotPlug(bool arrived, struct libusb_device *dev)
-{
-    /* signal it */
-    emit OnDevListChanged(arrived, dev);
-}
-
-int HWStubBackendHelper::HotPlugCallback(struct libusb_context *ctx, struct libusb_device *dev,
-    libusb_hotplug_event event, void *user_data)
-{
-    Q_UNUSED(ctx);
-    HWStubBackendHelper *helper = reinterpret_cast< HWStubBackendHelper* >(user_data);
-    switch(event)
-    {
-        case LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED: helper->OnHotPlug(true, dev); break;
-        case LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT: helper->OnHotPlug(false, dev); break;
-        default: break;
-    }
-    return 0;
-}
-#endif /* LIBUSB_NO_HOTPLUG */
-
-bool HWStubBackendHelper::HasHotPlugSupport()
-{
-    return m_hotplug;
-}
-
-namespace
-{
-class lib_usb_init
-{
-public:
-    lib_usb_init()
-    {
-        libusb_init(NULL);
-    }
-};
-
-lib_usb_init __lib_usb_init;
 }
 
 #endif /* HAVE_HWSTUB */
@@ -486,146 +893,146 @@ lib_usb_init __lib_usb_init;
  * BackendHelper
  */
 
-BackendHelper::BackendHelper(IoBackend *io_backend, const SocRef& soc)
+BackendHelper::BackendHelper(IoBackend *io_backend, const soc_desc::soc_ref_t& soc)
     :m_io_backend(io_backend), m_soc(soc)
 {
 }
 
-bool BackendHelper::ReadRegister(const QString& dev, const QString& reg, soc_word_t& v)
+QString BackendHelper::GetPath(const soc_desc::node_inst_t& inst)
 {
-    if(m_io_backend->SupportAccess(IoBackend::ByName))
-        return m_io_backend->ReadRegister("HW." + dev + "." + reg, v);
-    if(m_io_backend->SupportAccess(IoBackend::ByAddress))
-    {
-        soc_addr_t addr;
-        if(GetRegisterAddress(dev, reg, addr))
-            return m_io_backend->ReadRegister(addr, v);
-    }
-    return false;
+    if(!inst.valid() || inst.is_root())
+        return QString();
+    QString s = GetPath(inst.parent());
+    if(!s.isEmpty())
+        s += ".";
+    s += inst.name().c_str();
+    if(inst.is_indexed())
+        s = QString("%1[%2]").arg(s).arg(inst.index());
+    return s;
 }
 
-bool BackendHelper::WriteRegister(const QString& dev, const QString& reg,
+soc_desc::node_inst_t BackendHelper::ParsePath(const QString& path)
+{
+    soc_desc::node_inst_t inst = m_soc.root_inst();
+    /* empty path is root */
+    if(path.isEmpty())
+        return inst;
+    int pos = 0;
+    while(pos < path.size())
+    {
+        /* try to find the next separator */
+        int next = path.indexOf('.', pos);
+        if(next == -1)
+            next = path.size();
+        /* try to find the index, if any */
+        int lidx = path.indexOf('[', pos);
+        if(lidx == -1 || lidx > next)
+            lidx = next;
+        /* extract name */
+        std::string name = path.mid(pos, lidx - pos).toStdString();
+        /* and index */
+        if(lidx < next)
+        {
+            int ridx = path.indexOf(']', lidx + 1);
+            /* syntax error ? */
+            if(ridx == -1 || ridx > next)
+                return soc_desc::node_inst_t();
+            /* invalid number ? */
+            bool ok = false;
+            size_t idx = path.mid(lidx + 1, ridx - lidx - 1).toUInt(&ok);
+            if(ok)
+                inst = inst.child(name, idx);
+            else
+                inst = soc_desc::node_inst_t();
+        }
+        else
+            inst = inst.child(name);
+        /* advance right after the separator */
+        pos = next + 1;
+    }
+    return inst;
+}
+
+bool BackendHelper::ReadRegister(const soc_desc::node_inst_t& inst,
+    soc_word_t& v)
+{
+    soc_addr_t addr;
+    if(!GetRegisterAddress(inst, addr))
+        return false;
+    return m_io_backend->ReadRegister(addr, v, inst.node().reg().get()->width);
+}
+
+bool BackendHelper::WriteRegister(const soc_desc::node_inst_t& inst,
     soc_word_t v, IoBackend::WriteMode mode)
 {
-    if(m_io_backend->SupportAccess(IoBackend::ByName))
-        return m_io_backend->WriteRegister("HW." + dev + "." + reg, v, mode);
-    if(m_io_backend->SupportAccess(IoBackend::ByAddress))
-    {
-        soc_addr_t addr;
-        if(GetRegisterAddress(dev, reg, addr))
-            return m_io_backend->WriteRegister(addr, v, mode);
-    }
-    return false;
+    soc_addr_t addr;
+    if(!GetRegisterAddress(inst, addr))
+        return false;
+    return m_io_backend->WriteRegister(addr, v, inst.node().reg().get()->width, mode);
 }
 
-bool BackendHelper::GetDevRef(const QString& sdev, SocDevRef& ref)
-{
-    for(size_t i = 0; i < m_soc.GetSoc().dev.size(); i++)
-    {
-        const soc_dev_t& dev = m_soc.GetSoc().dev[i];
-        for(size_t j = 0; j < dev.addr.size(); j++)
-            if(dev.addr[j].name.c_str() == sdev)
-            {
-                ref = SocDevRef(m_soc, i, j);
-                return true;
-            }
-    }
-    return false;
-}
-
-bool BackendHelper::GetRegRef(const SocDevRef& dev, const QString& sreg, SocRegRef& ref)
-{
-    const soc_dev_t& sdev = dev.GetDev();
-    for(size_t i = 0; i < sdev.reg.size(); i++)
-    {
-        const soc_reg_t& reg = sdev.reg[i];
-        for(size_t j = 0; j < reg.addr.size(); j++)
-        {
-            if(reg.addr[j].name.c_str() == sreg)
-            {
-                ref = SocRegRef(dev, i, j);
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-bool BackendHelper::GetFieldRef(const SocRegRef& reg, const QString& sfield, SocFieldRef& ref)
-{
-    for(size_t i = 0; i < reg.GetReg().field.size(); i++)
-        if(reg.GetReg().field[i].name.c_str() == sfield)
-        {
-            ref = SocFieldRef(reg, i);
-            return true;
-        }
-    return false;
-}
-
-bool BackendHelper::GetRegisterAddress(const QString& dev, const QString& reg,
+bool BackendHelper::GetRegisterAddress(const soc_desc::node_inst_t& inst,
     soc_addr_t& addr)
 {
-    SocDevRef dev_ref;
-    SocRegRef reg_ref;
-    if(!GetDevRef(dev, dev_ref) || !GetRegRef(dev_ref, reg, reg_ref))
+    if(!inst.valid())
         return false;
-    addr = dev_ref.GetDevAddr().addr + reg_ref.GetRegAddr().addr;
+    addr = inst.addr();
     return true;
 }
 
-bool BackendHelper::ReadRegisterField(const QString& dev, const QString& reg,
+bool BackendHelper::ReadRegisterField(const soc_desc::node_inst_t& inst,
     const QString& field, soc_word_t& v)
 {
-    SocDevRef dev_ref;
-    SocRegRef reg_ref;
-    SocFieldRef field_ref;
-    if(!GetDevRef(dev, dev_ref) || !GetRegRef(dev_ref, reg, reg_ref) || 
-            !GetFieldRef(reg_ref, field, field_ref))
+    soc_desc::field_ref_t ref = inst.node().reg().field(field.toStdString());
+    if(!ref.valid())
         return false;
-    if(!ReadRegister(dev, reg, v))
+    if(!ReadRegister(inst, v))
         return false;
-    v = (v & field_ref.GetField().bitmask()) >> field_ref.GetField().first_bit;
+    v = (v & ref.get()->bitmask()) >> ref.get()->pos;
     return true;
 }
 
 bool BackendHelper::DumpAllRegisters(const QString& filename, bool ignore_errors)
 {
-    FileIoBackend b(filename, QString::fromStdString(m_soc.GetSoc().name));
+    FileIoBackend b(filename, QString::fromStdString(m_soc.get()->name));
     bool ret = DumpAllRegisters(&b, ignore_errors);
     return ret && b.Commit();
 }
 
 bool BackendHelper::DumpAllRegisters(IoBackend *backend, bool ignore_errors)
 {
-    BackendHelper bh(backend, m_soc);
+    BackendHelper helper(backend, m_soc);
+    return DumpAllRegisters(&helper, m_soc.root_inst(), ignore_errors);
+}
+
+bool BackendHelper::DumpAllRegisters(BackendHelper *bh,
+    const soc_desc::node_inst_t& inst, bool ignore_errors)
+{
     bool ret = true;
-    for(size_t i = 0; i < m_soc.GetSoc().dev.size(); i++)
+    if(inst.node().reg().valid())
     {
-        const soc_dev_t& dev = m_soc.GetSoc().dev[i];
-        for(size_t j = 0; j < dev.addr.size(); j++)
+        soc_word_t val;
+        if(!ReadRegister(inst, val))
         {
-            QString devname = QString::fromStdString(dev.addr[j].name);
-            for(size_t k = 0; k < dev.reg.size(); k++)
-            {
-                const soc_reg_t& reg = dev.reg[k];
-                for(size_t l = 0; l < reg.addr.size(); l++)
-                {
-                    QString regname = QString::fromStdString(reg.addr[l].name);
-                    soc_word_t val;
-                    if(!ReadRegister(devname, regname, val))
-                    {
-                        ret = false;
-                        if(!ignore_errors)
-                            return false;
-                    }
-                    else if(!bh.WriteRegister(devname, regname, val))
-                    {
-                        ret = false;
-                        if(!ignore_errors)
-                            return false;
-                    }
-                }
-            }
+            ret = false;
+            if(!ignore_errors)
+                return false;
+        }
+        else if(!bh->WriteRegister(inst, val))
+        {
+            ret = false;
+            if(!ignore_errors)
+                return false;
+        }
+    }
+    std::vector< soc_desc::node_inst_t > list = inst.children();
+    for(size_t i = 0; i < list.size(); i++)
+    {
+        if(!DumpAllRegisters(bh, list[i], ignore_errors))
+        {
+            ret = false;
+            if(!ignore_errors)
+                return false;
         }
     }
     return ret;

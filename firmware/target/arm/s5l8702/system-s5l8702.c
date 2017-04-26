@@ -23,7 +23,12 @@
 #include "system.h"
 #include "panic.h"
 #include "system-target.h"
+#include "i2c-s5l8702.h"
 #include "pmu-target.h"
+#include "uart-target.h"
+#include "gpio-s5l8702.h"
+#include "dma-s5l8702.h"
+#include "clocking-s5l8702.h"
 
 #define default_interrupt(name) \
   extern __attribute__((weak,alias("UIRQ"))) void name (void)
@@ -32,10 +37,10 @@ void irq_handler(void) __attribute__((interrupt ("IRQ"), naked));
 void fiq_handler(void) __attribute__((interrupt ("FIQ"), naked, \
                                       weak, alias("fiq_dummy")));
 
-default_interrupt(INT_IRQ0);
-default_interrupt(INT_IRQ1);
-default_interrupt(INT_IRQ2);
-default_interrupt(INT_IRQ3);
+default_interrupt(INT_EXT0);    /* GPIOIC group 6 (GPIO 0..31) */
+default_interrupt(INT_EXT1);    /* GPIOIC group 5 (GPIO 32..63) */
+default_interrupt(INT_EXT2);    /* GPIOIC group 4 (GPIO 64..95) */
+default_interrupt(INT_EXT3);    /* GPIOIC group 3 (GPIO 96..123) */
 default_interrupt(INT_IRQ4);
 default_interrupt(INT_IRQ5);
 default_interrupt(INT_IRQ6);
@@ -54,38 +59,24 @@ default_interrupt(INT_IRQ12);
 default_interrupt(INT_IRQ13);
 default_interrupt(INT_IRQ14);
 default_interrupt(INT_IRQ15);
-default_interrupt(INT_DMAC0C0);
-default_interrupt(INT_DMAC0C1);
-default_interrupt(INT_DMAC0C2);
-default_interrupt(INT_DMAC0C3);
-default_interrupt(INT_DMAC0C4);
-default_interrupt(INT_DMAC0C5);
-default_interrupt(INT_DMAC0C6);
-default_interrupt(INT_DMAC0C7);
-default_interrupt(INT_DMAC1C0);
-default_interrupt(INT_DMAC1C1);
-default_interrupt(INT_DMAC1C2);
-default_interrupt(INT_DMAC1C3);
-default_interrupt(INT_DMAC1C4);
-default_interrupt(INT_DMAC1C5);
-default_interrupt(INT_DMAC1C6);
-default_interrupt(INT_DMAC1C7);
+default_interrupt(INT_DMAC0);
+default_interrupt(INT_DMAC1);
 default_interrupt(INT_IRQ18);
 default_interrupt(INT_USB_FUNC);
 default_interrupt(INT_IRQ20);
 default_interrupt(INT_IRQ21);
 default_interrupt(INT_IRQ22);
 default_interrupt(INT_WHEEL);
-default_interrupt(INT_IRQ24);
-default_interrupt(INT_IRQ25);
-default_interrupt(INT_IRQ26);
-default_interrupt(INT_IRQ27);
-default_interrupt(INT_IRQ28);
+default_interrupt(INT_UART0);
+default_interrupt(INT_UART1);
+default_interrupt(INT_UART2);
+default_interrupt(INT_UART3);
+default_interrupt(INT_IRQ28);   /* obsolete/not implemented UART4 ??? */
 default_interrupt(INT_ATA);
 default_interrupt(INT_IRQ30);
-default_interrupt(INT_IRQ31);
-default_interrupt(INT_IRQ32);
-default_interrupt(INT_IRQ33);
+default_interrupt(INT_EXT4);    /* GPIOIC group 2 (not used) */
+default_interrupt(INT_EXT5);    /* GPIOIC group 1 (not used) */
+default_interrupt(INT_EXT6);    /* GPIOIC group 0 */
 default_interrupt(INT_IRQ34);
 default_interrupt(INT_IRQ35);
 default_interrupt(INT_IRQ36);
@@ -140,41 +131,13 @@ void INT_TIMER32()
     if ((THCON >> 12) & 0x7 & tstat) INT_TIMERH();
 }
 
-void INT_DMAC0(void) ICODE_ATTR;
-void INT_DMAC0()
-{
-    uint32_t intsts = DMAC0INTSTS;
-    if (intsts & 1) INT_DMAC0C0();
-    if (intsts & 2) INT_DMAC0C1();
-    if (intsts & 4) INT_DMAC0C2();
-    if (intsts & 8) INT_DMAC0C3();
-    if (intsts & 0x10) INT_DMAC0C4();
-    if (intsts & 0x20) INT_DMAC0C5();
-    if (intsts & 0x40) INT_DMAC0C6();
-    if (intsts & 0x80) INT_DMAC0C7();
-}
-
-void INT_DMAC1(void) ICODE_ATTR;
-void INT_DMAC1()
-{
-    uint32_t intsts = DMAC1INTSTS;
-    if (intsts & 1) INT_DMAC1C0();
-    if (intsts & 2) INT_DMAC1C1();
-    if (intsts & 4) INT_DMAC1C2();
-    if (intsts & 8) INT_DMAC1C3();
-    if (intsts & 0x10) INT_DMAC1C4();
-    if (intsts & 0x20) INT_DMAC1C5();
-    if (intsts & 0x40) INT_DMAC1C6();
-    if (intsts & 0x80) INT_DMAC1C7();
-}
-
 static void (* const irqvector[])(void) =
 {
-    INT_IRQ0,INT_IRQ1,INT_IRQ2,INT_IRQ3,INT_IRQ4,INT_IRQ5,INT_IRQ6,INT_TIMER32,
+    INT_EXT0,INT_EXT1,INT_EXT2,INT_EXT3,INT_IRQ4,INT_IRQ5,INT_IRQ6,INT_TIMER32,
     INT_TIMER,INT_IRQ9,INT_IRQ10,INT_IRQ11,INT_IRQ12,INT_IRQ13,INT_IRQ14,INT_IRQ15,
     INT_DMAC0,INT_DMAC1,INT_IRQ18,INT_USB_FUNC,INT_IRQ20,INT_IRQ21,INT_IRQ22,INT_WHEEL,
-    INT_IRQ24,INT_IRQ25,INT_IRQ26,INT_IRQ27,INT_IRQ28,INT_ATA,INT_IRQ30,INT_IRQ31,
-    INT_IRQ32,INT_IRQ33,INT_IRQ34,INT_IRQ35,INT_IRQ36,INT_IRQ37,INT_IRQ38,INT_IRQ39,
+    INT_UART0,INT_UART1,INT_UART2,INT_UART3,INT_IRQ28,INT_ATA,INT_IRQ30,INT_EXT4,
+    INT_EXT5,INT_EXT6,INT_IRQ34,INT_IRQ35,INT_IRQ36,INT_IRQ37,INT_IRQ38,INT_IRQ39,
     INT_IRQ40,INT_IRQ41,INT_IRQ42,INT_IRQ43,INT_MMC,INT_IRQ45,INT_IRQ46,INT_IRQ47,
     INT_IRQ48,INT_IRQ49,INT_IRQ50,INT_IRQ51,INT_IRQ52,INT_IRQ53,INT_IRQ54,INT_IRQ55,
     INT_IRQ56,INT_IRQ57,INT_IRQ58,INT_IRQ59,INT_IRQ60,INT_IRQ61,INT_IRQ62,INT_IRQ63
@@ -206,7 +169,7 @@ void irq_handler(void)
             irqvector[current_irq]();
     VIC0ADDRESS = NULL;
     VIC1ADDRESS = NULL;
-        
+
     asm volatile(   "add   sp, sp, #8           \n"   /* Cleanup stack   */
                     "ldmfd sp!, {r0-r7, ip, lr} \n"   /* Restore context */
                     "subs  pc, lr, #4           \n"); /* Return from IRQ */
@@ -219,10 +182,35 @@ void fiq_dummy(void)
     );
 }
 
+static struct clocking_mode clk_modes[] =
+{
+   /* cdiv  hdiv  hprat  hsdiv */    /* CClk  HClk  PClk  SM1Clk  FPS */
+    { 1,    2,    2,     4 },        /* 216   108   54    27      42  */
+#ifdef HAVE_ADJUSTABLE_CPU_FREQ
+    { 4,    4,    2,     2 },        /* 54    54    27    27      21  */
+#endif
+};
+#define N_CLK_MODES (sizeof(clk_modes) / sizeof(struct clocking_mode))
+
+enum {
+    CLK_BOOST = 0,
+    CLK_UNBOOST = N_CLK_MODES - 1,
+};
 
 void system_init(void)
 {
-    pmu_init();
+    clocking_init(clk_modes, 0);
+#ifndef BOOTLOADER
+    gpio_preinit();
+    i2c_preinit(0);
+    pmu_preinit();
+#endif
+    gpio_init();
+    eint_init();
+    dma_init();
+#ifdef HAVE_SERIAL
+    uart_init();
+#endif
     VIC0INTENABLE = 1 << IRQ_WHEEL;
     VIC0INTENABLE = 1 << IRQ_ATA;
     VIC1INTENABLE = 1 << (IRQ_MMC - 32);
@@ -257,61 +245,162 @@ int system_memory_guard(int newmode)
 }
 
 #ifdef HAVE_ADJUSTABLE_CPU_FREQ
-
 void set_cpu_frequency(long frequency)
 {
     if (cpu_frequency == frequency)
         return;
 
-    /*
-     * CPU scaling parameters:
-     * CPUFREQ_MAX:    CPU = 216MHz, AHB = 108MHz, Vcore = 1.200V
-     * CPUFREQ_NORMAL: CPU =  54MHz, AHB =  54MHz, Vcore = 1.050V
-     *
-     * CLKCON0 sets PLL2->FCLK divider (CPU clock)
-     * CLKCON1 sets FCLK->HCLK divider (AHB clock)
-     *
-     * HCLK is derived from FCLK, the system goes unstable if HCLK
-     * is out of the range 54-108 MHz, so two stages are required to
-     * switch FCLK (216 MHz <-> 54 MHz), adjusting HCLK in between
-     * to ensure system stability.
-     */
     if (frequency == CPUFREQ_MAX)
     {
-        /* Vcore = 1.200V */
-        pmu_write(0x1e, 0x17);
-
-        /* FCLK = PLL2 / 2  (FCLK = 108MHz, HCLK = 108MHz) */
-        CLKCON0 = 0x3011;
-        udelay(50);
-
-        /* HCLK = FCLK / 2  (HCLK = 54MHz) */
-        CLKCON1 = 0x404101;
-        udelay(50);
-
-        /* FCLK = PLL2  (FCLK = 216MHz, HCLK = 108MHz) */
-        CLKCON0 = 0x3000;
-        udelay(100);
+        pmu_write(0x1e, 0x13);  /* Vcore = 1100 mV */
+        set_clocking_level(CLK_BOOST);
     }
     else
     {
-        /* FCLK = PLL2 / 2  (FCLK = 108MHz, HCLK = 54MHz) */
-        CLKCON0 = 0x3011;
-        udelay(50);
-
-        /* HCLK = FCLK  (HCLK = 108MHz) */
-        CLKCON1 = 0x4001;
-        udelay(50);
-
-        /* FCLK = PLL2 / 4  (FCLK = 54MHz, HCLK = 54MHz) */
-        CLKCON0 = 0x3013;
-        udelay(100);
-
-        /* Vcore = 1.050V */
-        pmu_write(0x1e, 0x11);
+        set_clocking_level(CLK_UNBOOST);
+        pmu_write(0x1e, 0xf);   /* Vcore = 1000 mV */
     }
 
     cpu_frequency = frequency;
 }
+#endif
 
+static void set_page_tables(void)
+{
+    /* map RAM to itself and enable caching for it */
+    map_section(0, 0, 0x380, CACHE_ALL);
+
+    /* disable caching for I/O area */
+    map_section(0x38000000, 0x38000000, 0x80, CACHE_NONE);
+
+    /* map RAM uncached addresses */
+    map_section(0, S5L8702_UNCACHED_ADDR(0x0), 0x380, CACHE_NONE);
+}
+
+void memory_init(void)
+{
+    ttb_init();
+    set_page_tables();
+    enable_mmu();
+}
+
+#ifdef BOOTLOADER
+#include <stdbool.h>
+
+static void syscon_preinit(void)
+{
+    /* after ROM boot, CG16_SYS is using PLL0 @108 MHz
+       CClk = 108 MHz, HClk = 54 MHz, PClk = 27 MHz */
+
+    CLKCON0 &= ~CLKCON0_SDR_DISABLE_BIT;
+
+    PLLMODE &= ~PLLMODE_OSCSEL_BIT; /* CG16_SEL_OSC = OSC0 */
+    cg16_config(&CG16_SYS, true, CG16_SEL_OSC, 1, 1);
+    soc_set_system_divs(1, 1, 1);
+
+    /* stop all PLLs */
+    for (int pll = 0; pll < 3; pll++)
+        pll_onoff(pll, false);
+
+    pll_config(2, PLLOP_DM, 1, 36, 1, 32400);
+    pll_onoff(2, true);
+    soc_set_system_divs(1, 2, 2 /*hprat*/);
+    cg16_config(&CG16_SYS,   true,  CG16_SEL_PLL2, 1, 1);
+    cg16_config(&CG16_2L,    false, CG16_SEL_OSC,  1, 1);
+    cg16_config(&CG16_SVID,  false, CG16_SEL_OSC,  1, 1);
+    cg16_config(&CG16_AUD0,  false, CG16_SEL_OSC,  1, 1);
+    cg16_config(&CG16_AUD1,  false, CG16_SEL_OSC,  1, 1);
+    cg16_config(&CG16_AUD2,  false, CG16_SEL_OSC,  1, 1);
+    cg16_config(&CG16_RTIME, true,  CG16_SEL_OSC,  1, 1);
+    cg16_config(&CG16_5L,    false, CG16_SEL_OSC,  1, 1);
+
+    soc_set_hsdiv(1);
+
+    PWRCON_AHB = ~((1 << CLOCKGATE_SMx) |
+                   (1 << CLOCKGATE_SM1));
+    PWRCON_APB = ~((1 << (CLOCKGATE_TIMER - 32)) |
+                   (1 << (CLOCKGATE_GPIO - 32)));
+}
+
+static void miu_preinit(bool selfrefreshing)
+{
+    if (selfrefreshing)
+        MIUCON = 0x11;      /* TBC: self-refresh -> IDLE */
+
+    MIUCON = 0x80D;         /* remap = 1 (IRAM mapped to 0x0),
+                               TBC: SDRAM bank and column configuration */
+    MIU_REG(0xF0) = 0x0;
+
+    MIUAREF = 0x6105D;      /* Auto-Refresh enabled,
+                               Row refresh interval = 0x5d/12MHz = 7.75 uS */
+    MIUSDPARA = 0x1FB621;
+
+    MIU_REG(0x200) = 0x1845;
+    MIU_REG(0x204) = 0x1845;
+    MIU_REG(0x210) = 0x1800;
+    MIU_REG(0x214) = 0x1800;
+    MIU_REG(0x220) = 0x1845;
+    MIU_REG(0x224) = 0x1845;
+    MIU_REG(0x230) = 0x1885;
+    MIU_REG(0x234) = 0x1885;
+    MIU_REG(0x14) = 0x19;       /* 2^19 = 0x2000000 = SDRAMSIZE (32Mb) */
+    MIU_REG(0x18) = 0x19;       /* 2^19 = 0x2000000 = SDRAMSIZE (32Mb) */
+    MIU_REG(0x1C) = 0x790682B;
+    MIU_REG(0x314) &= ~0x10;
+
+    for (int i = 0; i < 0x24; i++)
+        MIU_REG(0x2C + i*4) &= ~(1 << 24);
+
+    MIU_REG(0x1CC) = 0x540;
+    MIU_REG(0x1D4) |= 0x80;
+
+    MIUCOM = 0x33;     /* No action CMD */
+    MIUCOM = 0x33;
+    MIUCOM = 0x233;    /* Precharge all banks CMD */
+    MIUCOM = 0x33;
+    MIUCOM = 0x33;
+    MIUCOM = 0x33;
+    MIUCOM = 0x333;    /* Auto-refresh CMD */
+    MIUCOM = 0x33;
+    MIUCOM = 0x33;
+    MIUCOM = 0x33;
+    MIUCOM = 0x333;    /* Auto-refresh CMD */
+    MIUCOM = 0x33;
+    MIUCOM = 0x33;
+    MIUCOM = 0x33;
+
+    if (!selfrefreshing)
+    {
+        MIUMRS = 0x33;    /* MRS: Bust Length = 8, CAS = 3 */
+        MIUCOM = 0x133;   /* Mode Register Set CMD */
+        MIUCOM = 0x33;
+        MIUCOM = 0x33;
+        MIUCOM = 0x33;
+        MIUMRS = 0x8040;  /* EMRS: Strength = 1/4, Self refresh area = Full */
+        MIUCOM = 0x133;   /* Mode Register Set CMD */
+        MIUCOM = 0x33;
+        MIUCOM = 0x33;
+        MIUCOM = 0x33;
+    }
+
+    MIUAREF |= 0x61000;   /* Auto-refresh enabled */
+}
+
+/* Preliminary HW initialization */
+void system_preinit(void)
+{
+    bool gpio3out, coldboot;
+
+    syscon_preinit();
+    gpio_preinit();
+    i2c_preinit(0);
+
+    /* get (previously) configured output selection for GPIO3 */
+    gpio3out = (pmu_rd(PCF5063X_REG_GPIO3CFG) & 7);
+    /* coldboot: when set, device has been in NoPower state */
+    coldboot = (pmu_rd(PCF5063X_REG_OOCSHDWN) & PCF5063X_OOCSHDWN_COLDBOOT);
+    pmu_preinit();
+
+    miu_preinit(!coldboot && !gpio3out);
+}
 #endif

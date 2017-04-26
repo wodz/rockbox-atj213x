@@ -20,11 +20,13 @@
 #define HAVE_LBA48
 
 /* define this if you have recording possibility */
-//#define HAVE_RECORDING
+#define HAVE_RECORDING
+//#define HAVE_AGC
+//#define HAVE_HISTOGRAM
 
 /* Define bitmask of input sources - recordable bitmask can be defined
    explicitly if different */
-#define INPUT_SRC_CAPS (SRC_CAP_LINEIN)
+#define INPUT_SRC_CAPS (SRC_CAP_MIC | SRC_CAP_LINEIN)
 
 /* define the bitmask of hardware sample rates */
 #define HW_SAMPR_CAPS   (SAMPR_CAP_44 | SAMPR_CAP_22 | SAMPR_CAP_11 \
@@ -101,8 +103,8 @@
 /* Define this to have CPU boosted while scrolling in the UI */
 #define HAVE_GUI_BOOST
 
-//#define AB_REPEAT_ENABLE
-//#define ACTION_WPSAB_SINGLE ACTION_WPS_BROWSE
+#define AB_REPEAT_ENABLE
+#define ACTION_WPSAB_SINGLE ACTION_WPS_BROWSE
 
 /* define this if you have a disk storage, i.e. something
    that needs spinups and can cause skips when shaked */
@@ -165,6 +167,7 @@
 /* Define Apple remote tuner */
 //#define CONFIG_TUNER IPOD_REMOTE_TUNER
 //#define HAVE_RDS_CAP
+//#define CONFIG_RDS RDS_CFG_PUSH
 
 /* The exact type of CPU */
 #define CONFIG_CPU S5L8702
@@ -192,12 +195,11 @@
 /* Define this if you can read an absolute wheel position */
 #define HAVE_WHEEL_POSITION
 
-#define ATA_HAVE_BBT
-#define ATA_BBT_PAGES 4096
-
 #define SECTOR_SIZE 4096
 
 #define STORAGE_NEEDS_ALIGN
+
+#define HAVE_ATA_SMART
 
 /* define this if the device has larger sectors when accessed via USB */
 /* (only relevant in disk.c, fat.c now always supports large virtual sectors) */
@@ -237,23 +239,43 @@
 #define DEFAULT_BRIGHTNESS_SETTING  0x20
 
 /* USB defines */
+#define CONFIG_USBOTG USBOTG_DESIGNWARE
+#define USB_DW_CLOCK 0
+#define USB_DW_TURNAROUND 5
+/* logf() over USB serial (http://www.rockbox.org/wiki/PortalPlayerUsb) */
+//#define USB_ENABLE_SERIAL
 #define HAVE_USBSTACK
 #define HAVE_USB_HID_MOUSE
-#define CONFIG_USBOTG USBOTG_S3C6400X
 #define USB_VENDOR_ID 0x05AC
 #define USB_PRODUCT_ID 0x1261
-#define USB_NUM_ENDPOINTS 6
-#define USB_DEVBSS_ATTR __attribute__((aligned(16)))
+#define USB_DEVBSS_ATTR __attribute__((aligned(32)))
+#define HAVE_BOOTLOADER_USB_MODE
+#ifdef BOOTLOADER
+#define USBPOWER_BTN_IGNORE (~0)
+#endif
+
+#define USB_READ_BUFFER_SIZE (1024*24)
+
+/* Serial */
+#ifdef BOOTLOADER
+#if 0 /* Enable/disable LOGF_SERIAL for bootloader */
+#define HAVE_SERIAL
+#define ROCKBOX_HAS_LOGF
+#define LOGF_SERIAL
+#endif
+#else /* !BOOTLOADER */
+#define HAVE_SERIAL
+/* Disable iAP when LOGF_SERIAL is enabled to avoid conflicts */
+#ifndef LOGF_SERIAL
+#define IPOD_ACCESSORY_PROTOCOL
+#endif
+#endif
 
 /* Define this if you can switch on/off the accessory power supply */
 #define HAVE_ACCESSORY_SUPPLY
-//#define IPOD_ACCESSORY_PROTOCOL
-//#define HAVE_SERIAL
 
 /* Define this, if you can switch on/off the lineout */
 #define HAVE_LINEOUT_POWEROFF
-
-#define USB_WRITE_BUFFER_SIZE (1024*64)
 
 /* Define this if a programmable hotkey is mapped */
 #define HAVE_HOTKEY

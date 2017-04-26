@@ -812,7 +812,7 @@ static long get_next_cluster16(struct bpb *fat_bpb, long startcluster)
     if (!sec)
     {
         dc_unlock_cache();
-        DEBUGF("%s: Could not cache sector %d\n", __func__, sector);
+        DEBUGF("%s: Could not cache sector %lu\n", __func__, sector);
         return -1;
     }
 
@@ -851,7 +851,7 @@ static long find_free_cluster16(struct bpb *fat_bpb, long startcluster)
                 if (c < 2 || c > fat_bpb->dataclusters + 1)
                     continue;
 
-                DEBUGF("%s(%lx) == %x\n", __func__, startcluster, c);
+                DEBUGF("%s(%lx) == %lx\n", __func__, startcluster, c);
 
                 fat_bpb->fsinfo.nextfree = c;
                 return c;
@@ -887,7 +887,7 @@ static int update_fat_entry16(struct bpb *fat_bpb, unsigned long entry,
     if (!sec)
     {
         dc_unlock_cache();
-        DEBUGF("Could not cache sector %u\n", sector);
+        DEBUGF("Could not cache sector %lu\n", sector);
         return -1;
     }
 
@@ -950,8 +950,7 @@ static void update_fsinfo32(struct bpb *fat_bpb)
     uint8_t *fsinfo = cache_sector(fat_bpb, fat_bpb->bpb_fsinfo);
     if (!fsinfo)
     {
-        DEBUGF("%s() - Couldn't read FSInfo"
-               " (err code %d)", __func__, rc);
+        DEBUGF("%s() - Couldn't read FSInfo", __func__);
         return;
     }
 
@@ -972,7 +971,7 @@ static long get_next_cluster32(struct bpb *fat_bpb, long startcluster)
     if (!sec)
     {
         dc_unlock_cache();
-        DEBUGF("%s: Could not cache sector %d\n", __func__, sector);
+        DEBUGF("%s: Could not cache sector %lu\n", __func__, sector);
         return -1;
     }
 
@@ -1045,7 +1044,7 @@ static int update_fat_entry32(struct bpb *fat_bpb, unsigned long entry,
     if (!sec)
     {
         dc_unlock_cache();
-        DEBUGF("Could not cache sector %u\n", sector);
+        DEBUGF("Could not cache sector %lu\n", sector);
         return -1;
     }
 
@@ -1544,7 +1543,8 @@ static int write_longname(struct bpb *fat_bpb, struct fat_filestr *parentstr,
                           unsigned int flags)
 {
     DEBUGF("%s(file:%lx, first:%d, num:%d, name:%s)\n", __func__,
-           parent->info->firstcluster, firstentry, numentries, name);
+           file->firstcluster, file->e.entry - file->e.entries + 1,
+           file->e.entries, name);
 
     int rc;
     union raw_dirent *ent;
@@ -1901,7 +1901,8 @@ static int free_direntries(struct bpb *fat_bpb, struct fat_file *file)
          entries; entries--, entry++)
     {
         DEBUGF("Clearing dir entry %d (%d/%d)\n",
-               entry, entry - numentries + 1, numentries);
+               entry, entries - file->e.entries + 1, file->e.entries);
+
 
         dc_lock_cache();
 
@@ -1926,7 +1927,7 @@ static int free_direntries(struct bpb *fat_bpb, struct fat_file *file)
 
     /* directory entry info is now gone */
     file->dircluster = 0;
-    file->e.entry    = FAT_RW_VAL;
+    file->e.entry    = FAT_DIRSCAN_RW_VAL;
     file->e.entries  = 0;
 
     return 1;
@@ -2100,7 +2101,7 @@ int fat_remove(struct fat_file *file, enum fat_remove_op what)
     if (file->firstcluster == fat_bpb->bpb_rootclus)
     {
         DEBUGF("Trying to remove root of volume %d\n",
-               IF_MV_VOL(info->volume));
+               IF_MV_VOL(file->volume));
         FAT_ERROR(-2);
     }
 
@@ -2374,7 +2375,7 @@ static long transfer(struct bpb *fat_bpb, unsigned long start, long count,
 
     if (rc < 0)
     {
-        DEBUGF("Couldn't %s sector %lx (err %d)\n",
+        DEBUGF("Couldn't %s sector %lx (err %ld)\n",
                write ? "write":"read", start, rc);
         return rc;
     }
@@ -2520,8 +2521,18 @@ void fat_rewind(struct fat_filestr *filestr)
     filestr->lastcluster  = filestr->fatfilep->firstcluster;
     filestr->lastsector   = 0;
     filestr->clusternum   = 0;
-    filestr->sectornum    = FAT_RW_VAL;
+    filestr->sectornum    = FAT_FILE_RW_VAL;
     filestr->eof          = false;
+}
+
+void fat_seek_to_stream(struct fat_filestr *filestr,
+                        const struct fat_filestr *filestr_seek_to)
+{
+    filestr->lastcluster = filestr_seek_to->lastcluster;
+    filestr->lastsector  = filestr_seek_to->lastsector;
+    filestr->clusternum  = filestr_seek_to->clusternum;
+    filestr->sectornum   = filestr_seek_to->sectornum;
+    filestr->eof         = filestr_seek_to->eof;
 }
 
 int fat_seek(struct fat_filestr *filestr, unsigned long seeksector)
@@ -2535,7 +2546,7 @@ int fat_seek(struct fat_filestr *filestr, unsigned long seeksector)
     long          cluster    = file->firstcluster;
     unsigned long sector     = 0;
     long          clusternum = 0;
-    unsigned long sectornum  = FAT_RW_VAL;
+    unsigned long sectornum  = FAT_FILE_RW_VAL;
 
 #ifdef HAVE_FAT16SUPPORT
     if (fat_bpb->is_fat16 && cluster < 0) /* FAT16 root dir */
@@ -2709,7 +2720,7 @@ int fat_readdir(struct fat_filestr *dirstr, struct fat_dirscan_info *scan,
 
                 dc_lock_cache();
 
-                while (--scan->entry != FAT_RW_VAL) /* at beginning? */
+                while (--scan->entry != FAT_DIRSCAN_RW_VAL) /* at beginning? */
                 {
                     ent = cache_direntry(fat_bpb, dirstr, scan->entry);
 
@@ -2760,7 +2771,7 @@ fat_error:
 void fat_rewinddir(struct fat_dirscan_info *scan)
 {
     /* rewind the directory scan counter to the beginning */
-    scan->entry   = FAT_RW_VAL;
+    scan->entry   = FAT_DIRSCAN_RW_VAL;
     scan->entries = 0;
 }
 
@@ -2803,7 +2814,7 @@ int fat_mount(IF_MV(int volume,) IF_MD(int drive,) unsigned long startsector)
     DEBUGF("Freecount: %ld\n", (unsigned long)fat_bpb->fsinfo.freecount);
     DEBUGF("Nextfree: 0x%lx\n", (unsigned long)fat_bpb->fsinfo.nextfree);
     DEBUGF("Cluster count: 0x%lx\n", fat_bpb->dataclusters);
-    DEBUGF("Sectors per cluster: %d\n", fat_bpb->bpb_secperclus);
+    DEBUGF("Sectors per cluster: %lu\n", fat_bpb->bpb_secperclus);
     DEBUGF("FAT sectors: 0x%lx\n", fat_bpb->fatsize);
 
     rc = 0;

@@ -24,12 +24,15 @@
 #include "system-arm.h"
 #include "mmu-arm.h"
 
-#define CPUFREQ_SLEEP      32768
+#define CPUFREQ_SLEEP   32768
 #define CPUFREQ_MAX     216000000
 #define CPUFREQ_DEFAULT 54000000
 #define CPUFREQ_NORMAL  54000000
 
 #define STORAGE_WANTS_ALIGN
+
+#define S5L8702_UNCACHED_ADDR(a) ((typeof(a)) ((uintptr_t)(a) + 0x40000000))
+#define S5L8702_PHYSICAL_ADDR(a) ((typeof(a)) ((uintptr_t)(a)))
 
 #define inl(a)    (*(volatile unsigned long *) (a))
 #define outl(a,b) (*(volatile unsigned long *) (b) = (a))
@@ -43,5 +46,12 @@ static inline void udelay(unsigned usecs)
     unsigned stop = USEC_TIMER + usecs;
     while (TIME_BEFORE(USEC_TIMER, stop));
 }
+
+void usb_insert_int(void);
+void usb_remove_int(void);
+
+#ifdef BOOTLOADER
+void system_preinit(void);
+#endif
 
 #endif /* SYSTEM_TARGET_H */

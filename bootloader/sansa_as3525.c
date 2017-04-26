@@ -137,6 +137,7 @@ void main(void)
     {
 #ifdef HAVE_BOOTLOADER_USB_MODE
         error(EDISK, ret, false);
+        usb_start_monitoring();
         usb_mode();
 #else
         error(EDISK, ret, true);
@@ -152,12 +153,20 @@ void main(void)
     {
 #ifdef HAVE_BOOTLOADER_USB_MODE
         error(EBOOTFILE, ret, false);
+        usb_start_monitoring();
         usb_mode();
 #else
         error(EBOOTFILE, ret, true);
 #endif
     }
 
+#if defined(SANSA_FUZEV2) || defined(SANSA_CLIPPLUS) || defined(SANSA_CLIPZIP)
+    /* It is necessary for proper detection AMSv2 variant 1.
+     * We should restore initial state of GPIOB_PIN(5) as it used for
+     * variant detection, but can be changed if we switch SD card. */
+    if (amsv2_variant == 1)
+        GPIOB_PIN(5) = 1 << 5;
+#endif
     kernel_entry = (void*) loadbuffer;
     commit_discard_idcache();
     printf("Executing");

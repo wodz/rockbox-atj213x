@@ -51,6 +51,12 @@ input() {
 
 prefixtools () {
  prefix="$1"
+ if [ -n "$ARG_COMPILER_PREFIX" ]; then
+  echo "WARNING: asked to override target toolchain $1 with $ARG_COMPILER_PREFIX"
+  echo "WARNING: overriding the toolchain means you are running an untested configuration"
+  echo "WARNING: you build might be broken because of that"
+  prefix="$ARG_COMPILER_PREFIX"
+ fi
  CC=${prefix}gcc
  CPP=${prefix}cpp
  WINDRES=${prefix}windres
@@ -154,16 +160,41 @@ findtool(){
 # scan the $PATH for sdl-config - check whether for a (cross-)win32
 # sdl as requested
 findsdl(){
-  # sdl-config might (not) be prefixed for cross compiles so try both.
-  files="${CROSS_COMPILE}sdl-config:sdl-config"
+  files=sdl-config
+  if [ -n "$CROSS_COMPILE" ]; then
+    # sdl-config might (not) be prefixed for cross compiles so try both.
+    files="${CROSS_COMPILE}sdl-config:${files}"
+  fi
   winbuild="$1"
 
+  paths2check="$PATH"
+
+  if [ -n "$CROSS_COMPILE" ]; then
+    # add cross compile sys-root-directories to search in:
+    sysroot=$($CPP --print-sysroot 2>&1)
+    if [ $? -eq 0 ];
+    then
+      subdirs="bin:mingw/bin:sbin:mingw/sbin"
+      IFS=":"
+      for subdir in $subdirs
+      do
+        if [ -e "${sysroot}/${subdir}" ]; then
+          paths2check="${sysroot}/${subdir}:${paths2check}"
+        fi
+      done
+    else
+      echo "WARNING: unable to get sys-root directory from your cross-compiler" >&2
+      echo "WARNING: $CPP --print-sysroot returns" >&2
+      echo "WARNING: ${sysroot}" >&2
+    fi
+  fi
+
+  # search for the correct sdl-config
   IFS=":"
-  for file in $files
+  for path in $paths2check
   do
-    for path in $PATH
+    for file in $files
     do
-      #echo "checks for $file in $path" >&2
       if test -f "$path/$file"; then
         if [ "0" != `$path/$file --libs |grep -c mwindows` ]; then
           if [ "yes" = "${winbuild}" ]; then
@@ -231,6 +262,9 @@ simcc () {
  GCCOPTS=`echo $CCOPTS | sed -e s/-ffreestanding// -e s/-nostdlib// -e s/-Wundef//`
 
  GCCOPTS="$GCCOPTS -fno-builtin -g"
+ # Some linux setups like to warn about unused results. They are correct,
+ # but cleaning this up is a lot of work.
+ GCCOPTS="$GCCOPTS -Wno-unused-result"
  GCCOPTIMIZE=''
  LDOPTS="$LDOPTS -lm" # button-sdl.c uses sqrt()
  sigaltstack=""
@@ -249,10 +283,35 @@ simcc () {
  if [ "$win32crosscompile" = "yes" ]; then
    # We are crosscompiling
    # add cross-compiler option(s)
-   LDOPTS="$LDOPTS -mconsole"
+   GCCOPTS="$GCCOPTS -Wno-format"
+   LDOPTS="$LDOPTS -mconsole -static"
    output="$output.exe"
    winbuild="yes"
-   CROSS_COMPILE=${CROSS_COMPILE:-"i586-mingw32msvc-"}
+
+   if [ -z "$CROSS_COMPILE" ]; then
+     if [ "$win64" = "yes" ]; then
+       CROSS_COMPILE=${CROSS_COMPILE:-"x86_64-w64-mingw32-"}
+     else
+       # different possible names; try to find the correct one:
+       names="i686-w64-mingw32 i686-pc-mingw32 i586-mingw32msvc"
+
+       for name in $names
+       do
+         if which "${name}-gcc" >/dev/null 2>&1 ; then
+           CROSS_COMPILE="${name}-"
+           break
+         fi
+       done
+
+       if [ -z "$CROSS_COMPILE" ]; then
+         echo "WARNING: unable to find cross-compiler for 32-bit Windows environment!"
+         echo "WARNING: it's none of \"$names\"."
+         echo "WARNING: set your compiler prefix with CROSS_COMPILE=\"your-prefix-\" and"
+         echo "WARNING: re-run configure again!"
+         exit 2
+       fi
+     fi
+   fi
    SHARED_CFLAGS=''
    prefixtools "$CROSS_COMPILE"
    fibers=`check_fiber`
@@ -333,13 +392,22 @@ simcc () {
         echo "don't have SDL (properly) installed. Please correct and"
         echo "re-run configure!"
         exit 2
-    else 
+    else
+        echo Using $sdl
+
         # generic sdl-config checker
-        GCCOPTS="$GCCOPTS `$sdl --cflags`"
-        LDOPTS="$LDOPTS `$sdl --libs`"
+        sdlccopts=$($sdl --cflags)
+        if $sdl --static-libs > /dev/null 2>&1 ; then
+          sdlldopts=$($sdl --static-libs)
+        else
+          echo "Your sdl-config does not know about static libs, falling back to shared library"
+          sdlldopts=$($sdl --libs)
+        fi
+        GCCOPTS="$GCCOPTS ${sdlccopts}"
+        LDOPTS="$LDOPTS ${sdlldopts}"
     fi
  fi
- 
+
 
  GCCOPTS="$GCCOPTS -I\$(SIMDIR)"
  # x86_64 supports MMX by default
@@ -736,6 +804,66 @@ androidcc () {
     prefixtools $gcctarget
 }
 
+androidndkcc()
+{
+    if ! [ -d "$ANDROID_NDK_PATH" ]; then
+        echo "ERROR: You need the Android NDK installed (r16 or higher) and have the ANDROID_NDK_PATH"
+        echo "environment variable point to the root directory of the Android NDK."
+        exit
+    fi
+
+    make_toolchain="${ANDROID_NDK_PATH}/build/tools/make-standalone-toolchain.sh"
+
+    if ! [ -e "${make_toolchain}" ]; then
+        echo "ERROR: ${make_toolchain} could not be found."
+        exit
+    fi
+
+    buildhost=$(uname -s | tr "[:upper:]" "[:lower:]")
+    # the prebuild android NDK only supports intel architecture anyway, so we can take shortcuts
+    case $(getconf LONG_BIT) in
+        32)
+            buildhost="${buildhost}-x86"
+            ;;
+        64)
+            buildhost="${buildhost}-x86_64"
+            ;;
+    esac
+
+    GCCOPTS=`echo $CCOPTS | sed -e s/-ffreestanding// -e s/-nostdlib// -e s/-Wundef//`
+    LDOPTS="$LDOPTS -ldl -llog"
+    SHARED_LDFLAG="-shared"
+    SHARED_CFLAGS=''
+    GLOBAL_LDOPTS="-Wl,-z,defs -Wl,-z,noexecstack"
+
+    # arch dependant stuff
+    case $1 in
+        armeabi)
+            endian="little"
+            gccchoice="4.6"
+            gcctarget="arm-linux-androideabi-"
+            echo "${make_toolchain} --system=${buildhost} --toolchain=arm-linux-androideabi-4.6 --platform=android-16 --install-dir=${pwd}/android-toolchain"
+            ${make_toolchain} --system=${buildhost} --toolchain=arm-linux-androideabi-4.6 --platform=android-16 --install-dir=${pwd}/android-toolchain
+            if [ ${?} != 0 ]; then
+                exit
+            fi
+            GCCOPTS="$GCCOPTS -march=armv5te -mtune=xscale -msoft-float -fomit-frame-pointer --sysroot=${pwd}/android-toolchain/sysroot"
+            LDOPTS="$LDOPTS --sysroot=${pwd}/android-toolchain/sysroot"
+            ;;
+        *)
+            echo "ERROR: androidndkcc(): Unknown target architecture"
+            exit
+            ;;
+    esac
+
+    echo "Using endian ${endian}"
+    echo "Using gccchoice ${gccchoice}"
+    echo "Using gcctarget ${gcctarget}"
+
+    PATH=$PATH:${pwd}/android-toolchain/bin
+    prefixtools $gcctarget
+}
+
 whichadvanced () {
   atype=`echo "$1" | cut -c 2-`
   ##################################################################
@@ -748,7 +876,7 @@ whichadvanced () {
     echo ""
     printf "Enter your developer options (press only enter when done)\n\
 (D)EBUG, (L)ogf, Boot(c)hart, (S)imulator, (P)rofiling, (V)oice, (W)in32 crosscompile,\n\
-(T)est plugins, S(m)all C lib, Logf to Ser(i)al port:"
+Win(6)4 crosscompile, (T)est plugins, S(m)all C lib, Logf to Ser(i)al port:"
     if [ "$modelname" = "archosplayer" ]; then
       printf ", Use (A)TA poweroff"
     fi
@@ -846,8 +974,14 @@ whichadvanced () {
         fi
         ;;
       [Ww])
-        echo "Enabling Windows 32 cross-compiling"
+        echo "Enabling Windows cross-compiling (32-bit)"
         win32crosscompile="yes"
+        win64=""
+        ;;
+      [6])
+        echo "Enabling Windows cross-compiling (64-bit)"
+        win32crosscompile="yes"
+        win64="yes"
         ;;
       "") # Match enter press when finished with advanced options
         cont=0
@@ -1187,6 +1321,7 @@ help() {
                       behavior of falling back to them if no native thread
                       support was found.
     --prefix          Target installation directory
+    --compiler-prefix Override compiler prefix (inherently dangerous)
     --help            Shows this message (must not be used with other options)
 
 EOF
@@ -1229,6 +1364,7 @@ for arg in "$@"; do
         --no-sdl-threads)
                       ARG_THREAD_SUPPORT=0;;
         --prefix=*)   ARG_PREFIX=`echo "$arg" | cut -d = -f 2`;;
+        --compiler-prefix=*)   ARG_COMPILER_PREFIX=`echo "$arg" | cut -d = -f 2`;;
 		--help)       help;;
 		*)            err=1; echo "[ERROR] Option '$arg' unsupported";;
 	esac
@@ -1245,7 +1381,7 @@ fi
 echo Using temporary directory $tmpdir
 
 if test -r "configure"; then
- # this is a check for a configure script in the current directory, it there
+ # this is a check for a configure script in the current directory, if there
  # is one, try to figure out if it is this one!
 
  if { grep "^#   Jukebox" configure >/dev/null 2>&1 ; } then
@@ -1253,6 +1389,23 @@ if test -r "configure"; then
    echo "It will only cause you pain and grief. Instead do this:"
    echo ""
    echo " cd .."
+   echo " mkdir build-dir"
+   echo " cd build-dir"
+   echo " ../tools/configure"
+   echo ""
+   echo "Much happiness will arise from this. Enjoy"
+   exit 5
+ fi
+fi
+
+if test -r "tools/configure"; then
+ # this is a check for a configure script in the tools/ directory, if there
+ # is one, try to figure out if it is this one!
+
+ if { grep "^#   Jukebox" tools/configure >/dev/null 2>&1 ; } then
+   echo "WEEEEEEEEP. Don't run this configure script in the root of the tree."
+   echo "It will only cause you pain and grief. Instead do this:"
+   echo ""
    echo " mkdir build-dir"
    echo " cd build-dir"
    echo " ../tools/configure"
@@ -3786,26 +3939,24 @@ fi
     target_id=94
     modelname="ibassodx50"
     target="DX50"
-    app_type="android_standalone"
+    app_type="android_ndk"
     lcd_orientation="landscape"
-    sharedir="/system/rockbox/app_rockbox/rockbox"
-    bindir="/system/rockbox/lib"
-    libdir="/system/rockbox/app_rockbox"
-    memory=32
+    # Actually 408260kB
+    memory=256
     uname=`uname`
-    androidcc armeabi
+    androidndkcc armeabi
     tool="cp "
     boottool="cp "
     bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox"
     bootoutput="rockbox"
-    appextra="recorder:gui:radio:hosted/android"
+    appextra="recorder:gui:hosted"
     plugins="yes"
     swcodec="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
-    t_manufacturer="android"
+    t_manufacturer="ibasso"
     t_model="dx50"
     ;;
 
@@ -3814,27 +3965,24 @@ fi
     target_id=95
     modelname="ibassodx90"
     target="DX90"
-    app_type="android_standalone"
+    app_type="android_ndk"
     lcd_orientation="landscape"
-    sharedir="/system/rockbox/app_rockbox/rockbox"
-    bindir="/system/rockbox/lib"
-    libdir="/system/rockbox/app_rockbox"
-    memory=32
+    memory=256
     uname=`uname`
-    androidcc armeabi
+    androidndkcc armeabi
     tool="cp "
     boottool="cp "
     bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox"
     bootoutput="rockbox"
-    appextra="recorder:gui:radio:hosted/android"
+    appextra="recorder:gui:hosted"
     plugins="yes"
     swcodec="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
-    t_manufacturer="android"
-    t_model="dx50"
+    t_manufacturer="ibasso"
+    t_model="dx90"
     ;;
 
    *)
@@ -4139,6 +4287,12 @@ else
    GCCOPTS="$GCCOPTS -Wno-override-init"
  fi
 
+ if test "$gccnum" -ge "601"; then
+   # gcc 6 adds a lot of warnings that while useful are too time-consuming
+   # to clean up right away
+   GCCOPTS="$GCCOPTS -Wno-shift-negative-value -Wno-unused-const-variable -Wno-nonnull-compare -Wno-tautological-compare"
+ fi
+
  case $prefix in
    ""|"$CROSS_COMPILE")
      # simulator
@@ -4160,6 +4314,9 @@ fi
 
 
 echo "Using $LD $ldver"
+
+makever=`make --version | head -1`
+echo "Detected make $makever"
 
 # check the compiler for SH platforms
 if test "$CC" = "sh-elf-gcc"; then
@@ -4210,6 +4367,9 @@ DLLTOOL=`findtool ${DLLTOOL} --lit`
 DLLWRAP=`findtool ${DLLWRAP} --lit`
 RANLIB=`findtool ${RANLIB} --lit`
 
+# in pure cross-compiler environments without own native compiler this helps:
+HOSTCC=${HOSTCC:-${CC}}
+HOSTAR=${HOSTAR:-${AR}}
 
 if [ -z "$arch" ]; then
     cpp_defines=$(echo "" | $CPP $GCCOPTS -dD)
@@ -4220,10 +4380,10 @@ if [ -z "$arch" ]; then
     elif [ -n "$(echo $cpp_defines | grep -w __arm__)" ]; then
         arch="arm"
         # cpp defines like "#define __ARM_ARCH_4TE__ 1" (where we want to extract the 4)
-        arch_version="$(echo $cpp_defines | tr ' ' '\012' | grep __ARM_ARCH | sed -e 's,.*\([0-9]\).*,\1,')"
+        arch_version="$(echo $cpp_defines | tr ' ' '\012' | grep __ARM_ARCH | sed -e 's,.*\([0-9]\).*,\1,' | grep -v __ARM_ARCH)"
     elif [ -n "$(echo $cpp_defines | grep -w __mips__)" ]; then
         arch="mips"
-        arch_version="$(echo $cpp_defines | tr ' ' '\012' | grep _MIPS_ARCH_MIPS | sed -e 's,.*\([0-9][0-9]\).*,\1,')"
+        arch_version="$(echo $cpp_defines | tr ' ' '\012' | grep _MIPS_ARCH_MIPS | sed -e 's,.*\([0-9][0-9]\).*,\1,' | grep -v _MIPS_ARCH_MIPS)"
     elif [ -n "$(echo $cpp_defines | grep -w __i386__)" ]; then
         arch="x86"
     elif [ -n "$(echo $cpp_defines | grep -w __x86_64__)" ]; then
@@ -4368,6 +4528,8 @@ if test -n "$t_cpu"; then
   elif [ "$simulator" = "yes" ]; then # a few more includes for the sim target tree
     TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/sdl"
     TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted"
+  elif [ "$t_manufacturer" = "ibasso" ]; then
+    TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/hosted/ibasso/tinyalsa/include"
   fi
 
   TARGET_INC="$TARGET_INC -I\$(FIRMDIR)/target/$t_cpu/$t_manufacturer"

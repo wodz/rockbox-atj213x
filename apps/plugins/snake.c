@@ -191,8 +191,8 @@ dir is the current direction of the snake - 0=up, 1=right, 2=down, 3=left;
 #define SNAKE_PLAYPAUSE BUTTON_MENU
 
 #elif (CONFIG_KEYPAD == SAMSUNG_YH820_PAD) || \
-      (CONFIG_KEYPAD == SAMSUNG_YH920_PAD)
-#define SNAKE_QUIT      BUTTON_REC
+      (CONFIG_KEYPAD == SAMSUNG_YH92X_PAD)
+#define SNAKE_QUIT      BUTTON_REW
 #define SNAKE_LEFT      BUTTON_LEFT
 #define SNAKE_RIGHT     BUTTON_RIGHT
 #define SNAKE_UP        BUTTON_UP
