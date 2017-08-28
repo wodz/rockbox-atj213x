@@ -23,29 +23,37 @@
 
 #include "plugin.h"
 
-#include "puzzles.h"
+#include "help.h"
 #include "keymaps.h"
+#include "lz4tiny.h"
 
-#ifndef COMBINED
+#include "src/puzzles.h"
+
 #include "lib/playback_control.h"
-#endif
+#include "lib/simple_viewer.h"
 #include "lib/xlcd.h"
+
 #include "fixedpoint.h"
 
 /* how many ticks between timer callbacks */
 #define TIMER_INTERVAL (HZ / 50)
+
+/* no c200v2 */
+#if PLUGIN_BUFFER_SIZE > 0x14000
+#define DEBUG_MENU
+#define FONT_CACHING
+#endif
+
 #define BG_R .9f /* very light gray */
 #define BG_G .9f
 #define BG_B .9f
-
-#ifdef COMBINED
-#define SAVE_FILE PLUGIN_GAMES_DATA_DIR "/puzzles.sav"
-#else
-static char save_file_path[MAX_PATH];
-#define SAVE_FILE ((const char*)save_file_path)
-#endif
-
 #define BG_COLOR LCD_RGBPACK((int)(255*BG_R), (int)(255*BG_G), (int)(255*BG_B))
+
+#define ERROR_COLOR LCD_RGBPACK(255, 0, 0)
+
+#define MAX_FONTS (MAXUSERFONTS - 2)
+
+#define FONT_TABLE PLUGIN_GAMES_DATA_DIR "/.sgt-puzzles.fnttab"
 
 #define MURICA
 
@@ -61,7 +69,7 @@ static unsigned *colors = NULL;
 static int ncolors = 0;
 static long last_keystate = 0;
 
-#ifdef FOR_REAL
+#if defined(FOR_REAL) && defined(DEBUG_MENU)
 /* the "debug menu" is hidden by default in order to avoid the
  * naturally ensuing complaints from users */
 static bool debug_mode = false;
@@ -76,7 +84,7 @@ extern bool audiobuf_available;
 
 static struct settings_t {
     int slowmo_factor;
-    bool bulk, timerflash, clipoff, shortcuts, no_aa;
+    bool timerflash, clipoff, shortcuts, no_aa, polyanim;
 } settings;
 
 /* clipping is implemented through viewports and offsetting
@@ -86,10 +94,10 @@ static void rb_clip(void *handle, int x, int y, int w, int h)
     if(!settings.clipoff)
     {
         LOGF("rb_clip(%d %d %d %d)", x, y, w, h);
-        clip_rect.x = x;
-        clip_rect.y = y;
-        clip_rect.width  = w;
-        clip_rect.height = h;
+        clip_rect.x = MAX(0, x);
+        clip_rect.y = MAX(0, y);
+        clip_rect.width  = MIN(LCD_WIDTH, w);
+        clip_rect.height = MIN(LCD_HEIGHT, h);
         clip_rect.font = FONT_UI;
         clip_rect.drawmode = DRMODE_SOLID;
 #if LCD_DEPTH > 1
@@ -127,6 +135,133 @@ static void rb_color(int n)
     rb->lcd_set_foreground(colors[n]);
 }
 
+/* font bundle size range */
+#define BUNDLE_MIN 7
+#define BUNDLE_MAX 36
+#define BUNDLE_COUNT (BUNDLE_MAX - BUNDLE_MIN + 1)
+
+static struct bundled_font {
+    int status; /* -3 = never tried loading, or unloaded, -2 = failed to load, >= -1: loaded successfully */
+    int last_use;
+} *loaded_fonts = NULL; /* monospace are first, then proportional */
+
+static int n_fonts, access_counter = -1;
+
+/* called on exit and before entering help viewer (workaround for a
+   possible bug in simple_viewer) */
+static void unload_fonts(void)
+{
+    for(int i = 0; i < 2 * BUNDLE_COUNT; ++i)
+        if(loaded_fonts[i].status > 0) /* don't unload FONT_UI */
+        {
+            rb->font_unload(loaded_fonts[i].status);
+            loaded_fonts[i].status = -3;
+        }
+    access_counter = -1;
+    rb->lcd_setfont(FONT_UI);
+}
+
+static void init_fonttab(void)
+{
+    loaded_fonts = smalloc(2 * BUNDLE_COUNT * sizeof(struct bundled_font));
+    for(int i = 0; i < 2 * BUNDLE_COUNT; ++i)
+        loaded_fonts[i].status = -3;
+    access_counter = 0;
+    n_fonts = 0;
+}
+
+static void font_path(char *buf, int type, int size)
+{
+    if(size < 10) /* Deja Vu only goes down to 10px, below that it's a giant blob */
+    {
+        if(size < 7)
+            size = 7; /* we're not going to force anyone to read 05-Tiny :P */
+        /* we also don't care about monospace/proportional at this point */
+        switch(size)
+        {
+        case 7:
+            rb->snprintf(buf, MAX_PATH, FONT_DIR "/07-Fixed.fnt");
+            break;
+        case 8:
+            rb->snprintf(buf, MAX_PATH, FONT_DIR "/08-Rockfont.fnt");
+            break;
+        case 9:
+            rb->snprintf(buf, MAX_PATH, FONT_DIR "/09-Fixed.fnt");
+            break;
+        default:
+            assert(false);
+        }
+    }
+    else
+        rb->snprintf(buf, MAX_PATH, FONT_DIR "/%02d-%s.fnt", size, type == FONT_FIXED ? "DejaVuSansMono" : "DejaVuSans");
+}
+
+static void rb_setfont(int type, int size)
+{
+    /* out of range (besides, no puzzle should ever need this large
+       of a font, anyways) */
+    if(BUNDLE_MAX < size)
+        size = BUNDLE_MAX;
+    if(size < 10)
+    {
+        if(size < 7) /* no teeny-tiny fonts */
+            size = 7;
+        /* assume monospace for these */
+        type = FONT_FIXED;
+    }
+
+    int font_idx = (type == FONT_FIXED ? 0 : BUNDLE_COUNT) + size - BUNDLE_MIN;
+    switch(loaded_fonts[font_idx].status)
+    {
+    case -3:
+    {
+        /* never loaded */
+        char buf[MAX_PATH];
+        font_path(buf, type, size);
+        if(n_fonts >= MAX_FONTS) /* safety margin, FIXME */
+        {
+            /* unload an old font */
+            int oldest_use = -1, oldest_idx = -1;
+            for(int i = 0; i < 2 * BUNDLE_COUNT; ++i)
+            {
+                if((loaded_fonts[i].status >= 0 && loaded_fonts[i].last_use < oldest_use) || oldest_use < 0)
+                {
+                    oldest_use = loaded_fonts[i].last_use;
+                    oldest_idx = i;
+                }
+            }
+            assert(oldest_idx >= 0);
+            rb->font_unload(loaded_fonts[oldest_idx].status);
+            loaded_fonts[oldest_idx].status = -3;
+            n_fonts--;
+        }
+
+        loaded_fonts[font_idx].status = rb->font_load(buf);
+        if(loaded_fonts[font_idx].status < 0)
+            goto fallback;
+        loaded_fonts[font_idx].last_use = access_counter++;
+        n_fonts++;
+        rb->lcd_setfont(loaded_fonts[font_idx].status);
+        break;
+    }
+    case -2:
+    case -1:
+        goto fallback;
+    default:
+        loaded_fonts[font_idx].last_use = access_counter++;
+        rb->lcd_setfont(loaded_fonts[font_idx].status);
+        break;
+    }
+
+    return;
+
+fallback:
+
+    rb->lcd_setfont(type == FONT_FIXED ? FONT_SYSFIXED : FONT_UI);
+
+    return;
+}
+
 static void rb_draw_text(void *handle, int x, int y, int fonttype,
                          int fontsize, int align, int color, char *text)
 {
@@ -135,31 +270,15 @@ static void rb_draw_text(void *handle, int x, int y, int fonttype,
 
     offset_coords(&x, &y);
 
-    /* TODO: variable font size */
-    switch(fonttype)
-    {
-    case FONT_FIXED:
-        rb->lcd_setfont(FONT_SYSFIXED);
-        break;
-    case FONT_VARIABLE:
-        rb->lcd_setfont(FONT_UI);
-        break;
-    default:
-        fatal("bad font");
-        break;
-    }
+    rb_setfont(fonttype, fontsize);
 
     int w, h;
     rb->lcd_getstringsize(text, &w, &h);
 
-    static int cap_h = -1;
-    if(cap_h < 0)
-        rb->lcd_getstringsize("X", NULL, &cap_h);
-
     if(align & ALIGN_VNORMAL)
         y -= h;
     else if(align & ALIGN_VCENTRE)
-        y -= cap_h / 2;
+        y -= h / 2;
 
     if(align & ALIGN_HCENTRE)
         x -= w / 2;
@@ -167,7 +286,7 @@ static void rb_draw_text(void *handle, int x, int y, int fonttype,
         x -= w;
 
     rb_color(color);
-    rb->lcd_set_drawmode(DRMODE_COMPLEMENT);
+    rb->lcd_set_drawmode(DRMODE_FG);
     rb->lcd_putsxy(x, y, text);
     rb->lcd_set_drawmode(DRMODE_SOLID);
 }
@@ -315,6 +434,7 @@ static void rb_draw_line(void *handle, int x1, int y1, int x2, int y2,
         draw_antialiased_line(x1, y1, x2, y2);
 }
 
+#if 0
 /*
  * draw filled polygon
  * originally by Sebastian Leonhardt (ulmutul)
@@ -409,6 +529,7 @@ static void v_fillarea(int count, int *pxy)
         fill_poly_line(i, count, pxy);
     }
 }
+#endif
 
 static void rb_draw_poly(void *handle, int *coords, int npoints,
                          int fillcolor, int outlinecolor)
@@ -437,6 +558,13 @@ static void rb_draw_poly(void *handle, int *coords, int npoints,
                               x2, y2,
                               x3, y3);
 
+#ifdef DEBUG_MENU
+            if(settings.polyanim)
+            {
+                rb->lcd_update();
+                rb->sleep(HZ/4);
+            }
+#endif
 #if 0
             /* debug code */
             rb->lcd_set_foreground(LCD_RGBPACK(255,0,0));
@@ -486,6 +614,14 @@ static void rb_draw_poly(void *handle, int *coords, int npoints,
         }
         else
             draw_antialiased_line(x1, y1, x2, y2);
+
+#ifdef DEBUG_MENU
+        if(settings.polyanim)
+        {
+            rb->lcd_update();
+            rb->sleep(HZ/4);
+        }
+#endif
     }
 
     int x1, y1, x2, y2;
@@ -661,7 +797,7 @@ static void rb_end_draw(void *handle)
     LOGF("rb_end_draw");
 
     if(need_draw_update)
-        rb->lcd_update_rect(ud_l, ud_u, ud_r - ud_l, ud_d - ud_u);
+        rb->lcd_update_rect(MAX(0, ud_l), MAX(0, ud_u), MIN(LCD_WIDTH, ud_r - ud_l), MIN(LCD_HEIGHT, ud_d - ud_u));
 }
 
 static char *titlebar = NULL;
@@ -741,7 +877,7 @@ void fatal(char *fmt, ...)
 {
     va_list ap;
 
-    rb->splash(HZ, "FATAL ERROR");
+    rb->splash(HZ, "FATAL");
 
     va_start(ap, fmt);
     char buf[80];
@@ -774,7 +910,7 @@ const char *config_choices_formatter(int sel, void *data, char *buf, size_t len)
     return buf;
 }
 
-static int list_choose(const char *list_str, const char *title)
+static int list_choose(const char *list_str, const char *title, int sel)
 {
     char delim = *list_str;
 
@@ -793,7 +929,7 @@ static int list_choose(const char *list_str, const char *title)
     rb->gui_synclist_set_nb_items(&list, n);
     rb->gui_synclist_limit_scroll(&list, false);
 
-    rb->gui_synclist_select_item(&list, 0);
+    rb->gui_synclist_select_item(&list, sel);
 
     rb->gui_synclist_set_title(&list, (char*)title, NOICON);
     while (1)
@@ -815,18 +951,131 @@ static int list_choose(const char *list_str, const char *title)
     }
 }
 
-/* return value is only meaningful when type == C_STRING */
-static bool do_configure_item(config_item *cfg)
+static bool is_integer(const char *str)
 {
+    while(*str)
+    {
+        char c = *str++;
+        if(!isdigit(c) && c != '-')
+            return false;
+    }
+    return true;
+}
+
+/* max length of C_STRING config vals */
+#define MAX_STRLEN 128
+
+static void int_chooser(config_item *cfgs, int idx, int val)
+{
+    config_item *cfg = cfgs + idx;
+    int old_val = val;
+
+    rb->snprintf(cfg->sval, MAX_STRLEN, "%d", val);
+
+    rb->lcd_clear_display();
+
+    while(1)
+    {
+        rb->lcd_set_foreground(LCD_WHITE);
+        rb->lcd_puts(0, 0, cfg->name);
+        rb->lcd_putsf(0, 1, "< %d >", val);
+        rb->lcd_update();
+        rb->lcd_set_foreground(ERROR_COLOR);
+
+        int d = 0;
+        int button = rb->button_get(true);
+        switch(button)
+        {
+        case BTN_RIGHT:
+        case BTN_RIGHT | BUTTON_REPEAT:
+            d = 1;
+            break;
+        case BTN_LEFT:
+        case BTN_LEFT | BUTTON_REPEAT:
+            d = -1;
+            break;
+        case BTN_FIRE:
+            /* config is already set */
+            rb->lcd_scroll_stop();
+            return;
+        case BTN_PAUSE:
+            if(val != old_val)
+                rb->splash(HZ, "Canceled.");
+            val = old_val;
+            rb->snprintf(cfg->sval, MAX_STRLEN, "%d", val);
+            rb->lcd_scroll_stop();
+            return;
+        }
+        if(d)
+        {
+            /* we try to increment the value up to this much (mainly
+             * a workaround for Unruly): */
+#define CHOOSER_MAX_INCR 2
+
+            char *ret;
+            for(int i = 0; i < CHOOSER_MAX_INCR; ++i)
+            {
+                val += d;
+                rb->snprintf(cfg->sval, MAX_STRLEN, "%d", val);
+                ret = midend_set_config(me, CFG_SETTINGS, cfgs);
+                if(!ret)
+                {
+                    /* clear any error message */
+                    rb->lcd_clear_display();
+                    rb->lcd_scroll_stop();
+                    break;
+                }
+
+            }
+
+            /* failure */
+            if(ret)
+            {
+                /* bright, annoying red */
+                rb->lcd_set_foreground(ERROR_COLOR);
+                rb->lcd_puts_scroll(0, 2, ret);
+
+                /* reset value */
+                val -= d * CHOOSER_MAX_INCR;
+                rb->snprintf(cfg->sval, MAX_STRLEN, "%d", val);
+                assert(!midend_set_config(me, CFG_SETTINGS, cfgs));
+            }
+        }
+    }
+}
+
+/* return value is only meaningful when type == C_STRING, where it
+ * indicates whether cfg->sval has been freed or otherwise altered */
+static bool do_configure_item(config_item *cfgs, int idx)
+{
+    config_item *cfg = cfgs + idx;
     switch(cfg->type)
     {
     case C_STRING:
     {
-#define MAX_STRLEN 128
         char *newstr = smalloc(MAX_STRLEN);
-        rb->strlcpy(newstr, cfg->sval, MAX_STRLEN);
+
         rb->lcd_set_foreground(LCD_WHITE);
         rb->lcd_set_background(LCD_BLACK);
+
+        if(is_integer(cfg->sval))
+        {
+            int val = atoi(cfg->sval);
+
+            /* we now free the original string and give int_chooser()
+             * a clean buffer to work with */
+            sfree(cfg->sval);
+            cfg->sval = newstr;
+
+            int_chooser(cfgs, idx, val);
+
+            rb->lcd_set_foreground(LCD_WHITE);
+            rb->lcd_set_background(LCD_BLACK);
+
+            return true;
+        }
+
+        rb->strlcpy(newstr, cfg->sval, MAX_STRLEN);
         if(rb->kbd_input(newstr, MAX_STRLEN) < 0)
         {
             sfree(newstr);
@@ -849,13 +1098,13 @@ static bool do_configure_item(config_item *cfg)
     }
     case C_CHOICES:
     {
-        int sel = list_choose(cfg->sval, cfg->name);
+        int sel = list_choose(cfg->sval, cfg->name, cfg->ival);
         if(sel >= 0)
             cfg->ival = sel;
         break;
     }
     default:
-        fatal("bad type");
+        fatal("");
         break;
     }
     return false;
@@ -873,6 +1122,8 @@ static bool config_menu(void)
 {
     char *title;
     config_item *config = midend_get_config(me, CFG_SETTINGS, &title);
+
+    rb->lcd_setfont(FONT_UI);
 
     bool success = false;
 
@@ -913,28 +1164,37 @@ static bool config_menu(void)
         {
         case ACTION_STD_OK:
         {
-            config_item old;
             int pos = rb->gui_synclist_get_sel_pos(&list);
+
+            /* store the initial state */
+            config_item old;
             memcpy(&old, config + pos, sizeof(old));
-            char *old_str;
+
+            char *old_str = NULL;
             if(old.type == C_STRING)
                 old_str = dupstr(old.sval);
-            bool freed_str = do_configure_item(config + pos);
+
+            bool freed_str = do_configure_item(config, pos);
             char *err = midend_set_config(me, CFG_SETTINGS, config);
+
             if(err)
             {
                 rb->splash(HZ, err);
+
+                /* restore old state */
                 memcpy(config + pos, &old, sizeof(old));
-                if(freed_str)
+
+                if(old.type == C_STRING && freed_str)
                     config[pos].sval = old_str;
-            }
-            else if(old.type == C_STRING)
-            {
-                /* success, and we duplicated the old string, so free it */
-                sfree(old_str);
             }
             else
             {
+                if(old.type == C_STRING)
+                {
+                    /* success, and we duplicated the old string when
+                     * we didn't need to, so free it now */
+                    sfree(old_str);
+                }
                 success = true;
             }
             break;
@@ -956,33 +1216,30 @@ done:
 
 const char *preset_formatter(int sel, void *data, char *buf, size_t len)
 {
-    char *name;
-    game_params *junk;
-    midend_fetch_preset(me, sel, &name, &junk);
-    rb->strlcpy(buf, name, len);
+    struct preset_menu *menu = data;
+    rb->snprintf(buf, len, "%s", menu->entries[sel].title);
     return buf;
 }
 
-static bool presets_menu(void)
+/* main worker function */
+/* returns the index of the selected item on success, -1 on failure */
+static int do_preset_menu(struct preset_menu *menu, char *title, int selected)
 {
-    if(!midend_num_presets(me))
-    {
-        rb->splash(HZ, "No presets!");
+    if(!menu->n_entries)
         return false;
-    }
 
     /* display a list */
     struct gui_synclist list;
 
-    rb->gui_synclist_init(&list, &preset_formatter, NULL, false, 1, NULL);
+    rb->gui_synclist_init(&list, &preset_formatter, menu, false, 1, NULL);
     rb->gui_synclist_set_icon_callback(&list, NULL);
-    rb->gui_synclist_set_nb_items(&list, midend_num_presets(me));
+    rb->gui_synclist_set_nb_items(&list, menu->n_entries);
     rb->gui_synclist_limit_scroll(&list, false);
 
-    int current = midend_which_preset(me);
-    rb->gui_synclist_select_item(&list, current >= 0 ? current : 0);
+    rb->gui_synclist_select_item(&list, selected);
 
-    rb->gui_synclist_set_title(&list, "Game Type", NOICON);
+    static char def[] = "Game Type";
+    rb->gui_synclist_set_title(&list, title ? title : def, NOICON);
     while(1)
     {
         rb->gui_synclist_draw(&list);
@@ -994,68 +1251,50 @@ static bool presets_menu(void)
         case ACTION_STD_OK:
         {
             int sel = rb->gui_synclist_get_sel_pos(&list);
-            char *junk;
-            game_params *params;
-            midend_fetch_preset(me, sel, &junk, &params);
-            midend_set_params(me, params);
-            return true;
+            struct preset_menu_entry *entry = menu->entries + sel;
+            if(entry->params)
+            {
+                midend_set_params(me, entry->params);
+                return sel;
+            }
+            else
+            {
+                /* recurse */
+                if(do_preset_menu(entry->submenu, entry->title, 0)) /* select first one */
+                    return sel;
+            }
+            break;
         }
         case ACTION_STD_PREV:
         case ACTION_STD_CANCEL:
-            return false;
+            return -1;
         default:
             break;
         }
     }
 }
 
-static const struct {
-    const char *game, *help;
-} quick_help_text[] = {
-    { "Black Box", "Find the hidden balls in the box by bouncing laser beams off them." },
-    { "Bridges", "Connect all the islands with a network of bridges." },
-    { "Cube", "Pick up all the blue squares by rolling the cube over them." },
-    { "Dominosa", "Tile the rectangle with a full set of dominoes." },
-    { "Fifteen", "Slide the tiles around to arrange them into order." },
-    { "Filling", "Mark every square with the area of its containing region." },
-    { "Flip", "Flip groups of squares to light them all up at once." },
-    { "Flood", "Turn the grid the same colour in as few flood fills as possible." },
-    { "Galaxies", "Divide the grid into rotationally symmetric regions each centred on a dot." },
-    { "Guess", "Guess the hidden combination of colours." },
-    { "Inertia", "Collect all the gems without running into any of the mines." },
-    { "Keen", "Complete the latin square in accordance with the arithmetic clues." },
-    { "Light Up", "Place bulbs to light up all the squares." },
-    { "Loopy", "Draw a single closed loop, given clues about number of adjacent edges." },
-    { "Magnets", "Place magnets to satisfy the clues and avoid like poles touching." },
-    { "Map", "Colour the map so that adjacent regions are never the same colour." },
-    { "Mines", "Find all the mines without treading on any of them." },
-    { "Net", "Rotate each tile to reassemble the network." },
-    { "Netslide", "Slide a row at a time to reassemble the network." },
-    { "Palisade", "Divide the grid into equal-sized areas in accordance with the clues." },
-    { "Pattern", "Fill in the pattern in the grid, given only the lengths of runs of black squares." },
-    { "Pearl", "Draw a single closed loop, given clues about corner and straight squares." },
-    { "Pegs", "Jump pegs over each other to remove all but one." },
-    { "Range", "Place black squares to limit the visible distance from each numbered cell." },
-    { "Rectangles", "Divide the grid into rectangles with areas equal to the numbers." },
-    { "Same Game", "Clear the grid by removing touching groups of the same colour squares." },
-    { "Signpost", "Connect the squares into a path following the arrows." },
-    { "Singles", "Black out the right set of duplicate numbers." },
-    { "Sixteen", "Slide a row at a time to arrange the tiles into order." },
-    { "Slant", "Draw a maze of slanting lines that matches the clues." },
-    { "Solo", "Fill in the grid so that each row, column and square block contains one of every digit." },
-    { "Tents", "Place a tent next to each tree." },
-    { "Towers", "Complete the latin square of towers in accordance with the clues." },
-    { "Tracks", "Fill in the railway track according to the clues." },
-    { "Twiddle", "Rotate the tiles around themselves to arrange them into order." },
-    { "Undead", "Place ghosts, vampires and zombies so that the right numbers of them can be seen in mirrors." },
-    { "Unequal", "Complete the latin square in accordance with the > signs." },
-    { "Unruly", "Fill in the black and white grid to avoid runs of three." },
-    { "Untangle", "Reposition the points so that the lines do not cross." },
-};
+static bool presets_menu(void)
+{
+    /* figure out the index of the current preset
+     * if it's in a submenu, give up and default to the first item */
+    struct preset_menu *top = midend_get_presets(me, NULL);
+    int sel = 0;
+    for(int i = 0; i < top->n_entries; ++i)
+    {
+        if(top->entries[i].id == midend_which_preset(me))
+        {
+            sel = i;
+            break;
+        }
+    }
+
+    return do_preset_menu(midend_get_presets(me, NULL), NULL, sel) >= 0;
+}
 
 static void quick_help(void)
 {
-#ifdef FOR_REAL
+#if defined(FOR_REAL) && defined(DEBUG_MENU)
     if(++help_times >= 5)
     {
         rb->splash(HZ, "You are now a developer!");
@@ -1063,32 +1302,48 @@ static void quick_help(void)
     }
 #endif
 
-    for(int i = 0; i < ARRAYLEN(quick_help_text); ++i)
-    {
-        if(!strcmp(midend_which_game(me)->name, quick_help_text[i].game))
-        {
-            rb->splash(0, quick_help_text[i].help);
-            rb->button_get(true);
-            return;
-        }
-    }
+    rb->splash(0, quick_help_text);
+    rb->button_get(true);
+    return;
 }
 
-static void full_help(void)
+static void full_help(const char *name)
 {
-    /* TODO */
+    unsigned old_bg = rb->lcd_get_background();
+
+    bool orig_clipped = clipped;
+    if(orig_clipped)
+        rb_unclip(NULL);
+
+    rb->lcd_set_foreground(LCD_WHITE);
+    rb->lcd_set_background(LCD_BLACK);
+    unload_fonts();
+    rb->lcd_setfont(FONT_UI);
+
+    char *buf = smalloc(help_text_len);
+    LZ4_decompress_tiny(help_text, buf, help_text_len);
+
+    view_text(name, buf);
+
+    sfree(buf);
+
+    rb->lcd_set_background(old_bg);
+
+    if(orig_clipped)
+        rb_clip(NULL, clip_rect.x, clip_rect.y, clip_rect.width, clip_rect.height);
 }
 
 static void init_default_settings(void)
 {
     settings.slowmo_factor = 1;
-    settings.bulk = false;
     settings.timerflash = false;
     settings.clipoff = false;
     settings.shortcuts = false;
     settings.no_aa = false;
+    settings.polyanim = false;
 }
 
+#ifdef DEBUG_MENU
 static void bench_aa(void)
 {
     rb->sleep(0);
@@ -1122,12 +1377,12 @@ static void debug_menu(void)
     MENUITEM_STRINGLIST(menu, "Debug Menu", NULL,
                         "Slowmo factor",
                         "Randomize colors",
-                        "Toggle bulk update",
                         "Toggle flash pixel on timer",
                         "Toggle clip",
                         "Toggle shortcuts",
                         "Toggle antialias",
                         "Benchmark antialias",
+                        "Toggle show poly steps",
                         "Back");
     bool quit = false;
     int sel = 0;
@@ -1149,22 +1404,22 @@ static void debug_menu(void)
             break;
         }
         case 2:
-            settings.bulk = !settings.bulk;
-            break;
-        case 3:
             settings.timerflash = !settings.timerflash;
             break;
-        case 4:
+        case 3:
             settings.clipoff = !settings.clipoff;
             break;
-        case 5:
+        case 4:
             settings.shortcuts = !settings.shortcuts;
             break;
-        case 6:
+        case 5:
             settings.no_aa = !settings.no_aa;
             break;
-        case 7:
+        case 6:
             bench_aa();
+            break;
+        case 7:
+            settings.polyanim = !settings.polyanim;
             break;
         case 8:
         default:
@@ -1173,6 +1428,7 @@ static void debug_menu(void)
         }
     }
 }
+#endif
 
 static int pausemenu_cb(int action, const struct menu_item_ex *this_item)
 {
@@ -1194,29 +1450,18 @@ static int pausemenu_cb(int action, const struct menu_item_ex *this_item)
                 return ACTION_EXIT_MENUITEM;
             break;
         case 7:
-#ifdef FOR_REAL
-            return ACTION_EXIT_MENUITEM;
-#else
             break;
-#endif
         case 8:
-#ifdef COMBINED
-            /* audio buf is used, so no playback */
-            /* TODO: neglects app builds, but not many people will
-             * care, I bet */
-            return ACTION_EXIT_MENUITEM;
-#else
             if(audiobuf_available)
                 break;
             else
                 return ACTION_EXIT_MENUITEM;
-#endif
         case 9:
-            if(!midend_num_presets(me))
+            if(!midend_get_presets(me, NULL)->n_entries)
                 return ACTION_EXIT_MENUITEM;
             break;
         case 10:
-#ifdef FOR_REAL
+#if defined(FOR_REAL) && defined(DEBUG_MENU)
             if(debug_mode)
                 break;
             return ACTION_EXIT_MENUITEM;
@@ -1268,9 +1513,6 @@ static int pause_menu(void)
                         "Game Type",
                         "Debug Menu",
                         "Configure Game",
-#ifdef COMBINED
-                        "Select Another Game",
-#endif
                         "Quit without Saving",
                         "Quit");
 #undef static
@@ -1280,7 +1522,7 @@ static int pause_menu(void)
     rb->snprintf(title, sizeof(title), "%s Menu", midend_which_game(me)->name);
     menu__.desc = title;
 
-#ifdef FOR_REAL
+#if defined(FOR_REAL) && defined(DEBUG_MENU)
     help_times = 0;
 #endif
 
@@ -1329,7 +1571,7 @@ static int pause_menu(void)
             quick_help();
             break;
         case 7:
-            full_help();
+            full_help(midend_which_game(me)->name);
             break;
         case 8:
             playback_control(NULL);
@@ -1345,7 +1587,9 @@ static int pause_menu(void)
             }
             break;
         case 10:
+#ifdef DEBUG_MENU
             debug_menu();
+#endif
             break;
         case 11:
             if(config_menu())
@@ -1357,19 +1601,10 @@ static int pause_menu(void)
                 quit = true;
             }
             break;
-#ifdef COMBINED
-        case 12:
-            return -1;
-        case 13:
-            return -2;
-        case 14:
-            return -3;
-#else
         case 12:
             return -2;
         case 13:
             return -3;
-#endif
         default:
             break;
         }
@@ -1384,10 +1619,6 @@ static int pause_menu(void)
 static bool want_redraw = true;
 static bool accept_input = true;
 
-/* ignore the excess of LOGFs below... */
-#ifdef LOGF_ENABLE
-#undef LOGF_ENABLE
-#endif
 static int process_input(int tmo)
 {
     LOGF("process_input start");
@@ -1402,6 +1633,15 @@ static int process_input(int tmo)
 
     /* weird stuff */
     exit_on_usb(button);
+
+    /* these games require a second input on long-press */
+    if(accept_input && (button == (BTN_FIRE | BUTTON_REPEAT)) &&
+       (strcmp("Mines", midend_which_game(me)->name)   != 0 ||
+        strcmp("Magnets", midend_which_game(me)->name) != 0))
+    {
+        accept_input = false;
+        return ' ';
+    }
 
     button = rb->button_status();
 
@@ -1428,12 +1668,18 @@ static int process_input(int tmo)
         return rc;
     }
 
-    /* special case for inertia: moves occur after RELEASES */
-    if(!strcmp("Inertia", midend_which_game(me)->name))
+    /* these games require, for one reason or another, that events
+     * fire upon buttons being released rather than when they are
+     * pressed */
+    if(strcmp("Inertia", midend_which_game(me)->name) == 0 ||
+       strcmp("Mines", midend_which_game(me)->name)   == 0 ||
+       strcmp("Magnets", midend_which_game(me)->name) == 0 ||
+       strcmp("Map", midend_which_game(me)->name)     == 0)
     {
         LOGF("received button 0x%08x", button);
 
         unsigned released = ~button & last_keystate;
+
         last_keystate = button;
 
         if(!button)
@@ -1453,16 +1699,17 @@ static int process_input(int tmo)
             return 0;
         }
 
-        button |= released;
-        if(last_keystate)
+        if(button)
         {
             LOGF("ignoring input from now until all released");
             accept_input = false;
         }
+
+        button |= released;
         LOGF("accepting event 0x%08x", button);
     }
     /* default is to ignore repeats except for untangle */
-    else if(strcmp("Untangle", midend_which_game(me)->name))
+    else if(strcmp("Untangle", midend_which_game(me)->name) != 0)
     {
         /* start accepting input again after a release */
         if(!button)
@@ -1519,7 +1766,10 @@ static int process_input(int tmo)
         break;
 
     case BTN_FIRE:
-        state = CURSOR_SELECT;
+        if(!strcmp("Fifteen", midend_which_game(me)->name))
+            state = 'h'; /* hint */
+        else
+            state = CURSOR_SELECT;
         break;
 
     default:
@@ -1589,22 +1839,9 @@ void deactivate_timer(frontend *fe)
     timer_on = false;
 }
 
-#ifdef COMBINED
-/* can't use audio buffer */
-char giant_buffer[1024*1024*4];
-#else
 /* points to pluginbuf */
 char *giant_buffer = NULL;
-#endif
 static size_t giant_buffer_len = 0; /* set on start */
-
-#ifdef COMBINED
-const char *formatter(char *buf, size_t n, int i, const char *unit)
-{
-    rb->snprintf(buf, n, "%s", gamelist[i]->name);
-    return buf;
-}
-#endif
 
 static void fix_size(void)
 {
@@ -1615,7 +1852,7 @@ static void fix_size(void)
     midend_size(me, &w, &h, TRUE);
 }
 
-static void reset_tlsf(void)
+static void init_tlsf(void)
 {
     /* reset tlsf by nuking the signature */
     /* will make any already-allocated memory point to garbage */
@@ -1656,10 +1893,6 @@ static void init_colors(void)
 
 static char *init_for_game(const game *gm, int load_fd, bool draw)
 {
-    /* if we are loading a game tlsf has already been initialized */
-    if(load_fd < 0)
-        reset_tlsf();
-
     me = midend_new(NULL, gm, &rb_drawing, NULL);
 
     if(load_fd < 0)
@@ -1681,28 +1914,174 @@ static char *init_for_game(const game *gm, int load_fd, bool draw)
     {
         clear_and_draw();
     }
+
     return NULL;
+}
+
+static void shutdown_tlsf(void)
+{
+    memset(giant_buffer, 0, 4);
 }
 
 static void exit_handler(void)
 {
+    unload_fonts();
+    shutdown_tlsf();
+
 #ifdef HAVE_ADJUSTABLE_CPU_FREQ
     rb->cpu_boost(false);
 #endif
 }
 
+#define MAX_LINE 128
+
+#ifdef FONT_CACHING
+/* try loading the fonts indicated in the on-disk font table */
+static void load_fonts(void)
+{
+    int fd = rb->open(FONT_TABLE, O_RDONLY);
+    if(fd < 0)
+        return;
+
+    uint64_t fontmask = 0;
+    while(1)
+    {
+        char linebuf[MAX_LINE], *ptr = linebuf;
+        int len = rb->read_line(fd, linebuf, sizeof(linebuf));
+        if(len <= 0)
+            break;
+
+        char *tok, *save;
+        tok = rb->strtok_r(ptr, ":", &save);
+        ptr = NULL;
+
+        if(!strcmp(tok, midend_which_game(me)->name))
+        {
+            uint32_t left, right;
+            tok = rb->strtok_r(ptr, ":", &save);
+            left = atoi(tok);
+            tok = rb->strtok_r(ptr, ":", &save);
+            right = atoi(tok);
+            fontmask = ((uint64_t)left << 31) | right;
+            break;
+        }
+    }
+
+    /* nothing to do */
+    if(!fontmask)
+    {
+        rb->close(fd);
+        return;
+    }
+
+    /* loop through each bit of the mask and try loading the
+       corresponding font */
+    for(int i = 0; i < 2 * BUNDLE_COUNT; ++i)
+    {
+        if(fontmask & ((uint64_t)1 << i))
+        {
+            int size = (i > BUNDLE_COUNT  ? i - BUNDLE_COUNT : i) + BUNDLE_MIN;
+            int type = i > BUNDLE_COUNT ? FONT_VARIABLE : FONT_FIXED;
+            rb_setfont(type, size);
+        }
+    }
+
+    rb->close(fd);
+}
+
+/* remember which fonts were loaded */
+static void save_fonts(void)
+{
+#if 2*BUNDLE_COUNT > 62
+#error too many fonts for 62-bit mask
+#endif
+
+    /* first assemble the bitmask */
+    uint64_t fontmask = 0;
+    for(int i = 0; i < 2 * BUNDLE_COUNT; ++i)
+    {
+        /* try loading if we attempted to load */
+        if(loaded_fonts[i].status >= -2)
+        {
+            fontmask |= (uint64_t)1 << i;
+        }
+    }
+
+    if(fontmask)
+    {
+        /* font table format is as follows:
+         * [GAME NAME]:[32-halves of bit mask in decimal][newline]
+         */
+        int fd = rb->open(FONT_TABLE, O_RDONLY);
+        int outfd = rb->open(FONT_TABLE ".tmp", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        if(outfd < 0)
+            return;
+
+        uint64_t oldmask = 0;
+
+        if(fd >= 0)
+        {
+            while(1)
+            {
+                char linebuf[MAX_LINE], *ptr = linebuf;
+                char origbuf[MAX_LINE];
+                int len = rb->read_line(fd, linebuf, sizeof(linebuf));
+                if(len <= 0)
+                    break;
+                rb->memcpy(origbuf, linebuf, len);
+
+                char *tok, *save;
+                tok = rb->strtok_r(ptr, ":", &save);
+                ptr = NULL;
+
+                /* copy line if not matching */
+                if(strcmp(tok, midend_which_game(me)->name) != 0)
+                {
+                    rb->write(outfd, origbuf, len);
+                    rb->fdprintf(outfd, "\n");
+                }
+                else
+                {
+                    /* matching, remember the old mask */
+                    assert(oldmask == 0);
+                    uint32_t left, right;
+                    tok = rb->strtok_r(ptr, ":", &save);
+                    left = atoi(tok);
+                    tok = rb->strtok_r(ptr, ":", &save);
+                    right = atoi(tok);
+                    oldmask = ((uint64_t)left << 31) | right;
+                }
+            }
+            rb->close(fd);
+        }
+        uint64_t final = fontmask;
+        if(n_fonts < MAX_FONTS)
+            final |= oldmask;
+        uint32_t left = final >> 31;
+        uint32_t right = final & 0x7fffffff;
+        rb->fdprintf(outfd, "%s:%u:%u\n", midend_which_game(me)->name, left, right);
+        rb->close(outfd);
+        rb->rename(FONT_TABLE ".tmp", FONT_TABLE);
+    }
+}
+#endif
+
+static void save_fname(char *buf)
+{
+    rb->snprintf(buf, MAX_PATH, "%s/sgt-%s.sav", PLUGIN_GAMES_DATA_DIR, thegame.htmlhelp_topic);
+}
+
 /* expects a totally free me* pointer */
 static bool load_game(void)
 {
-    reset_tlsf();
+    char fname[MAX_PATH];
+    save_fname(fname);
 
-    int fd = rb->open(SAVE_FILE, O_RDONLY);
+    int fd = rb->open(fname, O_RDONLY);
     if(fd < 0)
         return false;
 
     rb->splash(0, "Loading...");
-
-    LOGF("opening %s", SAVE_FILE);
 
     char *game;
     char *ret = identify_game(&game, read_wrapper, (void*)fd);
@@ -1719,31 +2098,6 @@ static bool load_game(void)
         /* seek to beginning */
         rb->lseek(fd, 0, SEEK_SET);
 
-#ifdef COMBINED
-        /* search for the game and initialize the midend */
-        for(int i = 0; i < gamecount; ++i)
-        {
-            if(!strcmp(game, gamelist[i]->name))
-            {
-                sfree(ret);
-                ret = init_for_game(gamelist[i], fd, true);
-                if(ret)
-                {
-                    rb->splash(HZ, ret);
-                    sfree(ret);
-                    rb->close(fd);
-                    return false;
-                }
-                rb->close(fd);
-                /* success, we delete the save */
-                rb->remove(SAVE_FILE);
-                return true;
-            }
-        }
-        rb->splashf(HZ, "Incompatible game %s reported as compatible!?!? REEEPORT MEEEE!!!!", game);
-        rb->close(fd);
-        return false;
-#else
         if(!strcmp(game, thegame.name))
         {
             sfree(ret);
@@ -1753,25 +2107,45 @@ static bool load_game(void)
                 rb->splash(HZ, ret);
                 sfree(ret);
                 rb->close(fd);
+                rb->remove(fname);
                 return false;
             }
             rb->close(fd);
-            /* success, we delete the save */
-            rb->remove(SAVE_FILE);
+            rb->remove(fname);
+
+#ifdef FONT_CACHING
+            load_fonts();
+#endif
+
+            /* success */
             return true;
         }
-        rb->splashf(HZ, "Cannot load save game for %s!", game);
+        rb->splashf(HZ, "Failed loading save for %s!", game);
+
+        /* clean up, even on failure */
+        rb->close(fd);
+        rb->remove(fname);
+
         return false;
-#endif
     }
 }
 
 static void save_game(void)
 {
     rb->splash(0, "Saving...");
-    int fd = rb->open(SAVE_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+
+    char fname[MAX_PATH];
+    save_fname(fname);
+
+    /* save game */
+    int fd = rb->open(fname, O_WRONLY | O_CREAT | O_TRUNC, 0666);
     midend_serialize(me, write_wrapper, (void*) fd);
     rb->close(fd);
+
+#ifdef FONT_CACHING
+    save_fonts();
+#endif
+
     rb->lcd_update();
 }
 
@@ -1790,25 +2164,14 @@ static int mainmenu_cb(int action, const struct menu_item_ex *this_item)
                 return ACTION_EXIT_MENUITEM;
             break;
         case 3:
-#ifdef FOR_REAL
-            return ACTION_EXIT_MENUITEM;
-#else
             break;
-#endif
         case 4:
-#ifdef COMBINED
-            /* audio buf is used, so no playback */
-            /* TODO: neglects app builds, but not many people will
-             * care, I bet */
-            return ACTION_EXIT_MENUITEM;
-#else
             if(audiobuf_available)
                 break;
             else
                 return ACTION_EXIT_MENUITEM;
-#endif
         case 5:
-            if(!midend_num_presets(me))
+            if(!midend_get_presets(me, NULL)->n_entries)
                 return ACTION_EXIT_MENUITEM;
             break;
         case 6:
@@ -1831,43 +2194,39 @@ enum plugin_status plugin_start(const void *param)
     rb->cpu_boost(true);
 #endif
 
-#ifdef COMBINED
-    giant_buffer_len = sizeof(giant_buffer);
-#else
     giant_buffer = rb->plugin_get_buffer(&giant_buffer_len);
-#endif
-
-#ifndef COMBINED
-    rb->snprintf(save_file_path, sizeof(save_file_path), "%s/sgt-%s.sav", PLUGIN_GAMES_DATA_DIR, thegame.htmlhelp_topic);
-#endif
 
     rb_atexit(exit_handler);
 
+    init_tlsf();
+
+    /* sanity check */
     if(fabs(sqrt(3)/2 - sin(PI/3)) > .01)
-        rb->splash(HZ, "WARNING: floating-point functions are being weird... report me!");
+    {
+        return PLUGIN_ERROR;
+    }
 
     init_default_settings();
 
+    init_fonttab();
+
     load_success = load_game();
 
-#ifndef COMBINED
     if(!load_success)
     {
         /* our main menu expects a ready-to-use midend */
         init_for_game(&thegame, -1, false);
     }
-#endif
 
 #ifdef HAVE_ADJUSTABLE_CPU_FREQ
     /* about to go to menu or button block */
     rb->cpu_boost(false);
 #endif
 
-#ifdef FOR_REAL
+#if defined(FOR_REAL) && defined(DEBUG_MENU)
     help_times = 0;
 #endif
 
-#ifndef COMBINED
 #define static auto
 #define const
     MENUITEM_STRINGLIST(menu, NULL, mainmenu_cb,
@@ -1909,7 +2268,7 @@ enum plugin_status plugin_start(const void *param)
             quick_help();
             break;
         case 3:
-            full_help();
+            full_help(midend_which_game(me)->name);
             break;
         case 4:
             playback_control(NULL);
@@ -1948,24 +2307,10 @@ enum plugin_status plugin_start(const void *param)
             break;
         }
     }
-#else
-    if(load_success)
-        goto game_loop;
-#endif
 
-#ifdef COMBINED
-    int gm = 0;
-#endif
     while(1)
     {
-#ifdef COMBINED
-        if(rb->set_int("Choose Game", "", UNIT_INT, &gm, NULL, 1, 0, gamecount - 1, formatter))
-            return PLUGIN_OK;
-
-        init_for_game(gamelist[gm], -1, true);
-#else
         init_for_game(&thegame, -1, true);
-#endif
 
         last_keystate = 0;
         accept_input = true;

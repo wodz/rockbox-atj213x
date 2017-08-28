@@ -257,7 +257,9 @@ void imx233_reset_block(volatile uint32_t *block_reg)
 void udelay(unsigned us)
 {
     uint32_t ref = HW_DIGCTL_MICROSECONDS;
-    while(!imx233_us_elapsed(ref, us));
+    /* increase number of us by 1 to make sure we wait *at least* the requested
+     * time */
+    while(!imx233_us_elapsed(ref, us + 1));
 }
 
 void imx233_digctl_set_arm_cache_timings(unsigned timings)
@@ -286,11 +288,14 @@ struct cpufreq_profile_t
 /* Some devices don't handle very well memory frequency changes, so avoid them
  * by running at highest speed at all time */
 #if defined(CREATIVE_ZEN) || defined(CREATIVE_ZENXFI)
-#define EMIFREQ_NORMAL  IMX233_EMIFREQ_64_MHz
-#define EMIFREQ_MAX     IMX233_EMIFREQ_64_MHz
+#define EMIFREQ_NORMAL  IMX233_EMIFREQ_130_MHz
+#define EMIFREQ_MAX     IMX233_EMIFREQ_130_MHz
+/* we need a VDDD of at least 1.2V to run the EMI at 130Mhz */
+#define VDDD_MIN        1275
 #else /* weird targets */
 #define EMIFREQ_NORMAL  IMX233_EMIFREQ_64_MHz
 #define EMIFREQ_MAX     IMX233_EMIFREQ_130_MHz
+#define VDDD_MIN        1050
 #endif
 
 #if IMX233_SUBTARGET >= 3700
@@ -302,8 +307,8 @@ static struct cpufreq_profile_t cpu_profiles[] =
     {IMX233_CPUFREQ_320_MHz, 1450, 1350, 3, 1, 27, EMIFREQ_MAX, 0},
     /* clk_p@261.82 MHz, clk_h@130.91 MHz, clk_emi@130.91 MHz, VDDD@1.275 V */
     {IMX233_CPUFREQ_261_MHz, 1275, 1175, 2, 1, 33, EMIFREQ_MAX, 0},
-    /* clk_p@64 MHz, clk_h@64 MHz, clk_emi@64 MHz, VDDD@1.050 V */
-    {IMX233_CPUFREQ_64_MHz, 1050, 975, 1, 5, 27, EMIFREQ_NORMAL, 3},
+    /* clk_p@64 MHz, clk_h@64 MHz, clk_emi@64 MHz, VDDD@1.050 V (or 1.275V) */
+    {IMX233_CPUFREQ_64_MHz, VDDD_MIN, 975, 1, 5, 27, EMIFREQ_NORMAL, 3},
     /* dummy */
     {0, 0, 0, 0, 0, 0, 0, 0}
 };

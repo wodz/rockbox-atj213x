@@ -33,8 +33,6 @@
 #define GIO_BL_ENABLE  (1<<13)
 #define GIO_LCD_ENABLE (1<<5)
 
-static struct mutex spi_mtx;
-
 struct SPI_info {
     volatile unsigned short *setreg;
     volatile unsigned short *clrreg;
@@ -75,8 +73,6 @@ int spi_block_transfer(enum SPI_target target,
                        const uint8_t *tx_bytes, unsigned int tx_size,
                              uint8_t *rx_bytes, unsigned int rx_size)
 {
-    mutex_lock(&spi_mtx);
-
     /* Enable the clock */
     bitset16(&IO_CLK_MOD2, CLK_MOD2_SIF0);
     
@@ -125,14 +121,11 @@ int spi_block_transfer(enum SPI_target target,
     /* Disable the clock */
     bitclr16(&IO_CLK_MOD2, CLK_MOD2_SIF0);
     
-    mutex_unlock(&spi_mtx);
     return 0;
 }
 
 void spi_init(void)
 {
-    mutex_init(&spi_mtx);
-
     /* Enable the clock */
     bitset16(&IO_CLK_MOD2, CLK_MOD2_SIF0);
     

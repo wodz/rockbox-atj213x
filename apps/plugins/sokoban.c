@@ -1513,7 +1513,6 @@ static int sokoban_menu(void)
     int selection = 0;
     bool menu_quit;
     int start_selected = 0;
-    int prev_level = current_info.level.index;
 
     MENUITEM_STRINGLIST(menu, "Sokoban Menu", NULL,
                         "Resume", "Select Level", "Audio Playback", "Keys",
@@ -1534,11 +1533,8 @@ static int sokoban_menu(void)
                             &current_info.level.index, NULL, 1, 1,
                             current_info.max_level, NULL);
                 current_info.level.index--;
-                if (prev_level != current_info.level.index) {
-                    init_undo();
-                    draw_level();
-                } else
-                    menu_quit = false;
+                init_undo();
+                draw_level();
                 break;
 
             case 2: /* Audio playback control */

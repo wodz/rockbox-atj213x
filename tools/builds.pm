@@ -1,8 +1,8 @@
-$publicrelease="3.13";
-$manualrelease="3.13";
-$voicerelease="3.13";
-$releasedate="05 March 2013";
-$releasenotes="/wiki/ReleaseNotes313";
+$publicrelease="3.14";
+$manualrelease="3.14";
+$voicerelease="3.14";
+$releasedate="01 May 2017";
+$releasenotes="/wiki/ReleaseNotes314";
 
 %builds = (
     'archosav300' => {
@@ -145,8 +145,7 @@ $releasenotes="/wiki/ReleaseNotes313";
     },
     'ipodnano2g' => {
         name => 'iPod Nano 2nd gen',
-        status => 2,
-        release => '3.10',
+        status => 3,
     },
     'ipodvideo' => {
         name => 'iPod Video',
@@ -154,7 +153,7 @@ $releasenotes="/wiki/ReleaseNotes313";
     },
     'ipod6g' => {
         name => 'iPod 6th gen (Classic)',
-        status => 1,
+        status => 2,
     },
     'iriverh10' => {
         name => 'iriver H10 20GB',

@@ -1513,7 +1513,6 @@ cat <<EOF
  207) Android x86         231) 960
  208) Samsung YP-R1
 
-
 EOF
 
   buildfor=`input`;
@@ -4291,6 +4290,11 @@ else
    # gcc 6 adds a lot of warnings that while useful are too time-consuming
    # to clean up right away
    GCCOPTS="$GCCOPTS -Wno-shift-negative-value -Wno-unused-const-variable -Wno-nonnull-compare -Wno-tautological-compare"
+ fi
+
+ if test "$gccnum" -ge "700"; then
+   # gcc 7 spews a bunch of warnings by default
+   GCCOPTS="$GCCOPTS -Wno-expansion-to-defined -Wimplicit-fallthrough=0"
  fi
 
  case $prefix in
