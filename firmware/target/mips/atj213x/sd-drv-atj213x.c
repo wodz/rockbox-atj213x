@@ -36,7 +36,12 @@
 /* 16 bits of SD_BYTECNT */
 #define SD_MAX_XFER_SIZE 0xffff
 
-static struct semaphore sd_semaphore;
+/* Control variables for DMA transfers.
+ * As t is not possible to issue concurent rd/wr
+ * transfers single instance is enough
+ */
+static volatile struct dma_hwinfo_t hwinfo;
+static volatile int xfer_size = 0;
 
 void sdc_init(void)
 {
@@ -70,8 +75,6 @@ void sdc_init(void)
 
     /* B22 sd detect active low */
     atj213x_gpio_setup(GPIO_PORTB, 22, GPIO_IN);
-
-    semaphore_init(&sd_semaphore, 1, 0);
 }
 
 void sdc_card_reset(void)
@@ -116,171 +119,169 @@ bool sdc_card_present(void)
     return !atj213x_gpio_get(GPIO_PORTB, 22);
 }
 
-/* called between DMA channel setup
- * and DMA channel start
- */
-static void sdc_dma_rd_callback(struct ll_dma_t *ll)
+static sdc_rd_xfer_setup(void)
 {
-    if (ll)
-    {
-        SD_BYTECNT = ll->hwinfo.cnt;
+    SD_BYTECNT = hwinfo.cnt;
 
-        SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
-                     BF_SD_FIFOCTL_RST(1)            |
-                     BF_SD_FIFOCTL_THRH_V(THR_10_16) |
-                     BF_SD_FIFOCTL_FULL(1)           |
-                     BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
+    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
+                 BF_SD_FIFOCTL_RST(1)            |
+                 BF_SD_FIFOCTL_THRH_V(THR_10_16) |
+                 BF_SD_FIFOCTL_FULL(1)           |
+                 BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
 
-        SD_RW = BF_SD_RW_WCEF(1) | 
-                BF_SD_RW_WCST(1) |
-                BF_SD_RW_STRD(1) |
-                BF_SD_RW_RCST(1); /* 0x3c0 */
-    }
+    SD_RW = BF_SD_RW_WCEF(1) | 
+            BF_SD_RW_WCST(1) |
+            BF_SD_RW_STRD(1) |
+            BF_SD_RW_RCST(1); /* 0x3c0 */
 }
 
-/* called between DMA channel setup
- * and DMA channel start
+/* DMA transfer complete callback
+ * this is run in IRQ context
  */
-static void sdc_dma_wr_callback(struct ll_dma_t *ll)
+static void sdc_dma_rd_cb(void)
 {
-    if (ll)
+    xfer_size -= rd_hwinfo.cnt;
+
+    if (xfer_size > 0)
     {
-        SD_BYTECNT = ll->hwinfo.cnt;
+        hwinfo.dst += hwinfo.cnt;
+        hwinfo.cnt = MIN(xfer_size, SD_MAX_XFER_SIZE);
 
-        SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
-                     BF_SD_FIFOCTL_RST(1)            |
-                     BF_SD_FIFOCTL_THRH_V(THR_10_16) |
-                     BF_SD_FIFOCTL_FULL(1)           |
-                     BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
+        sdc_rd_xfer_setup();
 
-        SD_RW = BF_SD_RW_STWR(1) |
-                BF_SD_RW_WCEF(1) | 
-                BF_SD_RW_WCST(1) |
-                BF_SD_RW_STRD(0) |
-                BF_SD_RW_RCST(1) |
-                BF_SD_RW_RWST(1); /* 0x8341 */
+        dma_start(DMA_CH_SD);
+    }
+    else
+    {
+        /* transfer is finished */
+        dma_stop(DMA_CH_SD);
     }
 }
 
 static void sdc_dma_rd(void *buf, int size)
 {
-    /* This allows for ~4MB chained transfer */
-    static struct ll_dma_t sd_ll[4];
-    int i, xsize;
-    unsigned int mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
-                        BF_DMAC_DMA_MODE_RELO(0)             |
-                        BF_DMAC_DMA_MODE_DDSP(0)             |
-                        BF_DMAC_DMA_MODE_DCOL(0)             |
-                        BF_DMAC_DMA_MODE_DDIR_V(INCREASE)    |
-                        BF_DMAC_DMA_MODE_DFXA_V(NOT_FIXED)   |
-                        BF_DMAC_DMA_MODE_DFXS(0)             |
-                        BF_DMAC_DMA_MODE_SBURLEN_V(SINGLE)   |
-                        BF_DMAC_DMA_MODE_SDSP(0)             |
-                        BF_DMAC_DMA_MODE_SCOL(0)             |
-                        BF_DMAC_DMA_MODE_SFXA_V(FIXED)       |
-                        BF_DMAC_DMA_MODE_STRG_V(SD)          |
-                        BF_DMAC_DMA_MODE_STRANWID_V(WIDTH32) |
-                        BF_DMAC_DMA_MODE_SFXS(0);
+    hwinfo.mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
+                  BF_DMAC_DMA_MODE_RELO(0)             |
+                  BF_DMAC_DMA_MODE_DDSP(0)             |
+                  BF_DMAC_DMA_MODE_DCOL(0)             |
+                  BF_DMAC_DMA_MODE_DDIR_V(INCREASE)    |
+                  BF_DMAC_DMA_MODE_DFXA_V(NOT_FIXED)   |
+                  BF_DMAC_DMA_MODE_DFXS(0)             |
+                  BF_DMAC_DMA_MODE_SBURLEN_V(SINGLE)   |
+                  BF_DMAC_DMA_MODE_SDSP(0)             |
+                  BF_DMAC_DMA_MODE_SCOL(0)             |
+                  BF_DMAC_DMA_MODE_SFXA_V(FIXED)       |
+                  BF_DMAC_DMA_MODE_STRG_V(SD)          |
+                  BF_DMAC_DMA_MODE_STRANWID_V(WIDTH32) |
+                  BF_DMAC_DMA_MODE_SFXS(0);
 
-    /* dma destination DTRG depends on address (dram/iram */
+    /* dma destination DTRG depends on address dram/iram */
     if (iram_address(buf))
-        mode |= BF_DMAC_DMA_MODE_DTRG_V(IRAM);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_DTRG_V(IRAM);
     else
-        mode |= BF_DMAC_DMA_MODE_DTRG_V(SDRAM);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_DTRG_V(SDRAM);
 
-    /* destination transfer width depends on alignement */
+    /* destination transfer width depends on buffer alignement */
     if (((unsigned int)buf & 3) == 0)
-        mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32);
     else if (((unsigned int)buf & 3) == 2)
-        mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH16);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH16);
     else
-        mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH8);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH8);
 
-    for (i=0; i<4; i++)
+    xfer_size = size;
+
+    rd_hwinfo.dst = PHYSADDR((uint32_t)buf);
+    rd_hwinfo.src = PHYSADDR((uint32_t)&SD_DAT);
+    rd_hwinfo.cnt = MIN(xfer_size, SD_MAX_XFER_SIZE);
+
+    sdc_rd_xfer_setup();
+
+    dma_setup(DMA_CH_SD, &hwinfo, sdc_dma_rd_cb);
+    dma_start(DMA_CH_SD);
+}
+
+static void sdc_wr_xfer_setup(void)
+{
+    SD_BYTECNT = hwinfo.cnt;
+
+    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
+                 BF_SD_FIFOCTL_RST(1)            |
+                 BF_SD_FIFOCTL_THRH_V(THR_10_16) |
+                 BF_SD_FIFOCTL_FULL(1)           |
+                 BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
+
+    SD_RW = BF_SD_RW_STWR(1) |
+            BF_SD_RW_WCEF(1) | 
+            BF_SD_RW_WCST(1) |
+            BF_SD_RW_STRD(0) |
+            BF_SD_RW_RCST(1) |
+            BF_SD_RW_RWST(1); /* 0x8341 */
+}
+
+/* DMA transfer complete callback
+ * this is called in IRQ context
+ */
+static void sdc_dma_wr_cb(void)
+{
+    xfer_size -= hwinfo.cnt;
+
+    if (xfer_size > 0)
     {
-        xsize = MIN(size, SD_MAX_XFER_SIZE);
-        sd_ll[i].hwinfo.dst = PHYSADDR((uint32_t)buf);
-        sd_ll[i].hwinfo.src = PHYSADDR((uint32_t)&SD_DAT);
-        sd_ll[i].hwinfo.mode = mode;
-        sd_ll[i].hwinfo.cnt = xsize;
+        hwinfo.src += hwinfo.cnt;
+        hwinfo.cnt = MIN(xfer_size, SD_MAX_XFER_SIZE);
 
-        size -= xsize;
-        buf = (void *)((char *)buf + xsize);
-        sd_ll[i].next = (size) ? &sd_ll[i+1] : NULL;
+        sdc_wr_xfer_setup();
 
-        if (size == 0)
-            break;
+        dma_start(DMA_CH_SD);
     }
-
-    if (size)
+    else
     {
-        /* requested transfer is bigger then we can handle */
-        panicf("sdc_dma_rd(): can't transfer that much!");
+        dma_stop(DMA_CH_SD);
     }
-
-    ll_dma_setup(DMA_CH_SD, sd_ll, sdc_dma_rd_callback, &sd_semaphore);
-    ll_dma_start(DMA_CH_SD);
 }
 
 static void sdc_dma_wr(void *buf, int size)
 {
+    hwinfo.mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
+                  BF_DMAC_DMA_MODE_RELO(0)             |
+                  BF_DMAC_DMA_MODE_DDSP(0)             |
+                  BF_DMAC_DMA_MODE_DCOL(0)             |
+                  BF_DMAC_DMA_MODE_DFXA_V(FIXED)       |
+                  BF_DMAC_DMA_MODE_DTRG_V(SD)          |
+                  BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32) |
+                  BF_DMAC_DMA_MODE_DFXS(0)             |
+                  BF_DMAC_DMA_MODE_SBURLEN_V(SINGLE)   |
+                  BF_DMAC_DMA_MODE_SDSP(0)             |
+                  BF_DMAC_DMA_MODE_SCOL(0)             |
+                  BF_DMAC_DMA_MODE_SDIR_V(INCREASE)    |
+                  BF_DMAC_DMA_MODE_SFXA_V(NOT_FIXED)   |
+                  BF_DMAC_DMA_MODE_SFXS(0);
 
-    /* This allows for ~4MB chained transfer */
-    static struct ll_dma_t sd_ll[4];
-    int i, xsize;
-    unsigned int mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
-                        BF_DMAC_DMA_MODE_RELO(0)             |
-                        BF_DMAC_DMA_MODE_DDSP(0)             |
-                        BF_DMAC_DMA_MODE_DCOL(0)             |
-                        BF_DMAC_DMA_MODE_DFXA_V(FIXED)       |
-                        BF_DMAC_DMA_MODE_DTRG_V(SD)          |
-                        BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32) |
-                        BF_DMAC_DMA_MODE_DFXS(0)             |
-                        BF_DMAC_DMA_MODE_SBURLEN_V(SINGLE)   |
-                        BF_DMAC_DMA_MODE_SDSP(0)             |
-                        BF_DMAC_DMA_MODE_SCOL(0)             |
-                        BF_DMAC_DMA_MODE_SDIR_V(INCREASE)    |
-                        BF_DMAC_DMA_MODE_SFXA_V(NOT_FIXED)   |
-                        BF_DMAC_DMA_MODE_SFXS(0);
-
-    /* dma destination DTRG depends on address (dram/iram */
+    /* dma destination DTRG depends on address dram/iram */
     if (iram_address(buf))
-        mode |= BF_DMAC_DMA_MODE_STRG_V(IRAM);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_STRG_V(IRAM);
     else
-        mode |= BF_DMAC_DMA_MODE_STRG_V(SDRAM);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_STRG_V(SDRAM);
 
-    /* destination transfer width depends on alignement */
+    /* destination transfer width depends on buffer alignement */
     if (((unsigned int)buf & 3) == 0)
-        mode |= BF_DMAC_DMA_MODE_STRANWID_V(WIDTH32);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_STRANWID_V(WIDTH32);
     else if (((unsigned int)buf & 3) == 2)
-        mode |= BF_DMAC_DMA_MODE_STRANWID_V(WIDTH16);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_STRANWID_V(WIDTH16);
     else
-        mode |= BF_DMAC_DMA_MODE_STRANWID_V(WIDTH8);
+        hwinfo.mode |= BF_DMAC_DMA_MODE_STRANWID_V(WIDTH8);
 
-    for (i=0; i<4; i++)
-    {
-        xsize = MIN(size, SD_MAX_XFER_SIZE);
-        sd_ll[i].hwinfo.dst = PHYSADDR((uint32_t)&SD_DAT);
-        sd_ll[i].hwinfo.src = PHYSADDR((uint32_t)buf);
-        sd_ll[i].hwinfo.mode = mode;
-        sd_ll[i].hwinfo.cnt = xsize;
+    xfer_size = size;
 
-        size -= xsize;
-        buf = (void *)((char *)buf + xsize);
-        sd_ll[i].next = (size) ? &sd_ll[i+1] : NULL;
+    hwinfo.dst = PHYSADDR((uint32_t)&SD_DAT);
+    hwinfo.src = PHYSADDR((uint32_t)buf);
+    hwinfo.cnt = MIN(xfer_size, SD_MAX_XFER_SIZE);
 
-        if (size == 0)
-            break;
-    }
+    sdc_wr_xfer_setup();
 
-    if (size)
-    {
-        /* requested transfer is bigger then we can handle */
-        panicf("sdc_dma_rd(): can't transfer that much!");
-    }
-
-    ll_dma_setup(DMA_CH_SD, sd_ll, sdc_dma_wr_callback, &sd_semaphore);
-    ll_dma_start(DMA_CH_SD);
+    dma_setup(DMA_CH_SD, &hwinfo, sdc_dma_wr_cb);
+    dma_start(DMA_CH_SD);
 }
 
 int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
@@ -387,7 +388,9 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
     /* data stage */
     if (rspdat->data && datlen > 0)
     {
-        semaphore_wait(&sd_semaphore, TIMEOUT_BLOCK);
+        /* wait to DMA do its duties */
+        while (xfer_size > 0)
+            yield();
     }
 
     atj213x_gpio_mux_unlock(GPIO_MUXSEL_SD);
