@@ -31,8 +31,9 @@
  * channels 0-3 use regular AHB bus
  * channels 4-7 are special DMA bus
  */
+
+#define DMA_CH_PLAYBACK 0
 #define DMA_CH_SD 1
-#define DMA_CH_PLAYBACK 2
 
 /* data to setup DMAC hardware */
 struct dma_hwinfo_t {
@@ -42,16 +43,9 @@ struct dma_hwinfo_t {
     uint32_t cnt;     /* 20bits actually */
 };
 
-/* linked list dma transfer node */
-struct ll_dma_t {
-    struct dma_hwinfo_t hwinfo;
-    struct ll_dma_t *next;
-};
-
-struct ll_dma_ctl_t {
-    struct ll_dma_t *ll;
-    void (*callback)(struct ll_dma_t *);
-    struct semaphore *semaphore;
+struct dma_ctl_t {
+    struct dma_hwinfo_t *hwinfo;
+    void (*callback)(void);
 };
 
 static inline unsigned int dma_get_src(unsigned int chan)
@@ -71,15 +65,8 @@ static inline unsigned int dma_get_remining(unsigned int chan)
 
 void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo);
 void dma_start(unsigned int chan);
+void dma_stop(unsigned int chan);
 void dma_pause(unsigned int chan, bool pause);
 bool dma_wait_complete(unsigned int chan, unsigned tmo);
-void dma_reset(unsigned int chan);
-void dma_tcirq_ack(unsigned int chan);
-void dma_tcirq_enable(unsigned int chan);
-void dma_tcirq_disable(unsigned int chan);
-void ll_dma_setup(unsigned int chan, struct ll_dma_t *ll,
-                  void (*cb)(struct ll_dma_t *), struct semaphore *s);
-void ll_dma_stop(unsigned int chan);
-void ll_dma_start(unsigned int chan);
 
 #endif /* DMA_ATJ213X_H */

@@ -18,21 +18,23 @@
  *
  ****************************************************************************/
 
-#include "semaphore.h"
-#include "panic.h"
 #include "intc-atj213x.h"
 #include "dma-atj213x.h"
 #include "regs/regs-dmac.h"
 #include "regs/regs-intc.h"
 
-static volatile struct ll_dma_ctl_t dma_ll[8] = {
-    {NULL, NULL, NULL}, {NULL, NULL, NULL},
-    {NULL, NULL, NULL}, {NULL, NULL, NULL},
-    {NULL, NULL, NULL}, {NULL, NULL, NULL},
-    {NULL, NULL, NULL}, {NULL, NULL, NULL}
+static volatile struct dma_ctl_t dma_ctl[8] = {
+    {NULL, NULL},
+    {NULL, NULL},
+    {NULL, NULL},
+    {NULL, NULL},
+    {NULL, NULL},
+    {NULL, NULL},
+    {NULL, NULL},
+    {NULL, NULL}
 };
 
-void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo)
+static void dma_hw_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo)
 {
     DMAC_DMA_SRC(chan) = dma_hwinfo->src;
     DMAC_DMA_DST(chan) = dma_hwinfo->dst;
@@ -40,10 +42,74 @@ void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo)
     DMAC_DMA_CNT(chan) = dma_hwinfo->cnt;
 }
 
-void dma_start(unsigned int chan)
+static void dma_hw_start(unsigned int chan)
 {
     /* DMA kick in */
     DMAC_DMA_CMD(chan) = 1;
+}
+
+static void dma_hw_reset(unsigned int chan)
+{
+    /* Reset DMA channel */
+    DMAC_CTL |= (1 << (16 + chan));
+}
+
+static void dma_hw_tcirq_ack(unsigned int chan)
+{
+    /* Acknowledge DMA transfer complete irq */
+    DMAC_IRQPD |= (3 << (chan));
+}
+
+static void dma_hw_tcirq_disable(unsigned int chan)
+{
+    /* Disable DMA transfer complete irq */
+    DMAC_IRQEN &= ~(1 << chan*2);
+}
+
+static void dma_hw_tcirq_enable(unsigned int chan)
+{
+    /* Enable DMA transfer complete irq */
+    DMAC_IRQEN |= (1 << chan*2);
+}
+
+/* higher level */
+void dma_setup(unsigned int chan, struct dma_hwinfo_t *hwinfo,
+               void (*cb)(void))
+{
+    dma_ctl[chan].hwinfo = hwinfo;
+    dma_ctl[chan].callback = cb;
+}
+
+void dma_start(unsigned int chan)
+{
+    /* reset DMA channel to kill any pending transfer */
+    dma_hw_reset(chan);
+
+    /* setup dst, src, cnt and mode of the DMA channel */
+    dma_hw_setup(chan, dma_ctl[chan]->hwinfo);
+
+    /* cache coherency */
+    commit_discard_dcache();
+
+    /* unmask DMA channel transfer complete interrupt */
+    dma_hw_tcirq_enable(chan);
+
+    /* enable DMA irq in INTC */
+    atj213x_intc_unmask(BP_INTC_MSK_DMA);
+
+    /* DMA kick in */
+    dma_hw_start(chan);
+}
+
+void dma_stop(unsigned int chan)
+{
+    dma_hw_tcirq_disable(chan);
+    dma_hw_tcirq_ack(chan);
+
+    dma_ctl[chan].hwinfo = NULL;
+    dma_ctl[chan].callback = NULL;
+
+    dma_reset(chan);
 }
 
 void dma_pause(unsigned int chan, bool pause)
@@ -71,124 +137,29 @@ bool dma_wait_complete(unsigned int chan, unsigned tmo)
     return false;
 }
 
-void dma_reset(unsigned int chan)
-{
-    /* Reset DMA channel */
-    DMAC_CTL |= (1<<(16+chan));
-}
-
-void dma_tcirq_ack(unsigned int chan)
-{
-    /* Acknowledge DMA transfer complete irq */
-    DMAC_IRQPD |= (3<<(chan));
-}
-
-void dma_tcirq_disable(unsigned int chan)
-{
-    /* Disable DMA transfer complete irq */
-    DMAC_IRQEN &= ~(1<<chan*2);
-}
-
-void dma_tcirq_enable(unsigned int chan)
-{
-    /* Enable DMA transfer complete irq */
-    DMAC_IRQEN |= (1<<chan*2);
-}
-
-static unsigned int dma_find_irqpd_chan(void)
-{
-    /* Find the highest number of DMA channel
-     * which has Transfer complete flag pending
-     */
-    unsigned int irqpd = DMAC_IRQPD;
-    unsigned int chan = 7;
-    unsigned int mask = (1<<14);
-
-    while (mask)
-    {
-        if (irqpd & mask)
-            return chan;
-
-        mask >>= 2;
-        chan--;
-    }
-
-    return 0xffffffff;
-}
-
-void ll_dma_setup(unsigned int chan, struct ll_dma_t *ll,
-                  void (*cb)(struct ll_dma_t *), struct semaphore *s)
-{
-    dma_ll[chan].ll = ll;
-    dma_ll[chan].callback = cb;
-    dma_ll[chan].semaphore = s;
-}
-
-void ll_dma_stop(unsigned int chan)
-{
-    dma_tcirq_disable(chan);
-    dma_ll[chan].ll = NULL;
-    dma_ll[chan].callback = NULL;
-    dma_ll[chan].semaphore = NULL;
-    dma_reset(chan);
-}
-
-void ll_dma_start(unsigned int chan)
-{
-    dma_reset(chan);
-    dma_setup(chan, &dma_ll[chan].ll->hwinfo);
-
-    if (dma_ll[chan].callback)
-        (*dma_ll[chan].callback)(dma_ll[chan].ll);
-
-    /* cache coherency */
-    commit_discard_dcache();
-
-    dma_ll[chan].ll = dma_ll[chan].ll->next;
-    dma_tcirq_enable(chan);
-
-    /* enable DMA irq in INTC */
-    atj213x_intc_unmask(BP_INTC_MSK_DMA);
-
-    dma_start(chan);
-}
-
 void INT_DMA(void)
 {
-    unsigned int chan;
+    unsigned int irqpd = DMAC_IRQPD;
+    unsigned int chan = 0;
 
-    /* find channel which caused interrupt */
-    chan = dma_find_irqpd_chan();
-
-    /* if something is THAT broken to report irq from nonexisting
-     * dma channel... */
-    if (UNLIKELY(chan > 7))
-        panicf("Non existent DMA channel: %d", chan);
-
-    /* linked transfer */
-    if (dma_ll[chan].ll)
+    /* Loop through all pending dma interrupts */
+    while (irqpd)
     {
-        dma_setup(chan, &dma_ll[chan].ll->hwinfo);
+        /* this channel has pending interrupt */
+        if (irqpd & 1)
+        {
+            /* ack this interrupt */
+            dma_tcirq_ack(chan);
 
-        if (dma_ll[chan].callback)
-            (*dma_ll[chan].callback)(dma_ll[chan].ll);
+            /* execute registered callback if any */
+            if (dma_ctl[chan].callback)
+            {
+                *dma_ctl[chan].callback();
+            }
+        }
 
-        /* cache coherency */
-        commit_discard_dcache();
-
-        dma_ll[chan].ll = dma_ll[chan].ll->next;
-        dma_tcirq_ack(chan);
-        dma_start(chan);
-    }
-    else
-    {
-        /* terminal node */
-        dma_tcirq_ack(chan);
-
-        if (dma_ll[chan].callback)
-            (*dma_ll[chan].callback)(dma_ll[chan].ll);
-
-        if (dma_ll[chan].semaphore)
-            semaphore_release(dma_ll[chan].semaphore);
+        /* advance to next dma channel */
+        irqpd >>= 2;
+        chan++;
     }
 }
