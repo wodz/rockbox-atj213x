@@ -88,8 +88,7 @@ end
 -- returns number of generated samples
 function generate_tone(samplerate, frequency, amplitude)
     local n = math.floor(samplerate/frequency)
-    local amp = amplitude * 0x7fffffff
-    local amp2 = amplitude * 0x7fff
+    local amp = amplitude * 0x7fff
 
     -- uncached DRAM address    
     local addr = 0xa0000000
@@ -98,14 +97,12 @@ function generate_tone(samplerate, frequency, amplitude)
         -- this is to check if it makes any difference for DAC
         -- to have true 32bit sample or 16bit shifted left
         local sample = math.floor(amp * math.sin(2*i*math.pi/n))
-        local sample2 = math.floor(amp2 * math.sin(2*i*math.pi/n))
-        sample2 = bit32.lshift(sample2, 16)
 
         -- Left channel sample
-        DEV.write32(addr + 8*i + 0, sample)
+        DEV.write16(addr + 8*i + 2, sample)
 
         -- Right channel sample
-        DEV.write32(addr + 8*i + 4, sample2)
+        DEV.write16(addr + 8*i + 6, sample)
     end
 
     return n
