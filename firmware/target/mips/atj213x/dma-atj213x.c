@@ -60,19 +60,18 @@ static void dma_hw_tcirq_ack(unsigned int chan)
     DMAC_IRQPD |= (3 << (chan));
 }
 
-static void dma_hw_tcirq_disable(unsigned int chan)
+void dma_tcirq_disable(unsigned int chan)
 {
     /* Disable DMA transfer complete irq */
     DMAC_IRQEN &= ~(1 << chan*2);
 }
 
-static void dma_hw_tcirq_enable(unsigned int chan)
+void dma_tcirq_enable(unsigned int chan)
 {
     /* Enable DMA transfer complete irq */
     DMAC_IRQEN |= (1 << chan*2);
 }
 
-/* higher level */
 void dma_setup(unsigned int chan, struct dma_hwinfo_t *hwinfo,
                void (*cb)(void))
 {
@@ -92,7 +91,7 @@ void dma_start(unsigned int chan)
     commit_discard_dcache();
 
     /* unmask DMA channel transfer complete interrupt */
-    dma_hw_tcirq_enable(chan);
+    dma_tcirq_enable(chan);
 
     /* enable DMA irq in INTC */
     atj213x_intc_unmask(BP_INTC_MSK_DMA);
@@ -103,7 +102,7 @@ void dma_start(unsigned int chan)
 
 void dma_stop(unsigned int chan)
 {
-    dma_hw_tcirq_disable(chan);
+    dma_tcirq_disable(chan);
     dma_hw_tcirq_ack(chan);
 
     dma_ctl[chan].hwinfo = NULL;

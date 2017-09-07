@@ -67,6 +67,8 @@ void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo);
 void dma_start(unsigned int chan);
 void dma_stop(unsigned int chan);
 void dma_pause(unsigned int chan, bool pause);
+void dma_tcirq_disable(unsigned int chan);
+void dma_tcirq_enable(unsigned int chan);
 bool dma_wait_complete(unsigned int chan, unsigned tmo);
 
 #endif /* DMA_ATJ213X_H */
