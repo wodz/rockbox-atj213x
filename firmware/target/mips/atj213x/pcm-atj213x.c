@@ -31,7 +31,7 @@
 #include "regs/regs-dac.h"
 #include "regs/regs-cmu.h"
 
-static void playback_callback(struct ll_dma_t *ll);
+static void playback_cb(void);
 
 static int locked = 0;
 
@@ -61,54 +61,82 @@ void pcm_play_unlock(void)
 
 void pcm_play_dma_stop(void)
 {
-    ll_dma_stop(DMA_CH_PLAYBACK);
+    dma_stop(DMA_CH_PLAYBACK);
     locked = 1;
 }
 
-static void pcm_play_dma_run(const void *addr, size_t size)
+struct dst_t {
+    int16_t reserved_l;
+    int16_t l;
+    int16_t reserved_r;
+    int16_t r;
+};
+
+/* Rockbox uses packed S16 samples while ATJ DAC fifo expects S32 samples
+ * (well actually it discards 16 least significant bits).
+ * So we use hack here to convert rockbox samples and  samples suitable
+ * for DMA transfer to ATJ DAC fifo. Ultimately support for S32 samples
+ * should be added to rockbox.
+ */
+static void samples_convert(struct dst_t *dst, uint32_t *src, size_t size)
 {
-    static struct ll_dma_t playback_ll;
-
-    unsigned int mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
-                        BF_DMAC_DMA_MODE_RELO(0)             |
-                        BF_DMAC_DMA_MODE_DDSP(0)             |
-                        BF_DMAC_DMA_MODE_DCOL(0)             |
-                        BF_DMAC_DMA_MODE_DDIR(0)             |
-                        BF_DMAC_DMA_MODE_DFXA_V(FIXED)       |
-                        BF_DMAC_DMA_MODE_DTRG_V(DAC)         |
-                        BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32) |
-                        BF_DMAC_DMA_MODE_DFXS(0)             |
-                        BF_DMAC_DMA_MODE_SBURLEN_V(SINGLE)   |
-                        BF_DMAC_DMA_MODE_SDSP(0)             |
-                        BF_DMAC_DMA_MODE_SCOL(0)             |
-                        BF_DMAC_DMA_MODE_SDIR_V(INCREASE)    |
-                        BF_DMAC_DMA_MODE_SFXA_V(NOT_FIXED)   |
-                        BF_DMAC_DMA_MODE_STRANWID_V(WIDTH32) |
-                        BF_DMAC_DMA_MODE_SFXS(0);
-
-    if (iram_address((void *)addr))
+    uint32_t *end = (uint32_t *)((char *)src + size);
+    while (src > end)
     {
-        mode |= BF_DMAC_DMA_MODE_STRG_V(IRAM);
+        dst->r = *src;
+        dst->l = *src >> 16;
+        dst++;
+        src++;
     }
-    else
-    {
-        mode |= BF_DMAC_DMA_MODE_STRG_V(SDRAM);
-    }
-
-    playback_ll.hwinfo.dst = PHYSADDR((uint32_t)&DAC_DAT);
-    playback_ll.hwinfo.src = PHYSADDR((uint32_t)addr);
-    playback_ll.hwinfo.mode = mode;
-    playback_ll.hwinfo.cnt = size;
-    playback_ll.next = NULL;
-
-    /* kick in DMA transfer */
-    ll_dma_setup(DMA_CH_PLAYBACK, &playback_ll, playback_callback, NULL);
-    ll_dma_start(DMA_CH_PLAYBACK);
 }
 
-void playback_callback(struct ll_dma_t *ll)
+static void *orig_addr = NULL;
+static void pcm_play_dma_run(const void *addr, size_t size)
 {
-    (void)ll;
+    /* local sample buffer in format suitable for DMA transfer */
+    static struct dst_t samples[256*2];
+
+    /* DMA control struct */
+    static struct hwinfo_t hwinfo;
+
+    hwinfo.mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
+                  BF_DMAC_DMA_MODE_RELO(0)             |
+                  BF_DMAC_DMA_MODE_DDSP(0)             |
+                  BF_DMAC_DMA_MODE_DCOL(0)             |
+                  BF_DMAC_DMA_MODE_DDIR(0)             |
+                  BF_DMAC_DMA_MODE_DFXA_V(FIXED)       |
+                  BF_DMAC_DMA_MODE_DTRG_V(DAC)         |
+                  BF_DMAC_DMA_MODE_DTRANWID_V(WIDTH32) |
+                  BF_DMAC_DMA_MODE_DFXS(0)             |
+                  BF_DMAC_DMA_MODE_SBURLEN_V(SINGLE)   |
+                  BF_DMAC_DMA_MODE_SDSP(0)             |
+                  BF_DMAC_DMA_MODE_SCOL(0)             |
+                  BF_DMAC_DMA_MODE_SDIR_V(INCREASE)    |
+                  BF_DMAC_DMA_MODE_SFXA_V(NOT_FIXED)   |
+                  BF_DMAC_DMA_MODE_STRG_V(SDRAM)       |
+                  BF_DMAC_DMA_MODE_STRANWID_V(WIDTH32) |
+                  BF_DMAC_DMA_MODE_SFXS(0);
+
+    hwinfo.dst = PHYSADDR((uint32_t)&DAC_DAT);
+    hwinfo.src = PHYSADDR((uint32_t)&samples);
+
+    /* account for the fact that converted samples
+     * takes twice as much space in memory
+     */
+    hwinfo.cnt = size*2;
+
+    samples_convert(samples, (uint32_t *)addr, size);
+
+    /* needed for pcm_play_dma_get_peak_buffer() */
+    orig_addr = addr;
+
+    /* kick in DMA transfer */
+    dma_setup(DMA_CH_PLAYBACK, &hwinfo, playback_cb);
+    dma_start(DMA_CH_PLAYBACK);
+}
+
+void playback_cb(void)
+{
     const void *start;
     size_t size;
 
@@ -137,21 +165,24 @@ void pcm_play_dma_pause(bool pause)
 
 static void set_codec_freq(unsigned int freq)
 {
-    /* 24Mhz base clock */
-    static const unsigned int pcm_freq_params[HW_NUM_FREQ] = 
+    /* DACPLL, DACCLK */
+    static const unsigned int pcm_freq_params[HW_NUM_FREQ][2] = 
     {
-        [HW_FREQ_96] = 0,
-        [HW_FREQ_48] = 1,
-        [HW_FREQ_32] = 2,
-        [HW_FREQ_24] = 3,
-        [HW_FREQ_16] = 4,
-        [HW_FREQ_12] = 5,
-        [HW_FREQ_8]  = 6,
+        [HW_FREQ_96] = {0, 0},
+        [HW_FREQ_48] = {0, 1},
+        [HW_FREQ_44] = {1, 1}
+        [HW_FREQ_32] = {0, 2},
+        [HW_FREQ_24] = {0, 3},
+        [HW_FREQ_22] = {1, 3}
+        [HW_FREQ_16] = {0, 4},
+        [HW_FREQ_12] = {0, 5},
+        [HW_FREQ_11] = {1, 5}
+        [HW_FREQ_8]  = {0, 6},
     };
 
     CMU_AUDIOPLL = BF_CMU_AUDIOPLL_APEN(1) |
-                   BF_CMU_AUDIOPLL_DACPLL(0) |
-                   BF_CMU_AUDIOPLL_DACCLK(pcm_freq_params[freq]);
+                   BF_CMU_AUDIOPLL_DACPLL(pcm_freq_params[freq][0]) |
+                   BF_CMU_AUDIOPLL_DACCLK(pcm_freq_params[freq][1]);
 }
 
 void pcm_play_dma_init(void)
@@ -167,7 +198,6 @@ void pcm_play_dma_postinit(void)
 void pcm_dma_apply_settings(void)
 {
     set_codec_freq(pcm_fsel);
-    audiohw_set_frequency(pcm_fsel);
 }
 
 size_t pcm_get_bytes_waiting(void)
@@ -180,12 +210,18 @@ const void * pcm_play_dma_get_peak_buffer(int *count)
     int old = disable_irq_save();
     uint32_t cnt = dma_get_cnt(DMA_CH_PLAYBACK);
     uint32_t rem = dma_get_remining(DMA_CH_PLAYBACK);
-    uint32_t src = dma_get_src(DMA_CH_PLAYBACK);
 
-    *count = rem;
+    *count = rem/2;
     restore_interrupt(old);
 
-    return (void*)(src + cnt - rem);
+    /* Warning!
+     * Currently we use hack and convert packed S16 samples as provided
+     * by rockbox into format suitable for DMA transfer to DAC.
+     * We use here address of original pcm buffer and calculate index inside
+     * this buffer based on DMA state. Since DMA sample is twice as big
+     * as packed S16 we need to adjust offset.
+     */
+    return (void*)(orig_addr + (cnt - rem)/2);
 }
 
 /****************************************************************************
