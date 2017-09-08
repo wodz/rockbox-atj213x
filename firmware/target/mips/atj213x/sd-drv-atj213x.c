@@ -119,7 +119,7 @@ bool sdc_card_present(void)
     return !atj213x_gpio_get(GPIO_PORTB, 22);
 }
 
-static sdc_rd_xfer_setup(void)
+static void sdc_rd_xfer_setup(void)
 {
     SD_BYTECNT = hwinfo.cnt;
 
@@ -140,7 +140,7 @@ static sdc_rd_xfer_setup(void)
  */
 static void sdc_dma_rd_cb(void)
 {
-    xfer_size -= rd_hwinfo.cnt;
+    xfer_size -= hwinfo.cnt;
 
     if (xfer_size > 0)
     {
@@ -191,9 +191,9 @@ static void sdc_dma_rd(void *buf, int size)
 
     xfer_size = size;
 
-    rd_hwinfo.dst = PHYSADDR((uint32_t)buf);
-    rd_hwinfo.src = PHYSADDR((uint32_t)&SD_DAT);
-    rd_hwinfo.cnt = MIN(xfer_size, SD_MAX_XFER_SIZE);
+    hwinfo.dst = PHYSADDR((uint32_t)buf);
+    hwinfo.src = PHYSADDR((uint32_t)&SD_DAT);
+    hwinfo.cnt = MIN(xfer_size, SD_MAX_XFER_SIZE);
 
     sdc_rd_xfer_setup();
 

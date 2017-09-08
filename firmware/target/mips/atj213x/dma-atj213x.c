@@ -85,7 +85,7 @@ void dma_start(unsigned int chan)
     dma_hw_reset(chan);
 
     /* setup dst, src, cnt and mode of the DMA channel */
-    dma_hw_setup(chan, dma_ctl[chan]->hwinfo);
+    dma_hw_setup(chan, dma_ctl[chan].hwinfo);
 
     /* cache coherency */
     commit_discard_dcache();
@@ -108,7 +108,7 @@ void dma_stop(unsigned int chan)
     dma_ctl[chan].hwinfo = NULL;
     dma_ctl[chan].callback = NULL;
 
-    dma_reset(chan);
+    dma_hw_reset(chan);
 }
 
 void dma_pause(unsigned int chan, bool pause)
@@ -148,12 +148,12 @@ void INT_DMA(void)
         if (irqpd & 1)
         {
             /* ack this interrupt */
-            dma_tcirq_ack(chan);
+            dma_hw_tcirq_ack(chan);
 
             /* execute registered callback if any */
             if (dma_ctl[chan].callback)
             {
-                *dma_ctl[chan].callback();
+                dma_ctl[chan].callback();
             }
         }
 

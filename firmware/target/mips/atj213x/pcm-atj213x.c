@@ -97,7 +97,7 @@ static void pcm_play_dma_run(const void *addr, size_t size)
     static struct dst_t samples[256*2];
 
     /* DMA control struct */
-    static struct hwinfo_t hwinfo;
+    static struct dma_hwinfo_t hwinfo;
 
     hwinfo.mode = BF_DMAC_DMA_MODE_DBURLEN_V(SINGLE)   |
                   BF_DMAC_DMA_MODE_RELO(0)             |
@@ -170,14 +170,14 @@ static void set_codec_freq(unsigned int freq)
     {
         [HW_FREQ_96] = {0, 0},
         [HW_FREQ_48] = {0, 1},
-        [HW_FREQ_44] = {1, 1}
+        [HW_FREQ_44] = {1, 1},
         [HW_FREQ_32] = {0, 2},
         [HW_FREQ_24] = {0, 3},
-        [HW_FREQ_22] = {1, 3}
+        [HW_FREQ_22] = {1, 3},
         [HW_FREQ_16] = {0, 4},
         [HW_FREQ_12] = {0, 5},
-        [HW_FREQ_11] = {1, 5}
-        [HW_FREQ_8]  = {0, 6},
+        [HW_FREQ_11] = {1, 5},
+        [HW_FREQ_8]  = {0, 6}
     };
 
     CMU_AUDIOPLL = BF_CMU_AUDIOPLL_APEN(1) |

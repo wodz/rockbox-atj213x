@@ -63,7 +63,8 @@ static inline unsigned int dma_get_remining(unsigned int chan)
     return DMAC_DMA_REM(chan);
 }
 
-void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo);
+void dma_setup(unsigned int chan, struct dma_hwinfo_t *dma_hwinfo,
+               void (*cb)(void));
 void dma_start(unsigned int chan);
 void dma_stop(unsigned int chan);
 void dma_pause(unsigned int chan, bool pause);
