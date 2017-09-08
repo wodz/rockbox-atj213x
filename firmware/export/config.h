@@ -53,6 +53,7 @@
 #define IPOD_REMOTE_TUNER   0x40 /* Apple */
 #define RDA5802    0x80 /* RDA Microelectronics */
 #define STFM1000   0x100 /* Sigmatel */
+#define LV24230LP  0x200 /* Sanyo */
 
 /* CONFIG_CODEC */
 #define MAS3587F 3587
@@ -166,6 +167,7 @@
 #define SAMSUNG_YPR1_PAD  61
 #define SAMSUNG_YH92X_PAD  62
 #define DX50_PAD           63
+#define IRIVER_E150_PAD   64
 
 /* CONFIG_REMOTE_KEYPAD */
 #define H100_REMOTE   1
@@ -356,6 +358,7 @@ Lyre prototype 1 */
 #define RTC_S35380A  19
 #define RTC_IMX233   20
 #define RTC_STM41T62 21 /* ST M41T62 */
+#define RTC_ATJ213X  22
 
 /* USB On-the-go */
 #define USBOTG_M66591   6591 /* M:Robe 500 */
@@ -369,7 +372,7 @@ Lyre prototype 1 */
 #define USBOTG_DESIGNWARE 6401 /* Synopsys DesignWare OTG, used in S5L8701/S5L8702/S5L8720/AS3252v2 */
 #define USBOTG_RK27XX   2700 /* Rockchip rk27xx */
 #define USBOTG_TNETV105 105  /* TI TNETV105 */
-#define USBOTG_ATJ213X  3120 /* CUSB2.0 core in ATJ213X */
+#define USBOTG_ATJ213X  2130 /* CUSB2.0 core in ATJ213X */
 
 /* Multiple cores */
 #define CPU 0
