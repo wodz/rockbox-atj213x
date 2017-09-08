@@ -543,7 +543,9 @@ target/arm/s5l8702/i2c-s5l8702.c
 target/arm/rk27xx/i2c-rk27xx.c
 #elif CONFIG_I2C == I2C_IMX233
 target/arm/imx233/i2c-imx233.c
-#endif
+#elif CONFIG_I2C == I2C_ATJ213X
+target/mips/atj213x/i2c-atj213x.c
+#endif /* CONFIG_I2C */
 
 #if CONFIG_CPU == PNX0101
 target/arm/pnx0101/kernel-pnx0101.c
@@ -835,10 +837,7 @@ target/arm/s5l8700/adc-s5l8700.c
 
 #elif CONFIG_I2C == I2C_TCC77X
 target/arm/tcc77x/adc-tcc77x.c
-
-#elif CONFIG_I2C == I2C_ATJ213X
-target/mips/atj213x/i2c-atj213x.c
-#endif /* CONFIG_I2C */
+#endif
 
 #ifdef CPU_SH
 target/sh/archos/mascodec-archos.c
@@ -1682,6 +1681,10 @@ target/mips/atj213x/sd-drv-atj213x.c
 target/mips/atj213x/powermgmt-atj213x.c
 target/mips/atj213x/pcm-atj213x.c
 target/mips/atj213x/cmu-atj213x.c
+
+#if defined (HAVE_ATJ213X_CODEC)
+drivers/audio/atj213x-codec.c
+#endif
 #endif
 
 #if defined(RK27_GENERIC)
