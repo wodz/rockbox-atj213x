@@ -23,16 +23,18 @@
 #include "audio.h"
 #include "audiohw.h"
 #include "system.h"
+#include "cmu-atj213x.h"
+#include "regs/regs-dac.h"
 
 static void audiohw_mute(bool mute)
 {
     if (mute)
     {
-        DAC_ANALOG &= ~BF_DAC_ANALOG_PBM(1)
+        DAC_ANALOG &= ~BF_DAC_ANALOG_PBM(1);
     }
     else
     {
-        DAC_ANALOG |= BF_DAC_ANALOG_PBM(1)
+        DAC_ANALOG |= BF_DAC_ANALOG_PBM(1);
     }
 }
 

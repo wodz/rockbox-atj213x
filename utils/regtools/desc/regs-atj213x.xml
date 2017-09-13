@@ -985,7 +985,7 @@
         <name>RTCWDT</name>
         <title>Real Time Clock, Timers and Watchdog</title>
         <instance>
-            <name>RTC</name>
+            <name>RTCWDT</name>
             <address>0xb0018000</address>
         </instance>
         <node>
@@ -1181,24 +1181,24 @@
         <node>
             <name>TxCTL</name>
             <instance>
-                <name>T0CTL</name>
-                <address>0x18</address>
-            </instance>
-            <instance>
-                <name>T1CTL</name>
-                <address>0x20</address>
+                <name>TCTL</name>
+                <range>
+                    <first>0</first>
+                    <count>2</count>
+                    <formula variable="n">0x18 + (n*8)</formula>
+                </range>
             </instance>
             <register/>
         </node>
         <node>
             <name>Tx</name>
             <instance>
-                <name>T0</name>
-                <address>0x1c</address>
-            </instance>
-            <instance>
-                <name>T1</name>
-                <address>0x24</address>
+                <name>T</name>
+                <range>
+                    <first>0</first>
+                    <count>2</count>
+                    <formula variable="n">0x1c + (n*8)</formula>
+                </range>
             </instance>
             <register/>
         </node>
@@ -1632,9 +1632,9 @@
             <register/>
         </node>
         <node>
-            <name>DMA_MODE</name>
+            <name>DMA_MODEx</name>
             <instance>
-                <name>DMA_MODEx</name>
+                <name>DMA_MODE</name>
                 <range>
                     <first>0</first>
                     <count>8</count>
@@ -1866,9 +1866,9 @@ If DFXS=1, DMA will always transfer in DTRANWID.
             </register>
         </node>
         <node>
-            <name>DMA_SRC</name>
+            <name>DMA_SRCx</name>
             <instance>
-                <name>DMA_SRCx</name>
+                <name>DMA_SRC</name>
                 <range>
                     <first>0</first>
                     <count>8</count>
@@ -1878,9 +1878,9 @@ If DFXS=1, DMA will always transfer in DTRANWID.
             <register/>
         </node>
         <node>
-            <name>DMA_DST</name>
+            <name>DMA_DSTx</name>
             <instance>
-                <name>DMA_DSTx</name>
+                <name>DMA_DST</name>
                 <range>
                     <first>0</first>
                     <count>8</count>
@@ -1890,9 +1890,9 @@ If DFXS=1, DMA will always transfer in DTRANWID.
             <register/>
         </node>
         <node>
-            <name>DMA_CNT</name>
+            <name>DMA_CNTx</name>
             <instance>
-                <name>DMA_CNTx</name>
+                <name>DMA_CNT</name>
                 <range>
                     <first>0</first>
                     <count>8</count>
@@ -1902,9 +1902,9 @@ If DFXS=1, DMA will always transfer in DTRANWID.
             <register/>
         </node>
         <node>
-            <name>DMA_REM</name>
+            <name>DMA_REMx</name>
             <instance>
-                <name>DMA_REMx</name>
+                <name>DMA_REM</name>
                 <range>
                     <first>0</first>
                     <count>8</count>
@@ -1914,9 +1914,9 @@ If DFXS=1, DMA will always transfer in DTRANWID.
             <register/>
         </node>
         <node>
-            <name>DMA_CMD</name>
+            <name>DMA_CMDx</name>
             <instance>
-                <name>DMA_CMDx</name>
+                <name>DMA_CMD</name>
                 <range>
                     <first>0</first>
                     <count>8</count>

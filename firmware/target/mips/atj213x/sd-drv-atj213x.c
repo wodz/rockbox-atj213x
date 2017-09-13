@@ -56,12 +56,12 @@ void sdc_init(void)
 
     SD_CTL = BM_SD_CTL_RESE |
              BM_SD_CTL_EN |
-             BF_SD_CTL_BSEL_V(BUS) |
-             BF_SD_CTL_BUSWID_V(WIDTH_4BIT); /* 0x481 */
+             BF_SD_CTL_BSEL_V(AHB) |
+             BF_SD_CTL_DATAWID_V(4BIT); /* 0x481 */
 
     SD_FIFOCTL = BM_SD_FIFOCTL_EMPTY |
                  BM_SD_FIFOCTL_RST |
-                 BF_SD_FIFOCTL_THRH_V(THR_10_16) |
+                 BF_SD_FIFOCTL_THRH_V(10_16EMPTY) |
                  BM_SD_FIFOCTL_FULL |
                  BM_SD_FIFOCTL_IRQP; /* 0x25c */
 
@@ -107,11 +107,11 @@ void sdc_set_speed(unsigned sdfreq)
 void sdc_set_bus_width(unsigned width)
 {
     if (width == 1)
-        SD_CTL = (SD_CTL & ~BM_SD_CTL_BUSWID) |
-                 BF_SD_CTL_BUSWID_V(WIDTH_1BIT);
+        SD_CTL = (SD_CTL & ~BM_SD_CTL_DATAWID) |
+                 BF_SD_CTL_DATAWID_V(1BIT);
     else
-        SD_CTL = (SD_CTL & ~BM_SD_CTL_BUSWID) |
-                 BF_SD_CTL_BUSWID_V(WIDTH_4BIT);
+        SD_CTL = (SD_CTL & ~BM_SD_CTL_DATAWID) |
+                 BF_SD_CTL_DATAWID_V(4BIT);
 }
 
 bool sdc_card_present(void)
@@ -125,7 +125,7 @@ static void sdc_rd_xfer_setup(void)
 
     SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
                  BF_SD_FIFOCTL_RST(1)            |
-                 BF_SD_FIFOCTL_THRH_V(THR_10_16) |
+                 BF_SD_FIFOCTL_THRH_V(10_16EMPTY) |
                  BF_SD_FIFOCTL_FULL(1)           |
                  BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
 
@@ -207,7 +207,7 @@ static void sdc_wr_xfer_setup(void)
 
     SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
                  BF_SD_FIFOCTL_RST(1)            |
-                 BF_SD_FIFOCTL_THRH_V(THR_10_16) |
+                 BF_SD_FIFOCTL_THRH_V(10_16EMPTY) |
                  BF_SD_FIFOCTL_FULL(1)           |
                  BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
 

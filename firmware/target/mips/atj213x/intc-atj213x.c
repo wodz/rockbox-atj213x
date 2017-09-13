@@ -17,13 +17,14 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
- 
+
+#include <stdint.h> 
 #include "intc-atj213x.h"
 #include "regs/regs-intc.h"
 
 void atj213x_intc_unmask(unsigned int irqno)
 {
-    INTC_CFG2 |= (1<<irqno);
+    INTC_CFGx(2) |= (1<<irqno);
     INTC_MSK |= (1<<irqno);
 }
 

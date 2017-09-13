@@ -18,6 +18,7 @@
  *
  ****************************************************************************/
 
+#include <stdint.h>
 #include "panic.h"
 #include "gpio-atj213x.h"
 #include "lradc-atj213x.h"

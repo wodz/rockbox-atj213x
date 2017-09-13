@@ -17,7 +17,8 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
- 
+
+#include <stdint.h> 
 #include "wdt-atj213x.h"
 #include "regs/regs-rtcwdt.h"
 
