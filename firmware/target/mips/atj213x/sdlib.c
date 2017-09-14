@@ -46,7 +46,7 @@
 #define SDMMC_SPEED(drive) SDMMC_INFO(drive).speed
 
 static struct sdlib_card_info_t sdmmc_card_info[SDMMC_NUM_DRIVES];
-static int disk_last_activity[SDMMC_NUM_DRIVES];
+static long last_disk_activity = -1;
 static struct mutex sdmmc_mtx[SDMMC_NUM_DRIVES];
 
 static long sdmmc_stack[(DEFAULT_STACK_SIZE*2 + 0x200)/sizeof(long)];
@@ -313,7 +313,7 @@ static void sdmmc_thread(void)
 #endif /* HAVE_HOTSWAP */
 
         case SYS_TIMEOUT:
-            if (TIME_BEFORE(current_tick, disk_last_activity+(3*HZ)))
+            if (TIME_BEFORE(current_tick, last_disk_activity+(3*HZ)))
             {
                 idle_notified = false;
             }
@@ -385,6 +385,7 @@ static int sd_xfer(IF_MD(int drive,) unsigned long start, int count,
                start, count, SDMMC_INFO(drive).numblocks);
 
     led(true);
+    last_disk_activity = current_tick;
 
     /* I have one particular card which fails to SELECT on the first try
      * usually seccond attempt is successful, sometimes third
@@ -475,6 +476,7 @@ long sd_last_disk_activity(void)
 
 tCardInfo *card_get_info_target(int card_no)
 {
+    (void)card_no;
     return &SDMMC_INFO(card_no);
 }
 #endif /* BOOTLOADER */

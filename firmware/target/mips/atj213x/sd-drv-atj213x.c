@@ -37,7 +37,7 @@
 #define SD_MAX_XFER_SIZE 0xffff
 
 /* Control variables for DMA transfers.
- * As t is not possible to issue concurent rd/wr
+ * As it is not possible to issue concurent rd/wr
  * transfers single instance is enough
  */
 static volatile struct dma_hwinfo_t hwinfo;
@@ -197,7 +197,7 @@ static void sdc_dma_rd(void *buf, int size)
 
     sdc_rd_xfer_setup();
 
-    dma_setup(DMA_CH_SD, &hwinfo, sdc_dma_rd_cb);
+    dma_setup(DMA_CH_SD, (struct dma_hwinfo_t *)&hwinfo, sdc_dma_rd_cb);
     dma_start(DMA_CH_SD);
 }
 
@@ -280,7 +280,7 @@ static void sdc_dma_wr(void *buf, int size)
 
     sdc_wr_xfer_setup();
 
-    dma_setup(DMA_CH_SD, &hwinfo, sdc_dma_wr_cb);
+    dma_setup(DMA_CH_SD, (struct dma_hwinfo_t *)&hwinfo, sdc_dma_wr_cb);
     dma_start(DMA_CH_SD);
 }
 

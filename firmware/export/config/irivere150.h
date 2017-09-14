@@ -51,18 +51,18 @@
 
 #ifndef BOOTLOADER
 /* Define this if your LCD can be enabled/disabled */
-#define HAVE_LCD_ENABLE
+//#define HAVE_LCD_ENABLE
 
 /* Define this if your LCD can be put to sleep. HAVE_LCD_ENABLE
    should be defined as well. */
-#define HAVE_LCD_SLEEP
+//#define HAVE_LCD_SLEEP
 /* We don't use a setting but a fixed delay after the backlight has
  * turned off */
-#define LCD_SLEEP_TIMEOUT (5*HZ)
+//#define LCD_SLEEP_TIMEOUT (5*HZ)
 
 #endif /* BOOTLOADER */
 
-#define CONFIG_KEYPAD IRIVERE150_PAD
+#define CONFIG_KEYPAD IRIVER_E150_PAD
 
 /* Define this to enable morse code input */
 #define HAVE_MORSE_INPUT
@@ -124,7 +124,7 @@
 #define HAVE_USB_POWER
 
 /* usb core type */
-#define ONFIG_USBOTG USBOTG_ATJ213X
+#define CONFIG_USBOTG USBOTG_ATJ213X
 
 #define HAVE_USBSTACK
 

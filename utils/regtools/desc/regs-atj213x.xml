@@ -113,9 +113,13 @@
             </instance>
             <register>
                 <field>
-                    <name>RESERVED31_28</name>
+                    <name>DC5V</name>
+                    <position>31</position>
+                </field>
+                <field>
+                    <name>RESERVED30_28</name>
                     <position>28</position>
-                    <width>4</width>
+                    <width>3</width>
                 </field>
                 <field>
                     <name>REMOADC4</name>

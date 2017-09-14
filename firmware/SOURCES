@@ -1679,9 +1679,11 @@ target/mips/atj213x/dma-atj213x.c
 target/mips/atj213x/sdlib.c
 target/mips/atj213x/sd-drv-atj213x.c
 target/mips/atj213x/powermgmt-atj213x.c
+target/mips/atj213x/power-atj213x.c
+target/mips/atj213x/pmu-atj213x.c
 target/mips/atj213x/pcm-atj213x.c
 target/mips/atj213x/cmu-atj213x.c
-
+target/mips/atj213x/usb-atj213x.c
 #if defined (HAVE_ATJ213X_CODEC)
 drivers/audio/atj213x-codec.c
 #endif

@@ -37,31 +37,31 @@
 #define BTN_HDPH_PORT      GPIO_PORTA
 #define BTN_HDPH_PIN       26
 
-#define BTN_ON_PORT        GPIO_PORTA
-#define BTN_ON_PIN         8
+#define BTN_POWER_PORT     GPIO_PORTA
+#define BTN_POWER_PIN      8
 
-#define BTN_VOL_UP_PORT    GPIO_PORTA
-#define BTN_VOL_UP_PIN     12
+#define BTN_VOLUP_PORT     GPIO_PORTA
+#define BTN_VOLUP_PIN      12
 
-#define BTN_VOL_DOWN_PORT  GPIO_PORTB
-#define BTN_VOL_DOWN_PIN   31
+#define BTN_VOLDOWN_PORT   GPIO_PORTB
+#define BTN_VOLDOWN_PIN    31
 
 /* Main unit's button codes*/
-#define BUTTON_ON          (1<<0)
+#define BUTTON_POWER       (1<<0)
 #define BUTTON_LEFT        (1<<1)
 #define BUTTON_RIGHT       (1<<2)
 #define BUTTON_UP          (1<<3)
 #define BUTTON_DOWN        (1<<4)
 #define BUTTON_SELECT      (1<<5)
-#define BUTTON_VOL_UP      (1<<6)
-#define BUTTON_VOL_DOWN    (1<<7)
+#define BUTTON_VOLUP       (1<<6)
+#define BUTTON_VOLDOWN     (1<<7)
 
 
-#define BUTTON_MAIN (BUTTON_ON|BUTTON_LEFT|BUTTON_RIGHT|\
+#define BUTTON_MAIN (BUTTON_POWER|BUTTON_LEFT|BUTTON_RIGHT|\
                      BUTTON_UP|BUTTON_DOWN|BUTTON_SELECT|\
-                     BUTTON_VOL_UP|BUTTON_VOL_DOWN)
+                     BUTTON_VOLUP|BUTTONVOL_DOWN)
 
-#define POWEROFF_BUTTON BUTTON_ON
+#define POWEROFF_BUTTON BUTTON_POWER
 #define POWEROFF_COUNT 30
 
 bool headphones_inserted(void);

@@ -6,7 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Copyright (C) 2016 by Marcin Bukat
+ * Copyright (C) 2017 by Marcin Bukat
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,10 +17,31 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef CMU_ATJ213X_H
-#define CMU_ATJ213X_H
- 
-void atj213x_clk_enable(unsigned int blockno);
-void atj213x_clk_disable(unsigned int blockno);
-void atj213x_block_reset(unsigned int blockno);
-#endif /* INTC_ATJ213X_H */
+
+#include "config.h"
+#include "cpu.h"
+#include "string.h"
+#include "usb.h"
+#include "usb_drv.h"
+#include "usb_core.h"
+#include "system.h"
+#include "system-target.h"
+
+int usb_status = USB_EXTRACTED;
+
+void usb_init_device(void)
+{
+}
+
+void usb_attach(void)
+{
+    usb_enable(true);
+}
+
+void usb_enable(bool on)
+{
+    if(on)
+        usb_drv_init();
+    else
+        usb_drv_exit();
+}

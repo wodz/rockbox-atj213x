@@ -75,7 +75,9 @@ SECTIONS
     .ibss (NOLOAD) :
     {
         _iedata = .;
+        _ibss_start = .;
         *(.ibss*);
+        _ibss_end = .;
         _iend = .;
     } > IRAM
 
@@ -95,10 +97,12 @@ SECTIONS
     .bss (NOLOAD):
     {
          _edata = .;
+         _bss_start = .;
          *(.sbss*);
          *(.bss*);
          *(COMMON);
          *(.scommon*);
+         _bss_end = .;
          _end = .;
     } > DRAM
 

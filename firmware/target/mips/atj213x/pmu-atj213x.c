@@ -17,7 +17,8 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
- 
+
+#include <stdint.h> 
 #include "pmu-atj213x.h"
 #include "regs/regs-pmu.h"
 
@@ -41,7 +42,7 @@ void atj213x_charger_set_current(enum pmu_charge_current_t current)
 
 unsigned int atj213x_charger_state()
 {
-    uint32_t stat = PMU_CHG & BF_PMU_CHG_STAT(CHARGING) >> BP_PMU_CHG_STAT;
+    uint32_t stat = PMU_CHG & BF_PMU_CHG_STAT_V(CHARGING) >> BP_PMU_CHG_STAT;
     uint32_t chgphase = (PMU_CHG & BM_PMU_CHG_CHGPHASE) >> BP_PMU_CHG_CHGPHASE;
     return ((chgphase << 1) | stat);
 }

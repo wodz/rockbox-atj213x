@@ -90,7 +90,7 @@ static void samples_convert(struct dst_t *dst, uint32_t *src, size_t size)
     }
 }
 
-static void *orig_addr = NULL;
+static const void *orig_addr = NULL;
 static void pcm_play_dma_run(const void *addr, size_t size)
 {
     /* local sample buffer in format suitable for DMA transfer */

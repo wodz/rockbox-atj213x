@@ -32,14 +32,19 @@
 #include <inttypes.h>
 #include "power.h"
 
+#include "intc-atj213x.h"
+#include "cmu-atj213x.h"
 #include "regs/regs-pmu.h"
+#include "regs/regs-udc.h"
+#include "regs/regs-intc.h"
 #include "logf.h"
 
 typedef volatile uint8_t reg8;
 typedef volatile uint16_t reg16;
 typedef volatile uint32_t reg32;
 
-#define EP0_BC(in) (*(reg8 *)(REGS_UDC_BASE + ((in) ? 0x1 : 0x0))
+#define REGS_UDC_BASE 0xb00e0000
+#define EP0_BC(in) (*(reg8 *)(REGS_UDC_BASE + ((in) ? 0x1 : 0x0)))
 
 /* OUT1BCL, IN1BCL, OUT2BCL, IN2BCL */
 #define EP_BCL(ep_num, in) (*(reg8 *)(REGS_UDC_BASE + ((in) ? 0x4 : 0x0) + (ep_num) * 8))
@@ -53,8 +58,8 @@ typedef volatile uint32_t reg32;
 /* OUT1CS, IN1CS, OUT2CS, IN2CS */
 #define EP_CS(ep_num, in) (*(reg8 *)(REGS_UDC_BASE + ((in) ? 0x7 : 0x3) + (ep_num) * 8))
 
-/* FIFO1DAT, FIFO2DAT */
-#define EP_FIFO(ep_num) (*(reg32 *)(REGS_UDC_BASE + 0x80 + (ep_num) * 4))
+/* Fixme!!! FIFO1DAT, FIFO2DAT */
+#define EP_FIFO(ep_num, in) (*(reg32 *)(REGS_UDC_BASE + 0x80 + (ep_num) * 4))
 
 #ifdef LOGF_ENABLE
 #define XFER_DIR_STR(dir) ((dir) ? "IN" : "OUT")
@@ -68,8 +73,8 @@ typedef volatile uint32_t reg32;
 #define USB_FULL_SPEED 0
 #define USB_HIGH_SPEED 1
 
-#define ENDPOINT(num, dir) \
-    {num, 0, dir, false, NULL, 0, 0, true, {0, 0, 0}}
+#define ENDPOINT(_num, _dir) \
+    {.ep_num = (_num), .type = 0, .dir = (_dir), .allocated = false, .buf = NULL, .len = 0, .cnt = 0, .zlp = true, .block = false}
 
 struct endpoint_t
 {
@@ -83,14 +88,14 @@ struct endpoint_t
     bool zlp;                     /* mark the need for ZLP at the end */
     volatile bool block;          /* flag indicating that transfer is blocking */ 
     struct semaphore complete;    /* semaphore for blocking transfers */
-}
+};
 
-static struct endpoint_t endpoints[] =
+static struct endpoint_t endpoints[][2] =
 {
-    ENDPOINT(0, OUT), /* stub */
-    ENDPOINT(1, OUT),
-    ENDPOINT(2, OUT),
-}
+    {ENDPOINT(0, DIR_OUT), ENDPOINT(0, DIR_IN)},
+    {ENDPOINT(1, DIR_OUT), ENDPOINT(1, DIR_IN)},
+    {ENDPOINT(2, DIR_OUT), ENDPOINT(2, DIR_IN)}
+};
 
 static volatile int udc_speed = USB_FULL_SPEED;
 
@@ -105,7 +110,7 @@ static uint16_t read_epbc(struct endpoint_t *endp)
     return (endp->ep_num == 0) ?
                EP0_BC(endp->dir) : 
                (EP_BCH(endp->ep_num, endp->dir) << 8) |
-                   EP_BCL(endp->ep_num, endp->dir)
+                   EP_BCL(endp->ep_num, endp->dir);
 }
 
 static void write_epcs(struct endpoint_t *endp, uint8_t val)
@@ -124,7 +129,7 @@ static void write_epbc(struct endpoint_t *endp, uint16_t val)
 {
     if (endp->ep_num == 0)
     {
-        UDC_EP0BC = (uint8_t)val;
+        EP0_BC(endp->dir) = (uint8_t)val;
     }
     else
     {
@@ -220,7 +225,7 @@ static void ep_write(struct endpoint_t *endp)
     }
 
     /* Copy data to EP fifo */
-    copy_to_udc(EP_FIFO(endp->ep_num, endp->dir), endp->buf, xfer_size, true);
+    copy_to_udc((volatile void *)EP_FIFO(endp->ep_num, endp->dir), (void *)endp->buf, xfer_size, true);
 
     /* Decrement by max packet size is intentional.
      * This way if we have final packet short one we will get negative len
@@ -243,7 +248,7 @@ static void ep_read(struct endpoint_t *endp)
 {
     int xfer_size = read_epbc(endp);
 
-    copy_from_udc(endp->buf, EP_FIFO(endp->ep_num, endp->dir), xfer_size, true);
+    copy_from_udc((void *)endp->buf, (volatile void *)EP_FIFO(endp->ep_num, endp->dir), xfer_size, true);
 
     /* arm receiving buffer */
     write_epcs(endp, 0);
@@ -270,12 +275,12 @@ static void usbirq_handler(unsigned int usbirq)
     }
     else if (usbirq & BM_UDC_USBIRQ_SETUP_DATA)
     {
-        static struct usb_ctlrequest setup_data;
+        static struct usb_ctrlrequest setup_data;
 
         /* Copy request received. Beware that ONLY 32bit access is allowed
          * to hardware buffer or data get corrupted.
          */
-        copy_from_udc(&setup_data, &USB_SETUPDAT,
+        copy_from_udc(&setup_data, &UDC_SETUPDAT,
                       sizeof(struct usb_ctrlrequest), false);
 
         /* pass setup data to the upper layer */
@@ -336,6 +341,9 @@ int usb_drv_port_speed(void)
     return udc_speed;
 }
 
+#define BF_UDC_CON_EP_ENABLE(v) BF_UDC_OUT1CON_EP_ENABLE(v)
+#define BF_UDC_CON_EP_TYPE(v) BF_UDC_OUT1CON_EP_TYPE(v)
+#define BF_UDC_CON_SUBFIFOS_V(e) BF_UDC_OUT1CON_SUBFIFOS_V(e)
 /* Reserve endpoint */
 int usb_drv_request_endpoint(int type, int dir)
 {
@@ -345,7 +353,7 @@ int usb_drv_request_endpoint(int type, int dir)
     /* EP1, EP2 */
     for (int ep_num=1; ep_num<USB_NUM_ENDPOINTS; ep_num++)
     {
-        struct endpoint_t *endp = &endpoints[ep_num];
+        struct endpoint_t *endp = &endpoints[ep_num][ep_dir];
         if (endp->allocated)
             continue;
 
@@ -365,11 +373,11 @@ int usb_drv_request_endpoint(int type, int dir)
         /* enable EP interrupt */
         if (ep_dir == DIR_IN)
         {
-            IN04IEN |= (1 << ep_num);
+            UDC_IN04IEN |= (1 << ep_num);
         }
         else
         {
-            OUT04IEN |= (1 << ep_num);
+            UDC_OUT04IEN |= (1 << ep_num);
         }
 
         return ((dir & USB_ENDPOINT_DIR_MASK) | ep_num);
@@ -389,15 +397,15 @@ void usb_drv_release_endpoint(int ep)
 
     if (ep_dir == DIR_IN)
     {
-        IN04IE &= ~(1 << ep_num);
+        UDC_IN04IEN &= ~(1 << ep_num);
     }
     else
     {
-        OUT04IE &= ~(1 << ep_num);
+        UDC_OUT04IEN &= ~(1 << ep_num);
     }
 
     /* mark EP as free */
-    endpoints[ep_num].allocated = false;
+    endpoints[ep_num][ep_dir].allocated = false;
 }
 
 /* Set the address (usually it's in a register).
@@ -413,18 +421,13 @@ void usb_drv_set_address(int address)
 
 static int _usb_drv_send(int endpoint, void *ptr, int length, bool block)
 {
-    struct endpoint_t *ep;
     int ep_num = EP_NUM(endpoint);
-
-    if (ep_num == 0)
-        ep = &ctrlep[DIR_IN];
-    else
-        ep = &endpoints[ep_num];
+    struct endpoint_t *ep = &endpoints[ep_num][DIR_IN];
 
     ep->buf = ptr;
     ep->len = ep->cnt = length;
     ep->block = block;
-    ep->zlp = (lenght % max_packet_size() == 0) ?
+    ep->zlp = (length % max_pkt_size(ep) == 0) ?
                   true : false;
 
     /* prime transfer */
@@ -432,6 +435,8 @@ static int _usb_drv_send(int endpoint, void *ptr, int length, bool block)
 
     if(block)
         semaphore_wait(&ep->complete, TIMEOUT_BLOCK);
+
+    return 0;
 }
 
 /* Setup a send transfer. (blocking) */
@@ -450,18 +455,15 @@ int usb_drv_send_nonblocking(int endpoint, void *ptr, int length)
 int usb_drv_recv(int endpoint, void* ptr, int length)
 {
     int ep_num = EP_NUM(endpoint);
-    struct endpoint_t *ep;
-
-    if (ep_num == 0)
-        ep = &ctrlep[DIR_OUT];
-    else
-        ep = &endpoints[ep_num];
+    struct endpoint_t *ep = &endpoints[ep_num][DIR_OUT];
 
     ep->buf = ptr;
     ep->len = ep->cnt = length;
 
     /* arm receive buffer */
-    write_epcs(endp, 0);
+    write_epcs(ep, 0);
+
+    return 0;
 }
 
 /* Kill all transfers. Usually you need to set a bit for each endpoint
@@ -480,6 +482,7 @@ void usb_drv_set_test_mode(int mode)
     (void)mode;
 }
 
+#define BM_UDC_CON_STALL BM_UDC_OUT1CON_STALL
 /* Check if endpoint is in stall state */
 bool usb_drv_stalled(int endpoint, bool in)
 {
@@ -529,7 +532,7 @@ void usb_drv_stall(int endpoint, bool stall, bool in)
 void usb_drv_init(void)
 {
     /* ungate udc clock */
-    ajt213x_clk_enable(BM_CMU_DEVCLKEN_USBC);
+    atj213x_clk_enable(BM_CMU_DEVCLKEN_USBC);
 
     /* soft disconnect */
     UDC_USBCS |= BM_UDC_USBCS_SOFT_CONNECT;
@@ -576,12 +579,13 @@ void usb_drv_exit(void)
     atj213x_intc_mask(BP_INTC_MSK_USB);
 
     /* gate udc clock */
-    ajt213x_clk_disable(BM_CMU_DEVCLKEN_USBC);
+    atj213x_clk_disable(BM_CMU_DEVCLKEN_USBC);
 }
 
 int usb_detect(void)
 {
-    if (PMU_LRADC & BM_PMU_LRADC_DC5V)
+    //if (PMU_LRADC & BM_PMU_LRADC_DC5V)
+    if (PMU_LRADC & 0x80000000)
         return USB_INSERTED;
     else
         return USB_EXTRACTED;
@@ -599,7 +603,7 @@ void INT_USB(void)
     /* HS, Reset, Setup */
     if (usbirq)
     {
-        usbirq_handler();
+        usbirq_handler(usbirq);
 
         /* clear irq flags */
         UDC_USBIRQ = usbirq;
@@ -607,7 +611,7 @@ void INT_USB(void)
 
     if (epoutirq)
     {
-        epout_handler();
+        epout_handler(epoutirq);
 
         /* clear irq flags */
         UDC_OUT04IRQ = epoutirq;
