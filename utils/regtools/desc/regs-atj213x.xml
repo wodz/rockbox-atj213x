@@ -4583,12 +4583,12 @@ Total 32 level, -1.8Db/step</desc>
     <node>
         <name>I2C</name>
         <instance>
-            <name>I2C1</name>
-            <address>0xb0180000</address>
-        </instance>
-        <instance>
-            <name>I2C2</name>
-            <address>0xb0180020</address>
+            <name>I2C</name>
+            <range>
+                <first>0</first>
+                <count>2</count>
+                <formula variable="n">0xb0180000 + (n)*0x20</formula>
+            </range>
         </instance>
         <node>
             <name>CTL</name>

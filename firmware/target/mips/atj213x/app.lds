@@ -8,7 +8,7 @@ STARTUP(target/mips/atj213x/crt0.o)
 #define DRAMORIG      0x80000000
 #define DRAMSIZE      (MEMORYSIZE * 0x100000)
 #define IRAMORIG      0x94040000
-#define IRAMSIZE      96K
+#define IRAMSIZE      48K
 
 /* End of the audio buffer, where the codec buffer starts */
 #define ENDAUDIOADDR  (DRAMORIG + DRAMSIZE - PLUGIN_BUFFER_SIZE - CODEC_SIZE)
@@ -28,8 +28,9 @@ SECTIONS
 
     .text :
     {
+//        _relocstart = .;
         loadaddress = .;
-        _loadaddress = .;
+//        _loadaddress = .;
         *(.init.text);
         *(.text*);
     } > DRAM
@@ -65,20 +66,21 @@ SECTIONS
         KEEP(*(.vectors.interrupt));
         KEEP(*(.vectors));
 
-        *(.icode);
-        *(.irodata);
-        *(.idata);
+        *(.icode*);
+        *(.irodata*);
+        *(.idata*);
         _iramend = .;
     } > IRAM
     _iramcopy = LOADADDR(.iram);
 
     .ibss (NOLOAD) :
     {
-        _iedata = .;
+//        _relocend = .;
+//        _iedata = .;
         _ibss_start = .;
         *(.ibss*);
         _ibss_end = .;
-        _iend = .;
+//        _iend = .;
     } > IRAM
 
     . = ALIGN(4);
@@ -103,7 +105,7 @@ SECTIONS
          *(COMMON);
          *(.scommon*);
          _bss_end = .;
-         _end = .;
+//         _end = .;
     } > DRAM
 
     .audiobuf :

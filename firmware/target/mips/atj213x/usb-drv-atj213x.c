@@ -584,8 +584,7 @@ void usb_drv_exit(void)
 
 int usb_detect(void)
 {
-    //if (PMU_LRADC & BM_PMU_LRADC_DC5V)
-    if (PMU_LRADC & 0x80000000)
+    if (PMU_LRADC & BM_PMU_LRADC_DC5V)
         return USB_INSERTED;
     else
         return USB_EXTRACTED;

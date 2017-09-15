@@ -28,6 +28,7 @@ void lradc_init(void)
 {
     PMU_CTL |= BF_PMU_CTL_LA6E(1)|BF_PMU_CTL_LA4E(1);
 }
+void adc_init(void) __attribute__ ((alias ("lradc_init")));
 
 unsigned int lradc_read(unsigned channel)
 {

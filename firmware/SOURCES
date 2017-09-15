@@ -543,8 +543,6 @@ target/arm/s5l8702/i2c-s5l8702.c
 target/arm/rk27xx/i2c-rk27xx.c
 #elif CONFIG_I2C == I2C_IMX233
 target/arm/imx233/i2c-imx233.c
-#elif CONFIG_I2C == I2C_ATJ213X
-target/mips/atj213x/i2c-atj213x.c
 #endif /* CONFIG_I2C */
 
 #if CONFIG_CPU == PNX0101
@@ -783,7 +781,9 @@ drivers/isp1583.c
 #elif CONFIG_USBOTG == USBOTG_RK27XX
 target/arm/rk27xx/usb-drv-rk27xx.c
 #elif CONFIG_USBOTG == USBOTG_ATJ213X
+#ifndef BOOTLOADER
 target/mips/atj213x/usb-drv-atj213x.c
+#endif
 #endif
 #else /* !defined(HAVE_USBSTACK) */
 #if CONFIG_USBOTG == USBOTG_ISP1362	 
@@ -1684,8 +1684,12 @@ target/mips/atj213x/pmu-atj213x.c
 target/mips/atj213x/pcm-atj213x.c
 target/mips/atj213x/cmu-atj213x.c
 target/mips/atj213x/usb-atj213x.c
+target/mips/atj213x/debug-atj213x.c
 #if defined (HAVE_ATJ213X_CODEC)
 drivers/audio/atj213x-codec.c
+#endif
+#if CONFIG_I2C == I2C_ATJ213X
+target/mips/atj213x/i2c-atj213x.c
 #endif
 #endif
 
@@ -1869,6 +1873,7 @@ target/arm/rk27xx/ihifi/powermgmt-ihifi960.c
 target/mips/atj213x/iriver-e150/button-e150.c
 target/mips/atj213x/iriver-e150/power-e150.c
 target/mips/atj213x/iriver-e150/powermgmt-e150.c
+target/mips/atj213x/iriver-e150/i2c-e150.c
 #endif
 
 #if (CONFIG_PLATFORM & PLATFORM_ANDROID)

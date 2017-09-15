@@ -143,12 +143,18 @@
 
 #define PMU_LRADC                           (*(volatile uint32_t *)PMU_LRADC_ADDR)
 #define PMU_LRADC_ADDR                      (0xb0000000 + 0x4)
-#define BP_PMU_LRADC_RESERVED31_28          28
-#define BM_PMU_LRADC_RESERVED31_28          0xf0000000
-#define BF_PMU_LRADC_RESERVED31_28(v)       (((v) & 0xf) << 28)
-#define BFM_PMU_LRADC_RESERVED31_28(v)      BM_PMU_LRADC_RESERVED31_28
-#define BF_PMU_LRADC_RESERVED31_28_V(e)     BF_PMU_LRADC_RESERVED31_28(BV_PMU_LRADC_RESERVED31_28__##e)
-#define BFM_PMU_LRADC_RESERVED31_28_V(v)    BM_PMU_LRADC_RESERVED31_28
+#define BP_PMU_LRADC_DC5V                   31
+#define BM_PMU_LRADC_DC5V                   0x80000000
+#define BF_PMU_LRADC_DC5V(v)                (((v) & 0x1) << 31)
+#define BFM_PMU_LRADC_DC5V(v)               BM_PMU_LRADC_DC5V
+#define BF_PMU_LRADC_DC5V_V(e)              BF_PMU_LRADC_DC5V(BV_PMU_LRADC_DC5V__##e)
+#define BFM_PMU_LRADC_DC5V_V(v)             BM_PMU_LRADC_DC5V
+#define BP_PMU_LRADC_RESERVED30_28          28
+#define BM_PMU_LRADC_RESERVED30_28          0x70000000
+#define BF_PMU_LRADC_RESERVED30_28(v)       (((v) & 0x7) << 28)
+#define BFM_PMU_LRADC_RESERVED30_28(v)      BM_PMU_LRADC_RESERVED30_28
+#define BF_PMU_LRADC_RESERVED30_28_V(e)     BF_PMU_LRADC_RESERVED30_28(BV_PMU_LRADC_RESERVED30_28__##e)
+#define BFM_PMU_LRADC_RESERVED30_28_V(v)    BM_PMU_LRADC_RESERVED30_28
 #define BP_PMU_LRADC_REMOADC4               24
 #define BM_PMU_LRADC_REMOADC4               0xf000000
 #define BF_PMU_LRADC_REMOADC4(v)            (((v) & 0xf) << 24)

@@ -55,26 +55,26 @@ void main(void)
     button_init();
     backlight_hw_init();
 
-//    show_logo();
+    show_logo();
 
-//    sleep(HZ*2);
-    int ret = storage_init();
-//    lcd_clear_display();
-//    lcd_update();
+    sleep(HZ*2);
+//    int ret = storage_init();
+    lcd_clear_display();
+    lcd_update();
 
-    printf("storage_init(): %d", ret);
+//    printf("storage_init(): %d", ret);
 
-    filesystem_init();
-    ret = disk_mount_all();
+//    filesystem_init();
+//    ret = disk_mount_all();
 
-    printf("disk_mount_all(): %d", ret);
+//    printf("disk_mount_all(): %d", ret);
 
     while(1)
     {
         button = button_get_w_tmo(HZ);
         switch (button)
         {
-            case BUTTON_ON:
+            case BUTTON_POWER:
                 printf("Button ON");
                 break;
             case BUTTON_LEFT:
@@ -92,10 +92,10 @@ void main(void)
             case BUTTON_SELECT:
                 printf("Button select");
                 break;
-            case BUTTON_VOL_UP:
+            case BUTTON_VOLUP:
                 printf("Button vol+");
                 break;
-            case BUTTON_VOL_DOWN:
+            case BUTTON_VOLDOWN:
                 printf("Button vol-");
                 break;
         }

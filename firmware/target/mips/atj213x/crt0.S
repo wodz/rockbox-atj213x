@@ -31,6 +31,7 @@
 
 start:
     di                        # disable interrupts
+#ifdef BOOTLOADER
     bltzal zero, load_addr    # ra = PC + 8, branch not taken
     nop
 
@@ -38,6 +39,7 @@ load_addr:
     addiu  a0, ra, -12        # calc real load address
                               # account for branch delay slot
                               # and very first 'di' instruction
+#endif
 
 core_clk_setup:
     la     t0, 0xb0010000     # CMU base
@@ -78,6 +80,7 @@ cache_init_loop:
     mtc0   t0, C0_CONFIG
     ehb
 
+#ifdef BOOTLOADER
 reloc:
     la     a1, _relocstart
     la     a2, _relocend
@@ -94,6 +97,8 @@ entry_point_jump:
     nop
 
 entry_point:
+#endif
+
 intc_setup:
     li     t0, 0xb0020000     # INTC base
     sw     zero, 4(t0)        # INTC_MSK mask all interrupt sources
