@@ -8,7 +8,7 @@ STARTUP(target/mips/atj213x/crt0.o)
 #define DRAMORIG      0x80000000
 #define DRAMSIZE      (MEMORYSIZE * 0x100000)
 #define IRAMORIG      0x94040000
-#define IRAMSIZE      48K
+#define IRAMSIZE      40K
 
 /* End of the audio buffer, where the codec buffer starts */
 #define ENDAUDIOADDR  (DRAMORIG + DRAMSIZE - PLUGIN_BUFFER_SIZE - CODEC_SIZE)
