@@ -33,8 +33,8 @@
 
 //#define ATJ213X_SD_DEBUG
 
-/* 16 bits of SD_BYTECNT */
-#define SD_MAX_XFER_SIZE 0xffff
+/* Seems like you cannot request more in SD_BYTECNT */
+#define SD_MAX_XFER_SIZE 0x200
 
 /* Control variables for DMA transfers.
  * As it is not possible to issue concurent rd/wr
@@ -123,10 +123,10 @@ static void sdc_rd_xfer_setup(void)
 {
     SD_BYTECNT = hwinfo.cnt;
 
-    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
-                 BF_SD_FIFOCTL_RST(1)            |
+    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)           |
+                 BF_SD_FIFOCTL_RST(1)             |
                  BF_SD_FIFOCTL_THRH_V(10_16EMPTY) |
-                 BF_SD_FIFOCTL_FULL(1)           |
+                 BF_SD_FIFOCTL_FULL(1)            |
                  BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
 
     SD_RW = BF_SD_RW_WCEF(1) | 
@@ -205,10 +205,10 @@ static void sdc_wr_xfer_setup(void)
 {
     SD_BYTECNT = hwinfo.cnt;
 
-    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)          |
-                 BF_SD_FIFOCTL_RST(1)            |
+    SD_FIFOCTL = BF_SD_FIFOCTL_EMPTY(1)           |
+                 BF_SD_FIFOCTL_RST(1)             |
                  BF_SD_FIFOCTL_THRH_V(10_16EMPTY) |
-                 BF_SD_FIFOCTL_FULL(1)           |
+                 BF_SD_FIFOCTL_FULL(1)            |
                  BF_SD_FIFOCTL_DRQE(1); /* 0x259 */
 
     SD_RW = BF_SD_RW_STWR(1) |
@@ -388,7 +388,7 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
     /* data stage */
     if (rspdat->data && datlen > 0)
     {
-        /* wait to DMA do its duties */
+        /* wait for data */
         while (xfer_size > 0)
             yield();
     }
