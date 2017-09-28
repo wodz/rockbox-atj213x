@@ -58,15 +58,13 @@ void backlight_hw_on(void)
     lcd_enable(true);
 #endif
     /* baclight enable */
-    //PMU_CTL |= BF_PMU_CTL_BLEN(1);
+    PMU_CHG |= BF_PMU_CHG_PBLS(1);
     backlight_hw_brightness(brightness);
 }
 
 void backlight_hw_off(void)
 {
-    /* This doesn't have any effect! */
-    /* PMU_CTL &= ~BM_PMU_CTL_BLEN; */
-    backlight_hw_brightness(0);
+    PMU_CHG &= ~BM_PMU_CHG_PBLS;
 #ifdef HAVE_LCD_ENABLE
     lcd_enable(false);
 #endif
