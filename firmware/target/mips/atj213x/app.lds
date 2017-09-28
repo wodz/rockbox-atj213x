@@ -24,36 +24,22 @@ MEMORY
 
 SECTIONS
 {
-    . = DRAMORIG;
-
     .text :
     {
-//        _relocstart = .;
         loadaddress = .;
-//        _loadaddress = .;
         *(.init.text);
         *(.text*);
     } > DRAM
 
-    . = ALIGN(4);
-
-    .rodata :
-    {
-        *(.rodata*);
-    } > DRAM
-
-    . = ALIGN(4);
-
     .data :
     {
+        . = ALIGN(16);
+        *(.rodata*);
         *(.data*);
         *(.sdata*);
     } > DRAM
 
-    /* Set the load address of .iram at the same address as .bss
-     * so RAM won't be wasted as .iram in the end will get copied
-     * to IRAM. */
-    .iram IRAMORIG: AT (_edata)
+    .iram IRAMORIG:
     {
         _iramstart = .;
         _irqbase = .;
@@ -66,27 +52,25 @@ SECTIONS
         KEEP(*(.vectors.interrupt));
         KEEP(*(.vectors));
 
+        . = ALIGN(4);
         *(.icode*);
         *(.irodata*);
         *(.idata*);
         _iramend = .;
-    } > IRAM
+    } > IRAM AT> DRAM
     _iramcopy = LOADADDR(.iram);
 
     .ibss (NOLOAD) :
     {
-//        _relocend = .;
-//        _iedata = .;
+        . = ALIGN(16);
         _ibss_start = .;
         *(.ibss*);
         _ibss_end = .;
-//        _iend = .;
     } > IRAM
-
-    . = ALIGN(4);
 
     .stack (NOLOAD):
     {
+         . = ALIGN(16);
          *(.stack);
          stackbegin = .;
          . += 0x2000;
@@ -98,19 +82,18 @@ SECTIONS
 
     .bss (NOLOAD):
     {
-         _edata = .;
+         . = ALIGN(16);
          _bss_start = .;
          *(.sbss*);
          *(.bss*);
          *(COMMON);
          *(.scommon*);
          _bss_end = .;
-//         _end = .;
     } > DRAM
 
     .audiobuf :
     {
-        . = ALIGN(4);
+        . = ALIGN(16);
         audiobuffer = .;
     } > DRAM
 
