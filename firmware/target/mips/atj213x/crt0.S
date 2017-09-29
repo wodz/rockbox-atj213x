@@ -229,13 +229,71 @@ code_copy:
      * exceptions are considered fatal and we don't bother to preserve anything
      */ 
     .extern system_exeption
+    .global exception_handler
     .section .vectors,"ax",%progbits
 
 exception_handler:
-    move   a0, sp
+    /* save SP */
+    move k0, sp
+
+    /* switch to irqstack
+     * exception frame is 128 bytes long
+     * irq frame is 96 bytes long
+     * so we move 228 bytes up in order to preserve irq frame
+     */
     la     sp, irqstackend
-    mfc0   a1, C0_CAUSE
-    mfc0   a2, C0_EPC
+    addiu  sp, sp, -228
+
+    /* save register file */
+    sw     k0, 116(sp)
+    mfc0   k1, C0_STATUS
+    ehb
+    sw     k1, 0(sp)
+
+    sw     AT,   4(sp)
+    sw     v0,   8(sp)
+    sw     v1,  12(sp)
+    sw     a0,  16(sp)
+    sw     a1,  20(sp)
+    sw     a2,  24(sp)
+    sw     a3,  28(sp)
+    sw     t0,  32(sp)
+    sw     t1,  36(sp)
+    sw     t2,  40(sp)
+    sw     t3,  44(sp)
+    sw     t4,  48(sp)
+    sw     t5,  52(sp)
+    sw     t6,  56(sp)
+    sw     t7,  60(sp)
+    sw     s0,  64(sp)
+    sw     s1,  68(sp)
+    sw     s2,  72(sp)
+    sw     s3,  76(sp)
+    sw     s4,  80(sp)
+    sw     s5,  84(sp)
+    sw     s6,  88(sp)
+    sw     s7,  92(sp)
+    sw     t8,  96(sp)
+    sw     t9, 100(sp)
+    mfhi   k0
+    mflo   k1
+    sw     k0, 104(sp)
+    sw     k1, 108(sp)
+    sw     gp, 112(sp)
+    /* sp saved early */
+    sw     fp, 120(sp)
+    sw     ra, 124(sp)
+
+
+    mfc0   a0, C0_CAUSE
+    ehb
+    mfc0   a1, C0_EPC
+    ehb
+    move   a2, sp
+    /* void system_exception(unsigned int cause,
+     *                       unsigned int epc,
+     *                       unsigned int *ef)
+     */
     la     k0, system_exception
     jr     k0
     nop
@@ -255,11 +313,11 @@ irq_handler:
     la     sp, irqstackend
 
     addiu  sp, sp, -96
-    sw     k0, 0(sp)
+    sw     k0, 84(sp)
     ehb
     mfc0   k0, C0_STATUS
     ehb
-    sw     k0, 4(sp)
+    sw     k0, 0(sp)
 
     # switch to kernel mode with irq disabled
     li     k0, 0x00004000
@@ -267,28 +325,29 @@ irq_handler:
     ehb
 
     # context save
-    sw     AT,  8(sp)
-    sw     v0, 12(sp)
-    sw     v1, 16(sp)
-    sw     a0, 20(sp)
-    sw     a1, 24(sp)
-    sw     a2, 28(sp)
-    sw     a3, 32(sp)
-    sw     t0, 36(sp)
-    sw     t1, 40(sp)
-    sw     t2, 44(sp)
-    sw     t3, 48(sp)
-    sw     t4, 52(sp)
-    sw     t5, 56(sp)
-    sw     t6, 60(sp)
-    sw     t7, 64(sp)
-    sw     t8, 68(sp)
-    sw     t9, 72(sp)
+    sw     AT,  4(sp)
+    sw     v0,  8(sp)
+    sw     v1, 12(sp)
+    sw     a0, 16(sp)
+    sw     a1, 20(sp)
+    sw     a2, 24(sp)
+    sw     a3, 28(sp)
+    sw     t0, 32(sp)
+    sw     t1, 36(sp)
+    sw     t2, 40(sp)
+    sw     t3, 44(sp)
+    sw     t4, 48(sp)
+    sw     t5, 52(sp)
+    sw     t6, 56(sp)
+    sw     t7, 60(sp)
+    sw     t8, 64(sp)
+    sw     t9, 68(sp)
     mfhi   k0
     mflo   k1
-    sw     k0, 76(sp)
-    sw     k1, 80(sp)
-    sw     gp, 84(sp)
+    sw     k0, 72(sp)
+    sw     k1, 76(sp)
+    sw     gp, 80(sp)
+    /* sp saved early */
     sw     fp, 88(sp)
     sw     ra, 92(sp)
 
@@ -319,31 +378,31 @@ irq_handler:
     # context restore
     lw     ra, 92(sp)
     lw     fp, 88(sp)
-    lw     gp, 84(sp)
-    lw     k1, 80(sp)
-    lw     k0, 76(sp)
+    lw     gp, 80(sp)
+    lw     k1, 76(sp)
+    lw     k0, 72(sp)
     mtlo   k1
     mthi   k0
-    lw     t9, 72(sp)
-    lw     t8, 68(sp)
-    lw     t7, 64(sp)
-    lw     t6, 60(sp)
-    lw     t5, 56(sp)
-    lw     t4, 52(sp)
-    lw     t3, 48(sp)
-    lw     t2, 44(sp)
-    lw     t1, 40(sp)
-    lw     t0, 36(sp)
-    lw     a3, 32(sp)
-    lw     a2, 28(sp)
-    lw     a1, 24(sp)
-    lw     a0, 20(sp)
-    lw     v1, 16(sp)
-    lw     v0, 12(sp)
-    lw     AT,  8(sp)
-    lw     k0,  4(sp)
+    lw     t9, 68(sp)
+    lw     t8, 64(sp)
+    lw     t7, 60(sp)
+    lw     t6, 56(sp)
+    lw     t5, 52(sp)
+    lw     t4, 48(sp)
+    lw     t3, 44(sp)
+    lw     t2, 40(sp)
+    lw     t1, 36(sp)
+    lw     t0, 32(sp)
+    lw     a3, 28(sp)
+    lw     a2, 24(sp)
+    lw     a1, 20(sp)
+    lw     a0, 16(sp)
+    lw     v1, 12(sp)
+    lw     v0,  8(sp)
+    lw     AT,  4(sp)
+    lw     k0,  0(sp)
     mtc0   k0, C0_STATUS
-    lw     sp,  0(sp)
+    lw     sp,  84(sp)
 
     eret
     .set reorder

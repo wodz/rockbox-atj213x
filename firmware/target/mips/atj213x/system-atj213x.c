@@ -26,6 +26,7 @@
 #include "mips.h"
 
 #include "wdt-atj213x.h"
+#include "tmr-atj213x.h"
 
 #define default_interrupt(name) \
   extern __attribute__((weak,alias("UIRQ"))) void name (void)
@@ -107,8 +108,34 @@ void system_exception_wait(void)
     while(!button_read_device());
 }
 
-void system_exception(unsigned int sp, unsigned int cause, unsigned int epc)
+static const char *exc_reg_names[] = {
+    "c0status", "at", "v0", "v1",
+    "a0", "a1", "a2", "a3",
+    "t0", "t1", "t2", "t3",
+    "t4", "t5", "t6", "t7",
+    "s0", "s1", "s2", "s3",
+    "s4", "s5", "s6", "s7",
+    "t8", "t9", "hi", "lo",
+    "gp", "sp", "fp", "ra"
+};
+
+static const char *irq_reg_names[] = {
+    "c0status", "at", "v0", "v1",
+    "a0", "a1", "a2", "a3",
+    "t0", "t1", "t2", "t3",
+    "t4", "t5", "t6", "t7",
+    "t8", "t9", "hi", "lo",
+    "gp", "sp", "fp", "ra"
+};
+
+void system_exception(unsigned int cause,
+                      unsigned int epc,
+                      unsigned int *ef)
 {
+    int line = 1;
+
+    atj213x_gpio_mux_reset();
+
     lcd_set_backdrop(NULL);
     lcd_set_drawmode(DRMODE_SOLID);
     lcd_set_foreground(LCD_BLACK);
@@ -118,8 +145,26 @@ void system_exception(unsigned int sp, unsigned int cause, unsigned int epc)
     lcd_clear_display();
     backlight_hw_on();
 
-    panicf("Exception occurred! pc: 0x%08x sp: 0x%08x cause: 0x%08x)",
-           epc, sp, cause);
+    lcd_putsf(1, line++, "Exception!");
+    lcd_putsf(1, line++, "pc:%08x cause:%08x", epc, cause);
+
+    for (int i=0; i<32; i+=2)
+    {
+        lcd_putsf(1, line++, "%s:%08x %s:%08x", exc_reg_names[i], ef[i], exc_reg_names[i+1], ef[i+1]);
+    }
+
+    lcd_putsf(1, line++, "");
+    lcd_putsf(1, line++, "IRQ frame");
+    for (int i=0; i<24; i+=2)
+    {
+        lcd_putsf(1, line++, "%s:%08x %s:%08x", irq_reg_names[i], ef[33+i], irq_reg_names[i+1], ef[33+i+1]);
+    }
+
+    lcd_update();
+    system_exception_wait(); /* if this returns, try to reboot */
+    system_reboot();
+    while (1);       /* halt */
+
 }
 
 int system_memory_guard(int newmode)
