@@ -256,6 +256,9 @@ int sd_card_init(IF_MD(int drive))
         return -12;
     }
 
+    /* Mark card as initialized */
+    SDMMC_INFO(drive).initialized = 1;
+
     return 0;
 }
 
