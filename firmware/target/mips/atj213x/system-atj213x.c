@@ -24,9 +24,14 @@
 #include "font.h"
 #include "lcd.h"
 #include "mips.h"
+#include "system.h"
 
 #include "wdt-atj213x.h"
 #include "tmr-atj213x.h"
+#include "pmu-atj213x.h"
+
+#include "regs/regs-cmu.h"
+#include "regs/regs-sdr.h"
 
 #define default_interrupt(name) \
   extern __attribute__((weak,alias("UIRQ"))) void name (void)
@@ -176,14 +181,33 @@ int system_memory_guard(int newmode)
 #ifdef HAVE_ADJUSTABLE_CPU_FREQ
 void set_cpu_frequency(long frequency)
 {
+    //return;
+
     if (cpu_frequency == frequency)
         return;
 
     if (frequency == CPUFREQ_MAX)
     {
+        /* COREPLL:CCLK:SCLK:PCLK = 180:180:90:11.25
+         * sdram refresh 700
+         */
+
+        /* value taken from SYSCFG.EXE disassembly */
+        atj213x_vdd_set(VDD_1800MV);
+
+        CMU_BUSCLK = (7<<8)|(2<<6)|(1<<4)|(0<<2);
+        SDR_RFSH = 700;
     }
     else
     {
+        /* COREPLL:CCLK:SCLK:PCLK = 180:45:45:11.25
+         * sdram refresh 350
+         */
+        SDR_RFSH = 350;
+        CMU_BUSCLK = (3<<8)|(2<<6)|(0<<4)|(3<<2);
+
+        /* value taken from SYSCFG.EXE disassembly */
+        atj213x_vdd_set(VDD_1600MV);
     }
 
     cpu_frequency = frequency;
@@ -192,7 +216,7 @@ void set_cpu_frequency(long frequency)
 
 void udelay(unsigned int usec)
 {
-    unsigned cycles_per_usec = (CPU_FREQ + 999999) / 1000000;
+    unsigned cycles_per_usec = (cpu_frequency + 999999) / 1000000;
     unsigned i = (usec * cycles_per_usec)/2;
     asm volatile (
                   ".set noreorder    \n"

@@ -141,6 +141,7 @@
 
 /* Define this to the CPU frequency 
  * for now it runs @ 36MHz */
+#define HAVE_ADJUSTABLE_CPU_FREQ
 #define CPU_FREQ 36000000
 
 #define CONFIG_LCD LCD_HX8347D

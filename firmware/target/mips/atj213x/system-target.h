@@ -29,9 +29,9 @@
 #define CACHE_LINE_SIZE 16
 #include "mmu-mips.h"
 
-#define CPUFREQ_DEFAULT  50000000
-#define CPUFREQ_NORMAL   50000000
-#define CPUFREQ_MAX     200000000
+#define CPUFREQ_DEFAULT  45000000
+#define CPUFREQ_NORMAL   45000000
+#define CPUFREQ_MAX     180000000
 
 #define STORAGE_WANTS_ALIGN
 #define disable_irq() disable_interrupt()

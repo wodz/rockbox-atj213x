@@ -62,5 +62,5 @@ void lcm_init(void)
     atj213x_clk_enable(BP_CMU_DEVCLKEN_YUV);
 
     lcm_rs_command();   /* this has side effect of enabling whole block */
-    YUV2RGB_CLKCTL = 0x102; /* lcm clock divider */
+    YUV2RGB_CLKCTL = 0x408; /* lcm clock divider valid for 180MHz corepll */
 }
