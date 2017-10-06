@@ -34,9 +34,29 @@ enum pmu_charge_current_t {
     CHARGE_CURRENT_500MA,
 };
 
+enum pmu_vdd_t {
+    VDD_1300MV,
+    VDD_1350MV,
+    VDD_1400MV,
+    VDD_1450MV,
+    VDD_1500MV,
+    VDD_1550MV,
+    VDD_1600MV,
+    VDD_1650MV,
+    VDD_1700MV,
+    VDD_1750MV,
+    VDD_1800MV,
+    VDD_1850MV,
+    VDD_1900MV,
+    VDD_1950MV,
+    VDD_2000MV,
+    VDD_2050MV
+};
+
 void atj213x_charger_enable(void);
 void atj213x_charger_disable(void);
 void atj213x_charger_set_current(enum pmu_charge_current_t current);
 unsigned int atj213x_charger_state(void);
+void atj213x_vdd_set(enum pmu_vdd_t vdd);
 
 #endif /* PMU_ATJ213X_H */

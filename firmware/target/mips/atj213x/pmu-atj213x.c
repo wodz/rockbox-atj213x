@@ -19,8 +19,11 @@
  ****************************************************************************/
 
 #include <stdint.h> 
+#include "system-target.h"
 #include "pmu-atj213x.h"
 #include "regs/regs-pmu.h"
+
+static enum pmu_vdd_t current_vdd = VDD_1600MV;
 
 void atj213x_charger_enable()
 {
@@ -42,7 +45,26 @@ void atj213x_charger_set_current(enum pmu_charge_current_t current)
 
 unsigned int atj213x_charger_state()
 {
-    uint32_t stat = PMU_CHG & BF_PMU_CHG_STAT_V(CHARGING) >> BP_PMU_CHG_STAT;
+    uint32_t stat = (PMU_CHG & BF_PMU_CHG_STAT_V(CHARGING)) >> BP_PMU_CHG_STAT;
     uint32_t chgphase = (PMU_CHG & BM_PMU_CHG_CHGPHASE) >> BP_PMU_CHG_CHGPHASE;
     return ((chgphase << 1) | stat);
+}
+
+void atj213x_vdd_set(enum pmu_vdd_t vdd)
+{
+    if (vdd == current_vdd)
+        return;
+
+    int step = vdd > current_vdd ? 1 : -1;
+
+    /* Gradually change until requested VDD is reached */
+    while (current_vdd != vdd)
+    {
+        current_vdd += step;
+        PMU_CTL = (PMU_CTL & ~(BM_PMU_CTL_VDVS | BM_PMU_CTL_VDV0)) |
+                      BF_PMU_CTL_VDVS(current_vdd >> 1) |
+                      BF_PMU_CTL_VDV0(current_vdd);
+
+        mdelay(2);
+    }
 }
