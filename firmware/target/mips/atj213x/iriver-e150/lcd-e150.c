@@ -124,6 +124,31 @@ void hx8347d_init(void)
             YUV2RGB_FIFODATA = 0;
 }
 
+/* enter sleep */
+void lcd_sleep(bool sleep)
+{
+    if (sleep)
+    {
+        lcd_reg_write(0x1f, 0x10);
+        mdelay(40);
+        lcd_reg_write(0x1f, 0x19);
+        mdelay(40);
+        lcd_reg_write(0x19, 0x00);
+    }
+    else
+    {
+        lcd_reg_write(0x19, 0x01);
+        lcd_reg_write(0x1f, 0x88);
+        mdelay(5);
+        lcd_reg_write(0x1f, 0x80);
+        mdelay(5);
+        lcd_reg_write(0x1f, 0x90);
+        mdelay(5);
+        lcd_reg_write(0x1f, 0xd0);
+        mdelay(5);
+    }
+}
+
 /* rockbox API functions */
 void lcd_init_device(void)
 {
