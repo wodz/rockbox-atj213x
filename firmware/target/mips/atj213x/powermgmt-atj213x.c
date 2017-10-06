@@ -62,11 +62,19 @@ bool charging_state(void)
 /* Disable charger and minimize all settings. Reset timers, etc. */
 static void disable_charger(bool error)
 {
+    unsigned tmo = current_tick + HZ/5;
+
     /* Disable charging hardware */
     atj213x_charger_disable();
 
     /* Wait for change to propagate */
-    while (atj213x_charger_state() != 0) ;
+    while (atj213x_charger_state() != 0)
+    {
+        if (TIME_AFTER(current_tick, tmo))
+        {
+            panicf("%s() state change tmo", __func__);
+        }
+    }
 
     if (error)
     {
@@ -89,6 +97,8 @@ static void disable_charger(bool error)
 /* Enable charger with specified settings. Start timers, etc. */
 static void enable_charger(void)
 {
+    unsigned tmo = current_tick + HZ/5;
+
     /* Set max charging current according to BATT_CHG_I in powermgmt-target.h */
     atj213x_charger_set_current(BATT_CHG_I);
 
@@ -96,7 +106,13 @@ static void enable_charger(void)
     atj213x_charger_enable();
 
     /* Allow charger turn-on time */
-    while (atj213x_charger_state() == 0) ;
+    while (atj213x_charger_state() == 0)
+    {
+        if (TIME_AFTER(current_tick, tmo))
+        {
+            panicf("%s() state change tmo", __func__);
+        }
+    }
 
     charge_state = CHARGING;
 
