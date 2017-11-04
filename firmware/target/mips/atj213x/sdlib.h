@@ -54,8 +54,8 @@
 #define SDLIB_SET_DSR                  CMD(4, SDLIB_RSP_NRSP)
 #define SDLIB_SWITCH_FUNC              CMD(6, SDLIB_RSP_R1)
 #define SDLIB_SET_BUS_WIDTH           ACMD(6, SDLIB_RSP_R1)
-#define SDLIB_SELECT_CARD              CMD(7, SDLIB_RSP_R1)  /* with card's rca  */
-#define SDLIB_DESELECT_CARD            CMD(7, SDLIB_RSP_NRSP)  /* with rca = 0  */
+#define SDLIB_SELECT_CARD              CMD(7, SDLIB_RSP_R1b)  /* with card's rca  */
+#define SDLIB_DESELECT_CARD            CMD(7, SDLIB_RSP_R1b)  /* with rca = 0  */
 #define SDLIB_SEND_IF_COND             CMD(8, SDLIB_RSP_R6)
 #define SDLIB_SEND_CSD                 CMD(9, SDLIB_RSP_R2)
 #define SDLIB_SEND_CID                 CMD(10,SDLIB_RSP_R2)
