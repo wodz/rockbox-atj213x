@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include "config.h"
+#include "kernel.h"
 #include "powermgmt.h"
 
 #include "lradc-atj213x.h"
