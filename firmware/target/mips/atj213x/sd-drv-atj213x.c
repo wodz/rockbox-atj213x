@@ -326,6 +326,10 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
             panicf("Invalid SD response requested: 0x%0x", rsp);
     }
 
+    /* Kick SD transaction in */
+    SD_CMDRSP = cmdrsp;
+    udelay(1);
+
     /* prepare DMA transfer */
     if (rspdat->data && datlen > 0)
     {
@@ -338,10 +342,6 @@ int sdc_send_cmd(const uint32_t cmd, const uint32_t arg,
             sdc_dma_wr(rspdat->data, datlen);
         }
     }
-
-    /* Kick SD transaction in */
-    SD_CMDRSP = cmdrsp;
-    udelay(1);
 
     /* command finish wait */
     do
