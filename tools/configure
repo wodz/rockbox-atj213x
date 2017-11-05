@@ -585,7 +585,7 @@ mips32r2cc () {
  # mips is predefined, but we want it for paths. use __mips instead
  # use forced long calls for now until MMU is setup to move iram and dram
  # closer together
- GCCOPTS="$CCOPTS -march=mips32r2 -mno-mips16 -mlong-calls -Umips"
+ GCCOPTS="$CCOPTS -Os -march=mips32r2 -mno-mips16 -mno-long-calls -Umips"
  GCCOPTS="$GCCOPTS -ffunction-sections -msoft-float -G 0"
  GCCOPTIMIZE="-fomit-frame-pointer"
  endian="little"
