@@ -48,7 +48,7 @@ static inline uint32_t PHYSADDR(uint32_t vma)
 {
     if (vma >= 0xc1000000)
     {
-        return 0x94040000 | (vma & 0x1ffff);
+        return 0x14040000 | (vma & 0x1ffff);
     }
     else if (vma >= 0xc0000000)
     {
