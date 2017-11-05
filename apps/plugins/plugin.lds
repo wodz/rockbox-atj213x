@@ -182,8 +182,8 @@ OUTPUT_FORMAT(elf32-littlemips)
 #define IRAMSIZE 0
 
 #elif CONFIG_CPU == ATJ213X
-#define DRAMORIG 0x80000000
-#define IRAMORIG (0x94040000 + (56*1024))
+#define DRAMORIG 0xc0000000
+#define IRAMORIG (0xc1000000 + (56*1024))
 #define IRAMSIZE (56*1024)
 
 #else

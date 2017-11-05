@@ -5,10 +5,11 @@ OUTPUT_ARCH(MIPS)
 ENTRY(start)
 STARTUP(target/mips/atj213x/crt0.o)
 
-#define DRAMORIG      0x80000000
-#define DRAMSIZE      (MEMORYSIZE * 0x100000)
-#define IRAMORIG      0x94040000
-#define IRAMSIZE      40K
+#define DRAMORIG    0xc0000000 //0x80000000
+#define DRAMSIZE          (MEMORYSIZE * 0x100000)
+
+#define IRAMORIG    0xc1000000
+#define IRAMSIZE          40K
 
 /* End of the audio buffer, where the codec buffer starts */
 #define ENDAUDIOADDR  (DRAMORIG + DRAMSIZE - PLUGIN_BUFFER_SIZE - CODEC_SIZE)
@@ -26,6 +27,7 @@ SECTIONS
 {
     .text :
     {
+        _relocstart = .;
         loadaddress = .;
         *(.init.text);
         *(.text*);
@@ -52,13 +54,25 @@ SECTIONS
         KEEP(*(.vectors.interrupt));
         KEEP(*(.vectors));
 
-        . = ALIGN(4);
         *(.icode*);
         *(.irodata*);
         *(.idata*);
+        . = ALIGN(16);
         _iramend = .;
     } > IRAM AT> DRAM
     _iramcopy = LOADADDR(.iram);
+
+    .bss (NOLOAD):
+    {
+         . = ALIGN(16);
+         _relocend = .;
+         _bss_start = .;
+         *(.sbss*);
+         *(.bss*);
+         *(COMMON);
+         *(.scommon*);
+         _bss_end = .;
+    } > DRAM
 
     .ibss (NOLOAD) :
     {
@@ -79,17 +93,6 @@ SECTIONS
          . += 0x400;
          irqstackend = .;
     } > IRAM
-
-    .bss (NOLOAD):
-    {
-         . = ALIGN(16);
-         _bss_start = .;
-         *(.sbss*);
-         *(.bss*);
-         *(COMMON);
-         *(.scommon*);
-         _bss_end = .;
-    } > DRAM
 
     .audiobuf :
     {

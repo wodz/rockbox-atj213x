@@ -40,9 +40,25 @@
 #define set_irq_level(status)  set_interrupt_status((status), ST0_IE)
 #define disable_irq_save()     disable_interrupt_save(ST0_IE)
 #define restore_irq(c0_status) restore_interrupt(c0_status)
-#define UNCACHED_ADDRESS(addr)    ((unsigned int)(addr) | 0xA0000000)
-#define UNCACHED_ADDR(x)          UNCACHED_ADDRESS((x))
-#define PHYSADDR(x)               ((x) & 0x1fffffff)
+//#define UNCACHED_ADDRESS(addr)    ((unsigned int)(addr) | 0xA0000000)
+//#define UNCACHED_ADDR(x)          UNCACHED_ADDRESS((x))
+//#define PHYSADDR(x)               ((x) & 0x1fffffff)
+
+static inline uint32_t PHYSADDR(uint32_t vma)
+{
+    if (vma >= 0xc1000000)
+    {
+        return 0x94040000 | (vma & 0x1ffff);
+    }
+    else if (vma >= 0xc0000000)
+    {
+        return vma & 0x7fffff;
+    }
+    else
+    {
+        return vma & 0x1fffffff;
+    }
+}
 
 void udelay(unsigned usecs);
 static inline void mdelay(unsigned msecs)
@@ -159,7 +175,8 @@ static inline unsigned int atj213x_get_pclk(void)
 
 static inline bool iram_address(void *buf)
 {
-    return (PHYSADDR((uint32_t)buf) >= 0x14040000);
+    return (uintptr_t)buf >= 0xc1000000;
+    //return (PHYSADDR((uint32_t)buf) >= 0x14040000);
 }
 
 #endif /* SYSTEM_TARGET_H */

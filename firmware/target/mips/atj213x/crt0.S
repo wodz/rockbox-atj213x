@@ -31,7 +31,6 @@
 
 start:
     di                        # disable interrupts
-#ifdef BOOTLOADER
     bltzal zero, load_addr    # ra = PC + 8, branch not taken
     nop
 
@@ -39,7 +38,6 @@ load_addr:
     addiu  a0, ra, -12        # calc real load address
                               # account for branch delay slot
                               # and very first 'di' instruction
-#endif
 
 core_clk_setup:
     la     t0, 0xb0010000     # CMU base
@@ -64,6 +62,84 @@ core_clk_setup:
                               # PCLKDIV = 4
     sw     t1, 0x0c(t0)       # CMU_BUSCLK
 
+mmu_init:
+    mfc0    t0, C0_Config1
+    ext     t1, t0, 25, 6      # extract number of TLB entries
+
+    mtc0    zero, C0_EntryLo0
+    mtc0    zero, C0_EntryLo1
+    mtc0    zero, C0_PageMask
+    mtc0    zero, C0_Wired
+    li      t2, 0x80000000
+
+1:
+    mtc0    t1, C0_Index       # store TLB index
+    mtc0    t2, C0_EntryHi
+    ehb                        # clear hazard
+    tlbwi                      # write TLB entry
+    addiu   t2, t2, 0x2000     # 4k * 2 per entry
+    bnez    t1, 1b
+    addiu   t1, t1, -1
+
+mmu_map_iram:
+# map iram PMA: 0x14040000 VMA: 0xc1000000 SIZE: 0x18000
+# use 16k pagesize, cacheable, writable
+    li      t0, 0
+    mtc0    t0, C0_Index
+    li      t1, 0x6000         # 16k pagesize
+    mtc0    t1, C0_PageMask
+    li      t1, 0xc1000000     # VMA
+    mtc0    t1, C0_EntryHi
+    li      t2, 0x50101f       # PMA, cacheable, writable, valid
+    mtc0    t2, C0_EntryLo0
+    addiu   t2, t2, 0x100
+    mtc0    t2, C0_EntryLo1
+    ehb
+    tlbwi                      # write mapping
+
+    li      t3, 0x8000
+    addiu   t0, t0, 1
+    mtc0    t0, C0_Index
+    addu    t1, t1, t3         # VMA
+    mtc0    t1, C0_EntryHi
+    addiu   t2, t2, 0x100
+    mtc0    t2, C0_EntryLo0
+    addiu   t2, t2, 0x100
+    mtc0    t2, C0_EntryLo1
+    ehb
+    tlbwi                       # write mapping
+
+    addiu   t0, t0, 1
+    mtc0    t0, C0_Index
+    addu    t1, t1, t3          # VMA
+    mtc0    t1, C0_EntryHi
+    addiu   t2, t2, 0x100
+    mtc0    t2, C0_EntryLo0
+    addiu   t2, t2, 0x100
+    mtc0    t2, C0_EntryLo1
+    ehb
+    tlbwi                      # write mapping
+
+mmu_map_dram:
+# map dram PMA: 0x00000000 VMA: 0xc0000000 SIZE: 0x800000
+# use 4M pagesize, cacheable, writable
+    addiu   t0, t0, 1
+    mtc0    t0, C0_Index
+    li      t1, 0x7fe000
+    mtc0    t1, C0_PageMask    # 4M pagesize
+    li      t1, 0xc0000000     # VMA
+    mtc0    t1, C0_EntryHi
+    li      t2, 0x1f           # PMA, cacheable, writable, valid
+    mtc0    t2, C0_EntryLo0
+    li      t2, 0x1001f
+    mtc0    t2, C0_EntryLo1
+    ehb
+    tlbwi                      # write mapping
+
+    addiu   t0, t0, 1
+    mtc0    t0, C0_Wired       # 4 TLB entries used total
+    ehb
+
 cache_setup:
     la     t0, 0x80000000     # an idx op should use an unmappable address
     ori    t1, t0, 0x4000     # 16kB cache
@@ -80,7 +156,6 @@ cache_init_loop:
     mtc0   t0, C0_CONFIG
     ehb
 
-#ifdef BOOTLOADER
 reloc:
     la     a1, _relocstart
     la     a2, _relocend
@@ -97,8 +172,6 @@ entry_point_jump:
     nop
 
 entry_point:
-#endif
-
 intc_setup:
     li     t0, 0xb0020000     # INTC base
     sw     zero, 4(t0)        # INTC_MSK mask all interrupt sources
@@ -107,7 +180,7 @@ core_irq_setup:
     li     t0, 0x00404000     # BEV=1 for C0_EBASE setup, IM6=1, IE=0
     mtc0   t0, C0_STATUS
 
-    la     t0, _irqbase       # vectors base address must be 4k aligned
+    la     t0, 0x94040000//_irqbase       # vectors base address must be 4k aligned
     mtc0   t0, C0_EBASE
 
     li     t0, 0x00004000
@@ -148,7 +221,7 @@ clear_ibss:
 clear_ibss_loop:
     sw     zero, 0(t0)
     bne    t0, t1, clear_ibss_loop
-    addiu  t0, 4
+    addiu  t0, t0, 4
 
 stack_setup:
     # setup stack
@@ -158,8 +231,9 @@ stack_setup:
 
 stack_munge_loop:
     sw     t1, 0(t0)
-    bne    t0, sp, stack_munge_loop
-    addiu  t0, 4
+    sltu   t2, t0, sp
+    bne    t2, zero, stack_munge_loop
+    addiu  t0, t0, 4
 
 irq_stack_setup:
     # setup irq stack
@@ -168,9 +242,11 @@ irq_stack_setup:
 
 irq_stack_munge_loop:
     sw     t1, 0(t0)
-    bne    t0, k0, irq_stack_munge_loop
-    addiu  t0, 4
+    sltu   t2, t0, sp
+    bne    t2, zero, irq_stack_munge_loop
+    addiu  t0, t0, 4
 
+main_jump:
     # jump to C code with enabled interrupts
     la     t0, main
     jr.hb  t0
@@ -183,6 +259,8 @@ irq_stack_munge_loop:
  *
  * dst should be 16bytes aligned otherwise
  * cache operations will have side  effects
+ *
+ * clobbers t0-t3, a0-a3
  */
 code_copy:
     lw     t0, 0(a0)          # src
@@ -212,15 +290,15 @@ code_copy:
      */
 
     .section .vectors.tlb_refill,"ax",%progbits
-    j      exception_handler
+    b      exception_handler
     nop
 
     .section .vectors.cache_error,"ax",%progbits
-    j      exception_handler
+    b      exception_handler
     nop
 
     .section .vectors.exception,"ax",%progbits
-    j      exception_handler
+    b      exception_handler
     nop
 
     /* this helper function prepares exception arguments,
