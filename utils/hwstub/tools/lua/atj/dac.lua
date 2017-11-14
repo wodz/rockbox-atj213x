@@ -68,10 +68,10 @@ end
 function ATJ.DAC.mixer_mute(dac_mute, fm_mute, linein_mute, mic_mute)
     local mute = 0
 
-    if dac_mute then mute = bit32.bor(mute, 8) end
-    if fm_mute then mute = bit32.bor(mute, 4) end
-    if linein_mute then mute = bit32.bor(mute, 2) end
-    if mic_mute then mute = bit32.bor(mute, 1) end
+    if dac_mute == false then mute = bit32.bor(mute, 8) end
+    if fm_mute == false then mute = bit32.bor(mute, 4) end
+    if linein_mute == false then mute = bit32.bor(mute, 2) end
+    if mic_mute == false then mute = bit32.bor(mute, 1) end
 
     mute = bit32.lshift(mute, 8)
 
@@ -81,6 +81,10 @@ function ATJ.DAC.mixer_mute(dac_mute, fm_mute, linein_mute, mic_mute)
     HW.DAC.ANALOG.write(tmp)
 end
 
+-- This function generate sample tone where right channel
+-- has 16 times lower amplitude then left (easy test to
+-- distinguish data order
+--
 -- samplerate - samplerate of the DAC
 -- frequency - tone frequency in Hz
 -- amplitude - <0,1>
@@ -94,15 +98,13 @@ function generate_tone(samplerate, frequency, amplitude)
     local addr = 0xa0000000
 
     for i=0,n-1,1 do
-        -- this is to check if it makes any difference for DAC
-        -- to have true 32bit sample or 16bit shifted left
         local sample = math.floor(amp * math.sin(2*i*math.pi/n))
 
         -- Left channel sample
-        DEV.write16(addr + 8*i + 2, sample)
+        DEV.write32(addr + 8*i, bit32.lshift(sample, 16))
 
-        -- Right channel sample
-        DEV.write16(addr + 8*i + 6, sample)
+        -- Right channel sample (attenuated 16 times)
+        DEV.write32(addr + 8*i + 4, bit32.lshift(sample, 12))
     end
 
     return n
@@ -128,9 +130,9 @@ function test_tone(samplerate, frequency, amplitude)
     local n = generate_tone(samplerate, frequency, amplitude)
 
     -- fire DMA0 in loop mode
-    HW.DMAC.DMA_CNTx[0].write(8*n)
-    HW.DMAC.DMA_MODEx[0].write(0x11340084)
-    HW.DMAC.DMA_SRCx[0].write(0x00000000)
-    HW.DMAC.DMA_DSTx[0].write(0x10100008)
-    HW.DMAC.DMA_CMDx[0].write(1)
+    HW.DMAC.DMA_CNT[0].write(8*n)
+    HW.DMAC.DMA_MODE[0].write(0x11340084)
+    HW.DMAC.DMA_SRC[0].write(0x00000000)
+    HW.DMAC.DMA_DST[0].write(0x10100008)
+    HW.DMAC.DMA_CMD[0].write(1)
 end
