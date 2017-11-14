@@ -1,0 +1,77 @@
+
+Discarded input sections
+
+ .reginfo       0x0000000000000000       0x18 test_dac.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+LOAD crt0.o
+LOAD test_dac.o
+
+.text           0x0000000080000000      0x2b8
+                0x0000000080000000                relocstart = .
+ *(.init.text*)
+ .init.text     0x0000000080000000       0xf0 crt0.o
+                0x0000000080000000                start
+ *(.text*)
+ .text          0x00000000800000f0        0x0 crt0.o
+ .text          0x00000000800000f0      0x170 test_dac.o
+                0x00000000800000f0                dac_init
+                0x0000000080000134                play_tone
+                0x0000000080000180                udelay
+                0x00000000800001b0                mdelay
+                0x00000000800001f0                backlight_init
+                0x0000000080000238                backlight_set
+ .text.startup  0x0000000080000260       0x58 test_dac.o
+                0x0000000080000260                main
+
+.data           0x00000000800002b8      0x180
+ *(.rodata*)
+ .rodata        0x00000000800002b8      0x180 test_dac.o
+ *(.data*)
+ .data          0x0000000080000438        0x0 crt0.o
+ .data          0x0000000080000438        0x0 test_dac.o
+                0x0000000080000438                relocend = .
+
+.bss            0x0000000080000438        0x0
+                0x0000000080000438                . = ALIGN (0x4)
+                0x0000000080000438                bssbegin = .
+ *(.sbss*)
+ *(.bss*)
+ .bss           0x0000000080000438        0x0 crt0.o
+ .bss           0x0000000080000438        0x0 test_dac.o
+ *(COMMON)
+ *(.scommon*)
+                0x0000000080000438                bssend = .
+
+.stack          0x0000000080000438     0x2000
+                0x0000000080000438                . = ALIGN (0x4)
+                0x0000000080000438                stackbegin = .
+                0x0000000080002438                . = (. + 0x2000)
+ *fill*         0x0000000080000438     0x2000 00
+                0x0000000080002438                stackend = .
+OUTPUT(test_dac.elf elf32-littlemips)
+
+.reginfo        0x0000000000000000       0x18
+ .reginfo       0x0000000000000000       0x18 crt0.o
+
+.pdr            0x0000000000000000       0xe0
+ .pdr           0x0000000000000000        0x0 crt0.o
+ .pdr           0x0000000000000000       0xe0 test_dac.o
+
+.mdebug.abi32   0x0000000000000000        0x0
+ .mdebug.abi32  0x0000000000000000        0x0 test_dac.o
+
+.comment        0x0000000000000000       0x11
+ .comment       0x0000000000000000       0x11 test_dac.o
+                                         0x12 (size before relaxing)
+
+.gnu.attributes
+                0x0000000000000000       0x10
+ .gnu.attributes
+                0x0000000000000000       0x10 test_dac.o
