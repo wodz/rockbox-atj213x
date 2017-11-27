@@ -43,7 +43,7 @@ static int vol_tenthdb2hw(int tdb)
 {
     /* codec has 31 steps of -1.8 dB
      * max attenuation is -55.8 dB */
-    return -tdb/18;
+    return (558 - tdb)/18;
 }
 
 void audiohw_preinit(void)
@@ -54,6 +54,18 @@ void audiohw_preinit(void)
 
 void audiohw_postinit(void)
 {
+    /* bit8 - DAC FIFO Empty DRQ Enable
+     * bit6:5 - DAC Empty Condition stereo almost empty
+     * bit0 - DAC FIFO reset
+     */
+    DAC_FIFOCTL = 0x141;
+
+    /* Enable DAC and set defaults */
+    DAC_CTL = 0x90b1;
+
+    /* Enable analog part */
+    DAC_ANALOG = 0x847;
+
     audiohw_mute(false);
 }
 
@@ -66,16 +78,6 @@ void audiohw_close(void)
 void audiohw_set_volume(int vol)
 {
     vol = vol_tenthdb2hw(vol);
-
-    if (vol > 30)
-    {
-        audiohw_mute(true);
-    }
-    else
-    {
-        audiohw_mute(false);
-    }
-
     DAC_ANALOG = (DAC_ANALOG & ~BM_DAC_ANALOG_HAVC) | BF_DAC_ANALOG_HAVC(vol);
 }
 
