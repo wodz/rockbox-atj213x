@@ -92,7 +92,7 @@ entry_point_jump:
 entry_point:
 intc_setup:
     li      t0, 0xb0020000     # INTC base
-    lw      zero, 4(t0)        # INTC_MSK mask all interrupt sources
+    sw      zero, 4(t0)        # INTC_MSK mask all interrupt sources
 
 core_irq_setup:
     li      t0, 0x00404000     # BEV=1 for C0_EBASE setup, IM6=1, IE=0

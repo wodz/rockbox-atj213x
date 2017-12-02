@@ -106,6 +106,15 @@ static void cancel_all_transfers(void)
 
 void usb_drv_init(void)
 {
+    /* ungate UDC clock */
+    CMU_DEVCLKEN |= (1<<13);
+
+    /* reset block */
+    CMU_DEVRST &= ~(1<<9);
+    target_udelay(100);
+    CMU_DEVRST |= (1<<9);
+    target_udelay(100);
+
     /* soft disconnect */
     OTG_USBCS |= 0x40;
 
