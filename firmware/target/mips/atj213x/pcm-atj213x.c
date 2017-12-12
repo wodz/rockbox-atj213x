@@ -78,10 +78,10 @@ struct dst_t {
  * for DMA transfer to ATJ DAC fifo. Ultimately support for S32 samples
  * should be added to rockbox.
  */
-static void samples_convert(struct dst_t *dst, uint32_t *src, size_t size)
+void samples_convert(struct dst_t *dst, uint32_t *src, size_t size)
 {
     uint32_t *end = (uint32_t *)((char *)src + size);
-    while (src > end)
+    while (src < end)
     {
         dst->r = *src;
         dst->l = *src >> 16;
