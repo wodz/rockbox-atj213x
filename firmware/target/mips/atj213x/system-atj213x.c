@@ -33,6 +33,23 @@
 #include "regs/regs-cmu.h"
 #include "regs/regs-sdr.h"
 
+__asm__("\n\
+.section .text\n\
+.global hwstub\n\
+.align 4\n\
+hwstub:\n\
+.incbin \"/home/wodz/rockbox-wodz/utils/hwstub/stub/atj213x/build/hwstub.bin\"\n");
+extern unsigned char hwstub[];
+
+void call_hwstub(void)
+{
+    asm volatile (
+        "la $8, hwstub\n"
+        "jr.hb $8\n"
+        "nop\n"
+    );
+}
+
 #define default_interrupt(name) \
   extern __attribute__((weak,alias("UIRQ"))) void name (void)
 
@@ -133,6 +150,36 @@ static const char *irq_reg_names[] = {
     "gp", "sp", "fp", "ra"
 };
 
+#define EXC(x,y) case (x): return (y);
+static char* parse_exception(unsigned int cause)
+{
+    switch(cause & M_CauseExcCode)
+    {
+        EXC(EXC_INT, "Interrupt");
+        EXC(EXC_MOD, "TLB Modified");
+        EXC(EXC_TLBL, "TLB Exception (Load or Ifetch)");
+        EXC(EXC_ADEL, "Address Error (Load or Ifetch)");
+        EXC(EXC_ADES, "Address Error (Store)");
+        EXC(EXC_TLBS, "TLB Exception (Store)");
+        EXC(EXC_IBE, "Instruction Bus Error");
+        EXC(EXC_DBE, "Data Bus Error");
+        EXC(EXC_SYS, "Syscall");
+        EXC(EXC_BP, "Breakpoint");
+        EXC(EXC_RI, "Reserved Instruction");
+        EXC(EXC_CPU, "Coprocessor Unusable");
+        EXC(EXC_OV, "Overflow");
+        EXC(EXC_TR, "Trap Instruction");
+        EXC(EXC_FPE, "Floating Point Exception");
+        EXC(EXC_C2E, "COP2 Exception");
+        EXC(EXC_MDMX, "MDMX Exception");
+        EXC(EXC_WATCH, "Watch Exception");
+        EXC(EXC_MCHECK, "Machine Check Exception");
+        EXC(EXC_CacheErr, "Cache error caused re-entry to Debug Mode");
+        default:
+            return NULL;
+    }
+}
+
 void system_exception(unsigned int cause,
                       unsigned int epc,
                       unsigned int *ef)
@@ -150,7 +197,7 @@ void system_exception(unsigned int cause,
     lcd_clear_display();
     backlight_hw_on();
 
-    lcd_putsf(1, line++, "Exception!");
+    lcd_putsf(1, line++, "Exception: %s", parse_exception(cause));
     lcd_putsf(1, line++, "pc:%08x cause:%08x", epc, cause);
 
     for (int i=0; i<32; i+=2)
@@ -159,6 +206,7 @@ void system_exception(unsigned int cause,
     }
 
     lcd_putsf(1, line++, "");
+
     lcd_putsf(1, line++, "IRQ frame");
     for (int i=0; i<24; i+=2)
     {
@@ -167,6 +215,12 @@ void system_exception(unsigned int cause,
 
     lcd_update();
     system_exception_wait(); /* if this returns, try to reboot */
+
+    lcd_clear_display();
+    line = 1;
+    lcd_putsf(1,line++,"Calling hwstub...");
+    call_hwstub();
+
     system_reboot();
     while (1);       /* halt */
 
