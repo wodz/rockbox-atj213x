@@ -50,6 +50,11 @@ void audiohw_preinit(void)
 {
     /* ungate clock to DAC block */
     atj213x_clk_enable(BP_CMU_DEVCLKEN_DAC);
+
+    CMU_AUDIOPLL = 0x11;
+    DAC_FIFOCTL = 0x141;
+    DAC_CTL = 0x90b1;
+    DAC_ANALOG = 0x8c7;
 }
 
 void audiohw_postinit(void)
