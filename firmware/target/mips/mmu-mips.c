@@ -221,25 +221,18 @@ void discard_dcache_range(const void *base, unsigned int size)
         __CACHE_OP(DCHitInv, s);
 }
 
-/* Invalidate the entire I-cache
- * and writeback + invalidate the entire D-cache
+/*
+ * Writeback + invalidate the entire D-cache
+ * Invalidate the entire I-cache
  */
 void commit_discard_idcache(void)
 {
     unsigned int i;
 
-    asm volatile (".set   noreorder  \n"
-                  ".set   mips32     \n"
-                  "mtc0   $0, $28    \n" /* TagLo */
-                  "mtc0   $0, $29    \n" /* TagHi */
-                  ".set   mips0      \n"
-                  ".set   reorder    \n"
-                  );
-
     for(i=A_K0BASE; i<A_K0BASE+CACHE_SIZE; i+=CACHE_LINE_SIZE)
     {
-        __CACHE_OP(ICIndexStTag, i);
         __CACHE_OP(DCIndexWBInv, i);
+        __CACHE_OP(ICIndexInv, i);
     }
 
     INVALIDATE_BTB();
