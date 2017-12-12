@@ -63,13 +63,13 @@ static void dma_hw_tcirq_ack(unsigned int chan)
 void dma_tcirq_disable(unsigned int chan)
 {
     /* Disable DMA transfer complete irq */
-    DMAC_IRQEN &= ~(1 << chan*2);
+    DMAC_IRQEN &= ~(1 << (chan*2));
 }
 
 void dma_tcirq_enable(unsigned int chan)
 {
     /* Enable DMA transfer complete irq */
-    DMAC_IRQEN |= (1 << chan*2);
+    DMAC_IRQEN |= (1 << (chan*2));
 }
 
 void dma_setup(unsigned int chan, struct dma_hwinfo_t *hwinfo,
