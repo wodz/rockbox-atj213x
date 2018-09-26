@@ -38,6 +38,7 @@ load_addr:
     addiu  a0, ra, -12        # calc real load address
                               # account for branch delay slot
                               # and very first 'di' instruction
+    ext    a0, a0, 0, 29      # PMA
 
 core_clk_setup:
     la     t0, 0xb0010000     # CMU base
@@ -81,6 +82,88 @@ mmu_init:
     bnez    t1, 1b
     addiu   t1, t1, -1
 
+// Last 20kB of DRAM is used for PTE
+// each entry is 16 bytes struct:
+// struct pte_t {
+//     uint32_t entrylo0;
+//     uint32_t pad0;
+//     uint32_t entrylo1;
+//     uint32_t pad1;
+// }
+//
+// first 16kB is mapping DRAM and is itself mapped in kseg2
+// 0xf0000000
+// last 4kB is mapping IRAM and is itself mapped in kseg2
+// 0xf1000000
+// default 4kB * 2 page size is used
+//
+// Here we build PTE and write it to uncached address
+mmu_pte_dram:
+    li      t0, 0x1f
+    la      t1, 0xa07fb000     # PTE base
+    li      t2, 1024           # number of entries
+2:
+    sw      t0, 0(t1)
+    addiu   t0, t0, 0x40
+    sw      t0, 8(t1)
+    addiu   t0, t0, 0x40
+    addiu   t2, t2, -1
+    bnez    t2, 2b
+    addiu   t1, t1, 16
+
+mmu_pte_iram:
+    li      t0, 0x50101f
+    li      t2, 12
+3:
+    sw      t0, 0(t1)
+    addiu   t0, t0, 0x40
+    sw      t0, 8(t1)
+    addiu   t0, t0, 0x40
+    addiu   t2, t2, -1
+    bnez    t2, 3b
+    addiu   t1, t1, 16
+
+mmu_map_pte_dram:
+    mtc0    zero, C0_PageMask
+    li      t0, 0
+    mtc0    t0, C0_Index
+    li      t1, 0xf0600000
+    mtc0    t1, C0_Context
+    mtc0    t1, C0_EntryHi
+    li      t2, 0x1fedf
+    mtc0    t2, C0_EntryLo0
+    addiu   t2, 0x40
+    mtc0    t2, C0_EntryLo1
+    ehb
+    tlbwi
+
+    addiu   t0, t0, 1
+    mtc0    t0, C0_Index
+    addiu   t1, 0x2000
+    mtc0    t1, C0_EntryHi
+    addiu   t2, 0x40
+    mtc0    t2, C0_EntryLo0
+    addiu   t2, 0x40
+    mtc0    t2, C0_EntryLo1
+    ehb
+    tlbwi
+
+mmu_map_pte_iram:
+    addiu   t0, t0, 1
+    mtc0    t0, C0_Index
+    li      t1, 0xf0608000
+    mtc0    t1, C0_EntryHi
+    addiu   t2, 0x40
+    mtc0    t2, C0_EntryLo0
+    mtc0    zero, C0_EntryLo1
+    ehb
+    tlbwi
+
+    addiu   t0, t0, 1
+    mtc0    t0, C0_Wired
+    ehb
+
+#if 0
 mmu_map_iram:
 # map iram PMA: 0x14040000 VMA: 0xc1000000 SIZE: 0x18000
 # use 16k pagesize, cacheable, writable
@@ -139,6 +222,7 @@ mmu_map_dram:
     addiu   t0, t0, 1
     mtc0    t0, C0_Wired       # 4 TLB entries used total
     ehb
+#endif
 
 cache_setup:
     la     t0, 0x80000000     # an idx op should use an unmappable address
@@ -158,24 +242,16 @@ cache_init_loop:
 
 reloc:
     la     a1, _relocstart
+    ext    a1, a1, 0, 29          # PMA
     la     a2, _relocend
-    beq    a0, a1, entry_point    # no relocation needed
+    ext    a2, a2, 0, 29          # PMA
+    beq    a0, a1, entry_point_jump    # no relocation needed
     nop
 
     bal    code_copy
     nop
 
 entry_point_jump:
-    la     t0, entry_point
-    sync
-    jr.hb  t0
-    nop
-
-entry_point:
-intc_setup:
-    li     t0, 0xb0020000     # INTC base
-    sw     zero, 4(t0)        # INTC_MSK mask all interrupt sources
-
 core_irq_setup:
     li     t0, 0x00404000     # BEV=1 for C0_EBASE setup, IM6=1, IE=0
     mtc0   t0, C0_STATUS
@@ -191,15 +267,34 @@ core_irq_setup:
     mtc0   zero, C0_INTCTL    # VS = 0
 
 iram_copy:
-    la     a0, _iramcopy
     la     a1, _iramstart
     la     a2, _iramend
     subu   a3, a2, a1
-    beqz   a3, clear_bss
+    beqz   a3, entry_point_jump
     nop
+
+    la     a0, _iramcopy
+    ext    a0, a0, 0, 29
+    lui    t0, 0xa000
+    or     a0, a0, t0
+
+    lui     a1, 0xb404
+    addu    a2, a1, a3
 
     bal    code_copy
     nop
+
+
+    la     t0, entry_point
+    sync
+    jr.hb  t0
+    nop
+
+entry_point:
+intc_setup:
+    li     t0, 0xb0020000     # INTC base
+    sw     zero, 4(t0)        # INTC_MSK mask all interrupt sources
+
 
 clear_bss:
     la     t0, _bss_start
@@ -290,8 +385,14 @@ code_copy:
      */
 
     .section .vectors.tlb_refill,"ax",%progbits
-    b      exception_handler
-    nop
+    mfc0   k1, C0_Context
+    lw     k0, 0(k1)
+    lw     k1, 8(k1)
+    mtc0   k0, C0_EntryLo0
+    mtc0   k1, C0_EntryLo1
+    ehb
+    tlbwr
+    eret
 
     .section .vectors.cache_error,"ax",%progbits
     b      exception_handler
@@ -364,7 +465,6 @@ exception_handler:
 
 
     mfc0   a0, C0_CAUSE
-    ehb
     mfc0   a1, C0_EPC
     ehb
     move   a2, sp
