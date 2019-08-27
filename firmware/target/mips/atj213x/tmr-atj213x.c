@@ -65,6 +65,7 @@ void atj213x_timer_set(unsigned timer_nr, unsigned interval_ms, void (*cb)(void)
 void atj213x_timer_start(unsigned timer_nr)
 {
     /* unmask interrupt in INTC */
+    atj213x_intc_set_prio(timer_nr ? BP_INTC_MSK_T1 : BP_INTC_MSK_T0, 3);
     atj213x_intc_unmask(timer_nr ? BP_INTC_MSK_T1 : BP_INTC_MSK_T0);
 
     /* timer enable bit */

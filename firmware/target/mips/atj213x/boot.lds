@@ -37,7 +37,6 @@ SECTIONS
 
     .iram IRAMORIG:
     {
-        _iramstart = .;
         _irqbase = .;
         KEEP(*(.vectors.tlb_refill));
         . = 0x100;
@@ -55,7 +54,9 @@ SECTIONS
 
         _iramend = .;
     } > IRAM AT> DRAM
-    _iramcopy = LOADADDR(.iram);
+    _iramsrc = LOADADDR(.iram);
+    _iramdst = ADDR(.iram);
+    _iramsize = SIZEOF(.iram);
 
     .bss (NOLOAD):
     {

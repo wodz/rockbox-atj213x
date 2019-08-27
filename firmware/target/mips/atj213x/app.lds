@@ -5,45 +5,51 @@ OUTPUT_ARCH(MIPS)
 ENTRY(start)
 STARTUP(target/mips/atj213x/crt0.o)
 
-#define DRAMORIG    0xc0000000 //0x80000000
+#define DRAMORIG_KSEG0    0x80000000
+#define DRAMORIG_KSEG2    0xc0000000
 #define DRAMSIZE          (MEMORYSIZE * 0x100000)
 
-#define IRAMORIG    0xc1000000
+#define IRAMORIG_KSEG0    0x94040000
+#define IRAMORIG_KSEG2    0xc1000000
 #define IRAMSIZE          40K
 
 /* End of the audio buffer, where the codec buffer starts */
-#define ENDAUDIOADDR  (DRAMORIG + DRAMSIZE - PLUGIN_BUFFER_SIZE - CODEC_SIZE)
+#define ENDAUDIOADDR  (DRAMORIG_KSEG2 + DRAMSIZE - PLUGIN_BUFFER_SIZE - CODEC_SIZE)
 
 /* Where the codec buffer ends, and the plugin buffer starts */
 #define ENDCODECADDR  (ENDAUDIOADDR + CODEC_SIZE)
 
 MEMORY
 {
-   DRAM : ORIGIN = DRAMORIG, LENGTH = DRAMSIZE
-   IRAM : ORIGIN = IRAMORIG, LENGTH = IRAMSIZE
+   DRAM_KSEG0 : ORIGIN = DRAMORIG_KSEG0, LENGTH = DRAMSIZE
+   DRAM_KSEG2 : ORIGIN = DRAMORIG_KSEG2, LENGTH = DRAMSIZE
+   IRAM_KSEG0 : ORIGIN = IRAMORIG_KSEG0, LENGTH = IRAMSIZE
+   IRAM_KSEG2 : ORIGIN = IRAMORIG_KSEG2, LENGTH = IRAMSIZE
 }
 
 SECTIONS
 {
-    .text :
+    .inittext :
     {
-        _relocstart = .;
         loadaddress = .;
         *(.init.text);
+    } > DRAM_KSEG0 AT> DRAM_KSEG2
+
+    .text :
+    {
         *(.text*);
-    } > DRAM
+    } > DRAM_KSEG2
 
     .data :
     {
-        . = ALIGN(16);
         *(.rodata*);
         *(.data*);
         *(.sdata*);
-    } > DRAM
+        . = ALIGN(16);
+    } > DRAM_KSEG2
 
-    .iram IRAMORIG:
+    .iram_kseg0 :
     {
-        _iramstart = .;
         _irqbase = .;
         KEEP(*(.vectors.tlb_refill));
         . = 0x100;
@@ -53,52 +59,63 @@ SECTIONS
         . = 0x200;
         KEEP(*(.vectors.interrupt));
         KEEP(*(.vectors));
+        . = ALIGN(16);
+    } > IRAM_KSEG0 AT> DRAM_KSEG2
 
+    .iram IRAMORIG_KSEG2 + SIZEOF(.iram_kseg0) :
+    {
         *(.icode*);
         *(.irodata*);
         *(.idata*);
         . = ALIGN(16);
-        _iramend = .;
-    } > IRAM AT> DRAM
-    _iramcopy = LOADADDR(.iram);
+    } > IRAM_KSEG2 AT> DRAM_KSEG2
+
+    _iramsrc = (LOADADDR(.iram_kseg0) & 0x0fffffff) | 0x80000000;
+    _iramdst = ADDR(.iram_kseg0);
+    _iramsize = SIZEOF(.iram_kseg0) + SIZEOF(.iram);
+
+    .irqstack IRAMORIG_KSEG0 + SIZEOF(.iram_kseg0) + SIZEOF(.iram) (NOLOAD) :
+    {
+        irqstackbegin = .;
+        . += 0x400;
+        irqstackend = .;
+    } > IRAM_KSEG0
 
     .bss (NOLOAD):
     {
-         . = ALIGN(16);
-         _relocend = .;
          _bss_start = .;
          *(.sbss*);
          *(.bss*);
          *(COMMON);
          *(.scommon*);
          _bss_end = .;
-    } > DRAM
+    } > DRAM_KSEG2
 
-    .ibss (NOLOAD) :
+    _relocdst = ADDR(.inittext);
+    _relocsize = ADDR(.bss) - LOADADDR(.inittext);
+
+    .ibss IRAMORIG_KSEG2 + SIZEOF(.iram_kseg0) + SIZEOF(.iram) + SIZEOF(.irqstack) (NOLOAD) :
     {
         . = ALIGN(16);
         _ibss_start = .;
         *(.ibss*);
         _ibss_end = .;
-    } > IRAM
+    } > IRAM_KSEG2
 
-    .stack (NOLOAD):
+    .stack IRAMORIG_KSEG2 + SIZEOF(.iram_kseg0) + SIZEOF(.iram) + SIZEOF(.irqstack) + SIZEOF(.ibss) (NOLOAD):
     {
          . = ALIGN(16);
          *(.stack);
          stackbegin = .;
          . += 0x2000;
          stackend = .;
-         irqstackbegin = .;
-         . += 0x400;
-         irqstackend = .;
-    } > IRAM
+    } > IRAM_KSEG2
 
     .audiobuf :
     {
         . = ALIGN(16);
         audiobuffer = .;
-    } > DRAM
+    } > DRAM_KSEG2
 
     audiobufend = ENDAUDIOADDR;
     codecbuf = ENDAUDIOADDR;

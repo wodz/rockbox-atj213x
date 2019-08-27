@@ -22,9 +22,26 @@
 #include "intc-atj213x.h"
 #include "regs/regs-intc.h"
 
+void atj213x_intc_set_prio(unsigned int irqno, unsigned int prio)
+{
+    if (prio & 1)
+    {
+        INTC_CFGx(0) |= (1<<irqno);
+    }
+
+    if (prio & 2)
+    {
+        INTC_CFGx(1) |= (1<<irqno);
+    }
+
+    if (prio & 4)
+    {
+        INTC_CFGx(2) |= (1<<irqno);
+    }
+}
+
 void atj213x_intc_unmask(unsigned int irqno)
 {
-    INTC_CFGx(2) |= (1<<irqno);
     INTC_MSK |= (1<<irqno);
 }
 

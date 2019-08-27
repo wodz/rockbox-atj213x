@@ -84,7 +84,7 @@ void __UIRQ(void) __attribute__((alias("UIRQ")));
  * The table is organized in reversed order so
  * clz on INTC_PD returns the index in this table
  */
-void (* const irqvector[])(void) __attribute__((used)) =
+void (* const irqvector[])(void) __attribute__((used, section(".vectors"))) =
 {
     __UIRQ, __UIRQ, __UIRQ, __UIRQ, __UIRQ, INT_YUV, __UIRQ, INT_NAND,
     __UIRQ, INT_DAC, INT_ADC, __UIRQ, __UIRQ, INT_IIC1, INT_IIC2, __UIRQ,

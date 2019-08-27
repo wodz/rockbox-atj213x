@@ -19,7 +19,8 @@
  ****************************************************************************/
 #ifndef INTC_ATJ213X_H
 #define INTC_ATJ213X_H
- 
+
+void atj213x_intc_set_prio(unsigned int irqno, unsigned int prio); 
 void atj213x_intc_unmask(unsigned int irqno);
 void atj213x_intc_mask(unsigned int irqno);
 

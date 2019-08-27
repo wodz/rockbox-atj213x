@@ -57,7 +57,7 @@ static void dma_hw_reset(unsigned int chan)
 static void dma_hw_tcirq_ack(unsigned int chan)
 {
     /* Acknowledge DMA transfer complete irq */
-    DMAC_IRQPD |= (3 << (chan));
+    DMAC_IRQPD = (3 << (chan));
 }
 
 void dma_tcirq_disable(unsigned int chan)
@@ -94,6 +94,7 @@ void dma_start(unsigned int chan)
     dma_tcirq_enable(chan);
 
     /* enable DMA irq in INTC */
+    atj213x_intc_set_prio(BP_INTC_MSK_DMA, 4);
     atj213x_intc_unmask(BP_INTC_MSK_DMA);
 
     /* DMA kick in */
