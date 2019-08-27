@@ -91,8 +91,9 @@ bool dbg_ports(void)
         _DEBUG_PRINTF("GPIO_BOUTEN:  0x%08x", GPIO_BOUTEN);
         _DEBUG_PRINTF("GPIO_BINEN:   0x%08x", GPIO_BINEN);
         _DEBUG_PRINTF("GPIO_BDAT:    0x%08x", GPIO_BDAT);
-        _DEBUG_PRINTF("GPIO_MFCTL0: 0x%08x", GPIO_MFCTL0);
-        _DEBUG_PRINTF("GPIO_MFCTL1: 0x%08x", GPIO_MFCTL1);
+        _DEBUG_PRINTF("GPIO_MFCTL0:  0x%08x", GPIO_MFCTL0);
+        _DEBUG_PRINTF("GPIO_MFCTL1:  0x%08x", GPIO_MFCTL1);
+	line++;
         _DEBUG_PRINTF("ADC_KEY: %d", lradc_read(LRADC_CH_KEY));
         _DEBUG_PRINTF("ADC_BAT: %d", lradc_read(LRADC_CH_BAT));
         _DEBUG_PRINTF("ADC_TEM: %d", lradc_read(LRADC_CH_TEMP));
