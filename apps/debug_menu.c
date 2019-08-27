@@ -2560,7 +2560,7 @@ static const struct {
 #if CONFIG_CPU == SH7034 || defined(CPU_COLDFIRE) || defined(CPU_PP) \
     || CONFIG_CPU == S3C2440 || CONFIG_CPU == IMX31L || CONFIG_CPU == AS3525 \
     || CONFIG_CPU == DM320 || defined(CPU_S5L870X) || CONFIG_CPU == AS3525v2 \
-    || CONFIG_CPU == RK27XX
+    || CONFIG_CPU == RK27XX || CONFIG_CPU == ATJ213X
         { "View I/O ports", dbg_ports },
 #endif
 #if (CONFIG_RTC == RTC_PCF50605) && (CONFIG_PLATFORM & PLATFORM_NATIVE)
